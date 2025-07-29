@@ -1,0 +1,54 @@
+# --- AI Ad Generator Config v1.610 ---
+# This file controls the visual effects.
+# For positions (x, y): use numbers (pixels) or keywords: 'center', 'top', 'bottom', 'left', 'right'.
+# For time (start_time, end_time): use numbers (seconds) or keywords: 'start', 'end'.
+
+# --- IMAGE OVERLAYS ---
+# Add any images you want to place on top of the video.
+image_overlays:
+  - file: 'rounded_box.png'
+    x: 'center' # Horizontally center the box
+    y: 'bottom' # Place it at the bottom edge
+
+# --- TEXT OVERLAYS ---
+# Add all the text elements here.
+text_overlays:
+  - text: 'AWESOME'
+    font: 'impact.ttf'
+    size: 140
+    color: 'yellow'
+    stroke_color: 'black'
+    stroke_width: 3
+    x: 'center'
+    y: 1100
+    start_time: 'start'
+    end_time: 'end'
+
+  - text: 'PRODUCT'
+    font: 'arial.ttf'
+    size: 90
+    color: 'white'
+    stroke_color: 'black'
+    stroke_width: 2
+    x: 'center'
+    y: 1250
+    start_time: 'start'
+    end_time: 'end'
+
+  - text: 'Limited Time Offer!'
+    font: 'arial.ttf'
+    size: 80
+    color: 'white'
+    x: 'center'
+    y: 200
+    start_time: 'start'
+    end_time: 5 # Show for the first 5 seconds
+
+  - text: 'Buy Now!'
+    font: 'arial.ttf'
+    size: 80
+    color: 'lime'
+    x: 'center'
+    y: 200
+    start_time: 5 # Show starting at 5 seconds
+    end_time: 'end'
