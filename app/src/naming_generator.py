@@ -3,6 +3,7 @@ import re
 import os
 import subprocess
 import sys
+import time
 import google.generativeai as genai
 from PIL import Image
 from dotenv import load_dotenv
@@ -56,12 +57,14 @@ def generate_output_name(project_name, first_client_video, ad_type_selection, im
     
     return f"{name_part}_{part6}-{version_part}"
 
-def get_image_description(video_path, temp_dir, api_key):
+def get_image_description(video_path, api_key):
     """
-    Extracts the first frame, sends it to the Gemini API with a strict prompt,
-    and returns a 1-2 word description.
+    Gets image description from Gemini API with automatic retry on rate limit errors.
     """
+    temp_dir = "temp_downloads" # A temporary directory for frame extraction
+    os.makedirs(temp_dir, exist_ok=True)
     temp_image_path = os.path.join(temp_dir, f"temp_frame_{os.path.basename(video_path)}.jpg")
+    
     try:
         command = ['ffmpeg', '-i', video_path, '-vframes', '1', '-q:v', '2', '-y', temp_image_path]
         startupinfo = None
@@ -73,31 +76,44 @@ def get_image_description(video_path, temp_dir, api_key):
         print(f"FFmpeg error extracting frame: {e}")
         return "ffmpegerror"
 
-    try:
-        if not api_key:
-            return "noapikey"
+    if not api_key:
+        return "noapikey"
+
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    prompt = "Analyze the visual elements, style, and subject of this image, ignoring any text. Describe the scene in one or two combined words (e.g., 'squeezebottle', 'womanoutside', 'vintagewoman'), all lowercase, with no spaces."
+    
+    # FIX: Implement automatic retry with exponential backoff for API calls
+    max_retries = 5
+    delay = 1.0 # Initial delay in seconds
+    for attempt in range(max_retries):
+        try:
+            with open(temp_image_path, 'rb') as f:
+                image_bytes = f.read()
+            img = Image.open(io.BytesIO(image_bytes))
             
-        with open(temp_image_path, 'rb') as f:
-            image_bytes = f.read()
-        
-        img = Image.open(io.BytesIO(image_bytes))
-
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        
-        # --- MODIFIED: Stricter prompt to enforce the word limit ---
-        prompt = "Analyze this image, ignoring any text. Describe the scene in one or two words MAX. Combine them into one lowercase string. Examples: 'womanoutside', 'productshot', 'squeezebottle'."
-        
-        response = model.generate_content([prompt, img])
-        description = response.text.strip().replace(" ", "")
-        return description
-
-    except Exception as e:
-        print(f"An unexpected API error occurred: {e}")
-        return "apifail"
-    finally:
-        if os.path.exists(temp_image_path):
-            try:
+            response = model.generate_content([prompt, img])
+            description = response.text.strip().replace(" ", "")
+            
+            if os.path.exists(temp_image_path):
                 os.remove(temp_image_path)
-            except OSError as e:
-                print(f"Error removing temp file: {e}")
+            
+            return description
+
+        except Exception as e:
+            # Check if it's a rate limit error (often includes '429')
+            if '429' in str(e):
+                print(f"Rate limit hit. Retrying in {delay:.2f} seconds...")
+                time.sleep(delay)
+                delay *= 2 # Double the delay for the next attempt
+                continue
+            else:
+                print(f"An unexpected API error occurred: {e}")
+                if os.path.exists(temp_image_path):
+                    os.remove(temp_image_path)
+                return "apifail"
+    
+    print("API call failed after multiple retries.")
+    if os.path.exists(temp_image_path):
+        os.remove(temp_image_path)
+    return "apifail"

@@ -1,415 +1,121 @@
-# local_automation.py - AI Creative Automation Suite (Local Version)
 import os
+import shutil
 import sys
-import json
-import requests
-from datetime import datetime
-from pathlib import Path
 
-# Add your existing code to the path
-sys.path.append(os.path.join(os.path.dirname(__file__), 'app', 'src'))
+# Import the modularized functions
+from app.src.automation.api_clients import (get_trello_card_data, 
+                                            download_files_from_gdrive, 
+                                            write_to_google_sheets, 
+                                            get_google_creds)
+from app.src.automation.video_processor import (get_video_dimensions, 
+                                                process_video_sequence)
+from app.src.automation.workflow_utils import (parse_project_info, 
+                                               create_project_structure)
+from app.src import naming_generator
 
-# Import your existing naming generator
-try:
-    from naming_generator import generate_project_folder_name, generate_output_name, get_image_description
-    print("✅ Successfully imported your existing naming_generator.py")
-except ImportError as e:
-    print(f"❌ Could not import naming_generator.py: {e}")
-    print("Make sure the file exists in app/src/naming_generator.py")
+# --- CONFIGURATION ---
+# All config is now handled by the individual modules via .env
 
-class LocalAutomation:
-    def __init__(self):
-        self.project_root = Path(__file__).parent
-        self.assets_path = self.project_root / "Assets" / "Videos"
-        self.connectors_path = self.assets_path / "connectors"
-        self.quiz_outro_path = self.assets_path / "quiz_outro"
+def main(trello_card_id):
+    """Main function to orchestrate the entire automation workflow."""
+    
+    # --- Step 1: Get Data & Parse ---
+    print("--- Step 1: Fetching Trello & Parsing Project Info ---")
+    card_data, error = get_trello_card_data(trello_card_id)
+    if error: return print(f"ERROR: {error}")
+    
+    project_info = parse_project_info(card_data['name'])
+    if not project_info: return print("ERROR: Could not parse project info.")
+    
+    print(f"Successfully parsed project: {project_info['project_name']}")
+
+    # --- Step 2: Download & Setup ---
+    print("\n--- Step 2: Downloading & Setting Up Project ---")
+    creds = get_google_creds()
+    if not creds: return
+    
+    downloaded_videos, error = download_files_from_gdrive(card_data['gdrive_url'], creds)
+    if error: return print(f"ERROR: {error}")
+    
+    project_folder_name = naming_generator.generate_project_folder_name(
+        project_name=project_info['project_name'],
+        first_client_video=downloaded_videos[0],
+        ad_type_selection="Quiz"
+    )
+    project_paths = create_project_structure(project_folder_name)
+    
+    client_video_final_paths = []
+    for video_path in downloaded_videos:
+        final_path = os.path.join(project_paths['client_footage'], os.path.basename(video_path))
+        shutil.move(video_path, final_path)
+        client_video_final_paths.append(final_path)
+
+    target_width, target_height, error = get_video_dimensions(client_video_final_paths[0])
+    if error: return print(f"ERROR: {error}")
+    print(f"Target resolution set to {target_width}x{target_height}")
+
+    # --- Step 3: Get Starting Version from Google Sheets ---
+    print("\n--- Step 3: Checking Google Sheets for Existing Project ---")
+    concept_name = f"GH {project_info['project_name']} {project_info['ad_type']} {project_info['test_name']} Quiz"
+    error, start_version = write_to_google_sheets(concept_name, [], creds) # Dry run
+    if error: return print(f"ERROR during sheet check: {error}")
+
+    # --- Step 4: Process Videos (Sequentially for Stability) ---
+    print(f"\n--- Step 4: Processing Videos (Starting from v{start_version}) ---")
+    processed_files = []
+    api_key = naming_generator.load_api_key()
+
+    for i, client_video in enumerate(client_video_final_paths):
+        version_num = start_version + i
+        print(f"\n--- Processing Version {version_num} ---")
         
-        # Load API keys from .env
-        self.load_api_keys()
+        # Get image description
+        image_desc = naming_generator.get_image_description(client_video, api_key)
+        if image_desc in ["apifail", "ffmpegerror", "noapikey"]:
+            print(f"ERROR: Could not get image description for {os.path.basename(client_video)}. Skipping.")
+            continue
+
+        # Generate name and process video
+        output_name = naming_generator.generate_output_name(
+            project_name=project_info['project_name'], first_client_video=client_video,
+            ad_type_selection="Quiz", image_desc=image_desc, version_num=version_num
+        )
+        output_path = os.path.join(project_paths['ame'], f"{output_name}.mp4")
         
-    def load_api_keys(self):
-        """Load API keys from .env file"""
-        env_path = self.project_root / ".env"
-        if env_path.exists():
-            with open(env_path, 'r') as f:
-                for line in f:
-                    if '=' in line and not line.startswith('#'):
-                        key, value = line.strip().split('=', 1)
-                        os.environ[key] = value.strip('"')
-            print("✅ Loaded API keys from .env file")
+        error = process_video_sequence(client_video, output_path, target_width, target_height)
+        if error:
+            print(f"ERROR processing {os.path.basename(client_video)}: {error}")
         else:
-            print("❌ .env file not found. Please create it with your API keys.")
-    
-    def get_trello_card(self, card_id):
-        """Get Trello card data"""
-        # You'll need to add your Trello API credentials here
-        print(f"📋 Getting Trello card: {card_id}")
-        # This would connect to Trello API
-        return {"name": "Test Card", "desc": "Test description"}
-    
-def parse_project_info(self, folder_name):
-    """Parse project information from folder name"""
-    print(f"🔍 Parsing folder name: {folder_name}")
-    
-    # Use regex to extract components - FIXED PATTERN
-    import re
-    pattern = r'^([A-Z]+)_(.+?)_AD_([A-Z]+)-(\d+)_(\d+x\d+)_(\d+)$'
-    match = re.match(pattern, folder_name)
-    
-    if match:
-        prefix, project_name, ad_type, test_number, dimensions, date = match.groups()
-        return {
-            "project_name": project_name.replace(' Ad', ''),
-            "ad_type": ad_type,
-            "test_name": test_number,
-            "dimensions": dimensions,
-            "date": date
-        }
-    return None
-    
-    def download_google_drive_files(self, folder_url):
-        """Download files from Google Drive folder"""
-        print(f"📥 Downloading files from: {folder_url}")
-        # This would connect to Google Drive API
-        return ["video1.mp4", "video2.mp4", "video3.mp4"]
-    
-    def process_videos(self, project_info, video_files):
-        """Process videos using your existing stitcher"""
-        print(f"🎬 Processing videos for project: {project_info['project_name']}")
-        
-        # Use your existing naming generator
-        try:
-            project_folder = generate_project_folder_name(
-                project_info['project_name'],
-                video_files[0] if video_files else "default.mp4",
-                "Quiz"
-            )
-            print(f"📁 Generated project folder: {project_folder}")
-            
-            # Generate output names for each video
-            output_names = []
-            for i, video_file in enumerate(video_files, 1):
-                output_name = generate_output_name(
-                    project_info['project_name'],
-                    video_file,
-                    "Quiz",
-                    f"description{i}",
-                    i
-                )
-                output_names.append(output_name)
-                print(f"📝 Generated filename {i}: {output_name}")
-            
-            return {
-                "project_folder": project_folder,
-                "output_names": output_names,
-                "status": "success"
-            }
-            
-        except Exception as e:
-            print(f"❌ Error processing videos: {e}")
-            return {"status": "error", "error": str(e)}
-    
-    def log_to_google_sheets(self, project_info, processing_results):
-        """Log results to Google Sheets"""
-        print("📊 Logging to Google Sheets...")
-        
-        # Create rows for Google Sheets
-        rows = []
-        for i in range(3):  # 3 versions
-            row = [
-                f"GH {project_info['project_name']} {project_info['ad_type']} {project_info['test_name']} Quiz",
-                f"v{i+1:02d}",
-                f"New Ad from video_{i+1}.mp4 + blake connector + quiz",
-                f"{project_info['project_name'].replace(' ', '_')}_v{i+1:02d}_Quiz"
-            ]
-            rows.append(row)
-        
-        # Add empty row
-        rows.append(["", "", "", ""])
-        
-        print(f"📝 Created {len(rows)} rows for Google Sheets")
-        return rows
-    
-    def run_automation(self, trello_card_id=None, google_drive_url=None):
-        """Run the complete automation workflow"""
-        print("🚀 Starting AI Creative Automation Suite (Local Version)")
-        print("=" * 60)
-        
-        try:
-            # Step 1: Get Trello card (if provided)
-            if trello_card_id:
-                card_data = self.get_trello_card(trello_card_id)
-                print(f"✅ Retrieved Trello card: {card_data['name']}")
-            
-            # Step 2: Parse project information
-            folder_name = "OO_Grocery Store Oils Ad_AD_VTD-12036_4x5_250721"
-            project_info = self.parse_project_info(folder_name)
-            if project_info:
-                print(f"✅ Parsed project info: {project_info}")
-            else:
-                print("❌ Failed to parse project information")
-                return
-            
-            # Step 3: Download Google Drive files (if URL provided)
-            video_files = []
-            if google_drive_url:
-                video_files = self.download_google_drive_files(google_drive_url)
-                print(f"✅ Downloaded {len(video_files)} video files")
-            else:
-                # Use sample files for testing
-                video_files = ["sample_video_A.mp4", "sample_video_B.mp4", "sample_video_C.mp4"]
-                print(f"📝 Using sample video files: {video_files}")
-            
-            # Step 4: Process videos
-            processing_results = self.process_videos(project_info, video_files)
-            if processing_results["status"] == "success":
-                print("✅ Video processing completed successfully")
-            else:
-                print(f"❌ Video processing failed: {processing_results.get('error')}")
-                return
-            
-            # Step 5: Log to Google Sheets
-            sheet_rows = self.log_to_google_sheets(project_info, processing_results)
-            print("✅ Google Sheets data prepared")
-            
-            # Step 6: Summary
-            print("\n" + "=" * 60)
-            print("🎉 AUTOMATION COMPLETED SUCCESSFULLY!")
-            print(f"📁 Project Folder: {processing_results['project_folder']}")
-            print(f"📝 Generated {len(processing_results['output_names'])} output files")
-            print(f"📊 Prepared {len(sheet_rows)} rows for Google Sheets")
-            print("=" * 60)
-            
-            return {
-                "status": "success",
-                "project_info": project_info,
-                "processing_results": processing_results,
-                "sheet_rows": sheet_rows
-            }
-            
-        except Exception as e:
-            print(f"❌ Automation failed: {e}")
-            return {"status": "error", "error": str(e)}
+            processed_files.append({
+                "version": f"v{version_num:02d}",
+                "source_file": os.path.basename(client_video),
+                "output_name": output_name
+            })
 
-# Main execution
-if __name__ == "__main__":
-    print("🤖 AI Creative Automation Suite - Local Version")
-    print("Integrating with your existing Slice 1 tools...")
-    
-    # Create automation instance
-    automation = LocalAutomation()
-    
-    # Run the automation
-    result = automation.run_automation()
-    
-    if result["status"] == "success":
-        print("\n✅ All done! Your automation is working locally!")
+    # --- Step 5: Log to Google Sheets ---
+    print("\n--- Step 5: Logging to Google Sheets ---")
+    if processed_files:
+        data_to_write = [
+            [pf['version'], f"New Ad from {pf['source_file']} + blake connector + quiz", pf['output_name']]
+            for pf in processed_files
+        ]
+        data_to_write.append(['', '', '']) # Add empty row
+        
+        error, _ = write_to_google_sheets(concept_name, data_to_write, creds)
+        if error: print(f"ERROR: {error}")
+        else: print("Successfully logged results to Google Sheets.")
     else:
-        print(f"\n❌ Automation failed: {result.get('error')}")# local_automation.py - AI Creative Automation Suite (Local Version)
-import os
-import sys
-import json
-import requests
-from datetime import datetime
-from pathlib import Path
+        print("No files were processed, skipping log.")
 
-# Add your existing code to the path
-sys.path.append(os.path.join(os.path.dirname(__file__), 'app', 'src'))
+    # --- Step 6: Cleanup ---
+    print("\n--- Step 6: Cleaning up temporary files ---")
+    temp_dir = "temp_downloads"
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
+    print("Cleanup complete. Automation finished successfully!")
 
-# Import your existing naming generator
-try:
-    from naming_generator import generate_project_folder_name, generate_output_name, get_image_description
-    print("✅ Successfully imported your existing naming_generator.py")
-except ImportError as e:
-    print(f"❌ Could not import naming_generator.py: {e}")
-    print("Make sure the file exists in app/src/naming_generator.py")
-
-class LocalAutomation:
-    def __init__(self):
-        self.project_root = Path(__file__).parent
-        self.assets_path = self.project_root / "Assets" / "Videos"
-        self.connectors_path = self.assets_path / "connectors"
-        self.quiz_outro_path = self.assets_path / "quiz_outro"
-        
-        # Load API keys from .env
-        self.load_api_keys()
-        
-    def load_api_keys(self):
-        """Load API keys from .env file"""
-        env_path = self.project_root / ".env"
-        if env_path.exists():
-            with open(env_path, 'r') as f:
-                for line in f:
-                    if '=' in line and not line.startswith('#'):
-                        key, value = line.strip().split('=', 1)
-                        os.environ[key] = value.strip('"')
-            print("✅ Loaded API keys from .env file")
-        else:
-            print("❌ .env file not found. Please create it with your API keys.")
-    
-    def get_trello_card(self, card_id):
-        """Get Trello card data"""
-        # You'll need to add your Trello API credentials here
-        print(f"📋 Getting Trello card: {card_id}")
-        # This would connect to Trello API
-        return {"name": "Test Card", "desc": "Test description"}
-    
-    def parse_project_info(self, folder_name):
-        """Parse project information from folder name"""
-        print(f"🔍 Parsing folder name: {folder_name}")
-        
-        # Use regex to extract components
-        import re
-        pattern = r'^([A-Z]+)_(.+?)_AD_([A-Z]+)-(\\d+)_(\\d+x\\d+)_(\\d+)$'
-        match = re.match(pattern, folder_name)
-        
-        if match:
-            prefix, project_name, ad_type, test_number, dimensions, date = match.groups()
-            return {
-                "project_name": project_name.replace(' Ad', ''),
-                "ad_type": ad_type,
-                "test_name": test_number,
-                "dimensions": dimensions,
-                "date": date
-            }
-        return None
-    
-    def download_google_drive_files(self, folder_url):
-        """Download files from Google Drive folder"""
-        print(f"📥 Downloading files from: {folder_url}")
-        # This would connect to Google Drive API
-        return ["video1.mp4", "video2.mp4", "video3.mp4"]
-    
-    def process_videos(self, project_info, video_files):
-        """Process videos using your existing stitcher"""
-        print(f"🎬 Processing videos for project: {project_info['project_name']}")
-        
-        # Use your existing naming generator
-        try:
-            project_folder = generate_project_folder_name(
-                project_info['project_name'],
-                video_files[0] if video_files else "default.mp4",
-                "Quiz"
-            )
-            print(f"📁 Generated project folder: {project_folder}")
-            
-            # Generate output names for each video
-            output_names = []
-            for i, video_file in enumerate(video_files, 1):
-                output_name = generate_output_name(
-                    project_info['project_name'],
-                    video_file,
-                    "Quiz",
-                    f"description{i}",
-                    i
-                )
-                output_names.append(output_name)
-                print(f"📝 Generated filename {i}: {output_name}")
-            
-            return {
-                "project_folder": project_folder,
-                "output_names": output_names,
-                "status": "success"
-            }
-            
-        except Exception as e:
-            print(f"❌ Error processing videos: {e}")
-            return {"status": "error", "error": str(e)}
-    
-    def log_to_google_sheets(self, project_info, processing_results):
-        """Log results to Google Sheets"""
-        print("📊 Logging to Google Sheets...")
-        
-        # Create rows for Google Sheets
-        rows = []
-        for i in range(3):  # 3 versions
-            row = [
-                f"GH {project_info['project_name']} {project_info['ad_type']} {project_info['test_name']} Quiz",
-                f"v{i+1:02d}",
-                f"New Ad from video_{i+1}.mp4 + blake connector + quiz",
-                f"{project_info['project_name'].replace(' ', '_')}_v{i+1:02d}_Quiz"
-            ]
-            rows.append(row)
-        
-        # Add empty row
-        rows.append(["", "", "", ""])
-        
-        print(f"📝 Created {len(rows)} rows for Google Sheets")
-        return rows
-    
-    def run_automation(self, trello_card_id=None, google_drive_url=None):
-        """Run the complete automation workflow"""
-        print("🚀 Starting AI Creative Automation Suite (Local Version)")
-        print("=" * 60)
-        
-        try:
-            # Step 1: Get Trello card (if provided)
-            if trello_card_id:
-                card_data = self.get_trello_card(trello_card_id)
-                print(f"✅ Retrieved Trello card: {card_data['name']}")
-            
-            # Step 2: Parse project information
-            folder_name = "OO_Grocery Store Oils Ad_AD_VTD-12036_4x5_250721"
-            project_info = self.parse_project_info(folder_name)
-            if project_info:
-                print(f"✅ Parsed project info: {project_info}")
-            else:
-                print("❌ Failed to parse project information")
-                return
-            
-            # Step 3: Download Google Drive files (if URL provided)
-            video_files = []
-            if google_drive_url:
-                video_files = self.download_google_drive_files(google_drive_url)
-                print(f"✅ Downloaded {len(video_files)} video files")
-            else:
-                # Use sample files for testing
-                video_files = ["sample_video_A.mp4", "sample_video_B.mp4", "sample_video_C.mp4"]
-                print(f"📝 Using sample video files: {video_files}")
-            
-            # Step 4: Process videos
-            processing_results = self.process_videos(project_info, video_files)
-            if processing_results["status"] == "success":
-                print("✅ Video processing completed successfully")
-            else:
-                print(f"❌ Video processing failed: {processing_results.get('error')}")
-                return
-            
-            # Step 5: Log to Google Sheets
-            sheet_rows = self.log_to_google_sheets(project_info, processing_results)
-            print("✅ Google Sheets data prepared")
-            
-            # Step 6: Summary
-            print("\n" + "=" * 60)
-            print("🎉 AUTOMATION COMPLETED SUCCESSFULLY!")
-            print(f"📁 Project Folder: {processing_results['project_folder']}")
-            print(f"📝 Generated {len(processing_results['output_names'])} output files")
-            print(f"📊 Prepared {len(sheet_rows)} rows for Google Sheets")
-            print("=" * 60)
-            
-            return {
-                "status": "success",
-                "project_info": project_info,
-                "processing_results": processing_results,
-                "sheet_rows": sheet_rows
-            }
-            
-        except Exception as e:
-            print(f"❌ Automation failed: {e}")
-            return {"status": "error", "error": str(e)}
-
-# Main execution
 if __name__ == "__main__":
-    print("🤖 AI Creative Automation Suite - Local Version")
-    print("Integrating with your existing Slice 1 tools...")
-    
-    # Create automation instance
-    automation = LocalAutomation()
-    
-    # Run the automation
-    result = automation.run_automation()
-    
-    if result["status"] == "success":
-        print("\n✅ All done! Your automation is working locally!")
+    if len(sys.argv) < 2:
+        print("Usage: python local_automation.py <TRELLO_CARD_ID>")
     else:
-        print(f"\n❌ Automation failed: {result.get('error')}")
+        main(sys.argv[1])
