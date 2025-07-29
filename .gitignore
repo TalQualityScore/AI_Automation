@@ -1,1 +1,17 @@
-.env
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.env
+
+# Local Automation Files
+credentials.json
+temp_downloads/
+Output/
+*.log
+
+# IDE / OS specific
+.vscode/
+.idea/
+.DS_Store
