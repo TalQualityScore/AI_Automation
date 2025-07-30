@@ -16,7 +16,7 @@ def clean_project_name(raw_name):
     cleaned_words = []
     
     for word in words:
-        # Keep UGC as-is (don't separate it)
+        # Keep UGC as-is (don't separate it and keep it in caps)
         if word.upper() == 'UGC':
             cleaned_words.append('UGC')
         else:
@@ -40,25 +40,25 @@ def parse_project_info(folder_name):
     """Parses the project information from a folder name."""
     print(f"Parsing folder name: {folder_name}")
     
-    # FIXED: Better patterns with priority order
+    # FIXED: Better patterns with priority order - focusing on extracting full project names
     patterns = [
-        # Pattern 1: Standard OO format - OO_[PROJECT]_AD_[TYPE]-[NUMBER]_[DETAILS]_[LETTER]
+        # Pattern 1: Standard OO format - OO_[FULL_PROJECT]_AD_[TYPE]-[NUMBER]
         r'OO_(.*?)_AD_([A-Z]+)-(\d+).*?([A-Z])_\d+\.mp4',
         
-        # Pattern 2: Standard OO format without file extension
+        # Pattern 2: Standard OO format without file extension  
         r'OO_(.*?)_AD_([A-Z]+)-(\d+).*?([A-Z])_\d+',
         
-        # Pattern 3: Standard OO format with less details
-        r'OO_(.*?)_AD_([A-Z]+)-(\d+)',
+        # Pattern 3: AD-It format - OO_[FULL_PROJECT]_AD-It_[TYPE]-[NUMBER]
+        r'OO_(.*?)_AD-It_([A-Z]+)-(\d+).*?([A-Z])_?\d*',
         
-        # Pattern 4: Modern format with OPT - [COMPANY]_[PREFIX]_[PROJECT]_OPT_[ADTYPE]-[NUMBER]
+        # Pattern 4: AD-It format without letter
+        r'OO_(.*?)_AD-It_([A-Z]+)-(\d+)',
+        
+        # Pattern 5: Modern format with OPT - [COMPANY]_[PREFIX]_[PROJECT]_OPT_[ADTYPE]-[NUMBER]
         r'([A-Z0-9_]+)_([A-Z0-9]+)_(.*?)_OPT_([A-Z]+)-(\d+).*?([A-Z])',
         
-        # Pattern 5: GH prefix format
-        r'GH\s+([A-Z0-9]+)_(.*?)_AD_([A-Z]+)-(\d+)',
-        
-        # Pattern 6: Flexible GH format
-        r'GH\s+(.*?)_.*?([A-Z]+)-(\d+)',
+        # Pattern 6: GH prefix format - should extract the FULL project part, not just prefix
+        r'GH\s+OO_(.*?)_AD[_-](?:It_)?([A-Z]+)-(\d+)',
     ]
     
     for i, pattern in enumerate(patterns):
@@ -80,14 +80,14 @@ def parse_project_info(folder_name):
                     version_letter = ""
                 project_name = clean_project_name(raw_project_name)
                 
-            elif i == 2:  # Standard OO pattern without letter
+            elif i in [2, 3]:  # AD-It patterns
                 raw_project_name = groups[0]
                 ad_type = groups[1]
                 test_name = groups[2]
-                version_letter = ""
+                version_letter = groups[3] if len(groups) > 3 else ""
                 project_name = clean_project_name(raw_project_name)
                 
-            elif i == 3:  # Modern format with OPT
+            elif i == 4:  # Modern format with OPT
                 if len(groups) >= 6:
                     company = groups[0]
                     prefix = groups[1]
@@ -104,22 +104,11 @@ def parse_project_info(folder_name):
                     version_letter = ""
                     project_name = clean_project_name(raw_project_name)
                     
-            elif i in [4, 5]:  # GH formats
-                if len(groups) >= 4:
-                    raw_project_name = groups[1]
-                    ad_type = groups[2]
-                    test_name = groups[3]
-                    version_letter = ""
-                else:
-                    # Extract from content
-                    content_parts = groups[0].split('_')
-                    if len(content_parts) >= 2:
-                        raw_project_name = '_'.join(content_parts[1:])  # Skip first part (likely prefix)
-                    else:
-                        raw_project_name = groups[0]
-                    ad_type = groups[1]
-                    test_name = groups[2]
-                    version_letter = ""
+            elif i == 5:  # GH format - FIXED to extract full project name
+                raw_project_name = groups[0]  # This should be the full project name after OO_
+                ad_type = groups[1]
+                test_name = groups[2]
+                version_letter = ""
                 project_name = clean_project_name(raw_project_name)
             
             # Extract version letter if not found and available in filename
@@ -138,27 +127,38 @@ def parse_project_info(folder_name):
     
     print(f"No pattern matched. Attempting manual extraction...")
     
-    # Manual fallback extraction
+    # Manual fallback extraction - ENHANCED for ANY account prefix
     ad_type_match = re.search(r'(VTD|STOR|ACT)', folder_name)
     test_name_match = re.search(r'(?:VTD|STOR|ACT)-(\d+)', folder_name)
     version_letter_match = re.search(r'_(\d+)([A-Z])_?\d*', folder_name)
     
     if ad_type_match and test_name_match:
-        # Try to extract project name
-        oo_match = re.search(r'OO_(.*?)_AD_', folder_name)
-        if oo_match:
-            raw_project_name = oo_match.group(1)
-            project_name = clean_project_name(raw_project_name)
-            version_letter = version_letter_match.group(2) if version_letter_match else ""
-            
-            print(f"Manual extraction: '{raw_project_name}' -> '{project_name}' (Letter: {version_letter})")
-            
-            return {
-                "project_name": project_name,
-                "ad_type": ad_type_match.group(1),
-                "test_name": test_name_match.group(1),
-                "version_letter": version_letter
-            }
+        # Try different account prefix patterns
+        project_patterns = [
+            r'([A-Z]+W?)_(.*?)_AD_(?:VTD|STOR|ACT)',
+            r'([A-Z]+)_(.*?)_AD-It_(?:VTD|STOR|ACT)',
+            r'([A-Z]+)_(.*?)_AD_(?:VTD|STOR|ACT)',
+            r'([A-Z]+)_(.*?)_(?:VTD|STOR|ACT)',
+        ]
+        
+        for pattern in project_patterns:
+            project_match = re.search(pattern, folder_name)
+            if project_match:
+                groups = project_match.groups()
+                if len(groups) >= 2:
+                    raw_project_name = groups[1]
+                    if len(raw_project_name) > 3 or not raw_project_name.isupper():
+                        project_name = clean_project_name(raw_project_name)
+                        version_letter = version_letter_match.group(2) if version_letter_match else ""
+                        
+                        print(f"Manual extraction: '{raw_project_name}' -> '{project_name}' (Letter: {version_letter})")
+                        
+                        return {
+                            "project_name": project_name,
+                            "ad_type": ad_type_match.group(1),
+                            "test_name": test_name_match.group(1),
+                            "version_letter": version_letter
+                        }
     
     print(f"Failed to parse folder name: {folder_name}")
     return None

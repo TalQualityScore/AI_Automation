@@ -46,7 +46,7 @@ def get_trello_card_data(card_id):
         
         return {
             "name": card_name, 
-            "desc": card_desc,  # Now includes full description
+            "desc": card_desc,
             "gdrive_url": gdrive_link_match.group(1)
         }, None
         
@@ -132,26 +132,26 @@ def write_to_google_sheets(concept_name, data_rows, creds):
             
             start_version = highest_version + 1
             
+        except ValueError:
+            print(f"Project '{concept_name}' not found. Creating new entry.")
+
+        if not data_rows: return None, start_version
+
+        # Find the absolute last row with any content
+        last_content_row = 0
+        for i, row in enumerate(all_values):
+            if any(cell.strip() for cell in row if cell):
+                last_content_row = i + 1
+
+        if is_existing_project:
             # For existing projects, insert right after the last row of this project
             insert_row_index = actual_last_row + 1
             print(f"Will insert new versions for existing project at row {insert_row_index}")
-            
-        except ValueError:
-            print(f"Project '{concept_name}' not found. Creating new entry.")
-            
-            # NEW APPROACH: For new projects, go to the very end + buffer
-            # Find the absolute last row with any content
-            last_content_row = 0
-            for i, row in enumerate(all_values):
-                if any(cell.strip() for cell in row if cell):
-                    last_content_row = i + 1
-            
-            # Add buffer space (10 rows) and insert there
+        else:
+            # For new projects, use the buffer method then clean up
             buffer_space = 10
             insert_row_index = last_content_row + buffer_space
             print(f"New project: Last content at row {last_content_row}, inserting at row {insert_row_index} (with {buffer_space} row buffer)")
-
-        if not data_rows: return None, start_version
 
         # Prepare data with correct column structure
         rows_to_insert = []
@@ -174,60 +174,85 @@ def write_to_google_sheets(concept_name, data_rows, creds):
                     
         end_row_index = insert_row_index + len(rows_to_insert) - 1
 
-        # For new projects only: Clean up empty rows between last content and our new data
+        # FIXED: For new projects only - Clean up empty rows and move data to proper position
         if not is_existing_project:
-            print("Cleaning up empty buffer rows...")
+            print("Cleaning up empty buffer rows and moving data...")
             try:
-                # Calculate how many empty rows to delete
-                last_content_row = 0
-                for i, row in enumerate(all_values):
-                    if any(cell.strip() for cell in row if cell):
-                        last_content_row = i + 1
+                # Calculate the new position (right after last content)
+                new_insert_row = last_content_row + 1
                 
-                # Delete empty rows between last content and our new data
-                start_delete_row = last_content_row + 1
-                end_delete_row = insert_row_index - 1
-                
-                if end_delete_row >= start_delete_row:
-                    rows_to_delete = end_delete_row - start_delete_row + 1
-                    print(f"Deleting {rows_to_delete} empty rows (from {start_delete_row} to {end_delete_row})")
-                    sheet.delete_rows(start_delete_row, rows_to_delete)
-                    print("Successfully cleaned up empty buffer rows")
-                else:
-                    print("No empty rows to clean up")
+                # If we need to move the data (it's not already in the right place)
+                if insert_row_index != new_insert_row:
+                    print(f"Moving data from row {insert_row_index} to row {new_insert_row}")
+                    
+                    # Read the data we just wrote
+                    range_to_read = f'A{insert_row_index}:D{end_row_index}'
+                    response = sheet.get(range_to_read)
+                    written_data = response.get('values', []) if hasattr(response, 'get') else response
+                    
+                    # Write it to the correct position
+                    new_end_row = new_insert_row + len(written_data) - 1
+                    for row_offset, row_data in enumerate(written_data):
+                        current_row = new_insert_row + row_offset
+                        for col_offset, cell_value in enumerate(row_data):
+                            if col_offset < len(row_data) and row_data[col_offset]:
+                                sheet.update_cell(current_row, col_offset + 1, str(row_data[col_offset]))
+                    
+                    # Clear the old location
+                    clear_range = f'A{insert_row_index}:D{end_row_index}'
+                    sheet.batch_clear([clear_range])
+                    
+                    # Update our tracking variables to the NEW position
+                    insert_row_index = new_insert_row
+                    end_row_index = new_end_row
+                    
+                print(f"Successfully moved data to correct position: rows {insert_row_index}-{end_row_index}")
                     
             except Exception as cleanup_error:
                 print(f"Warning: Could not clean up empty rows: {cleanup_error}")
-                print("Data was still inserted successfully")
 
-        # Apply border formatting (top and bottom borders only, thick black)
+        # FIXED: Merge column A for the concept name (only for multiple rows)
+        if len(rows_to_insert) > 1:
+            try:
+                if is_existing_project:
+                    # Extend existing merge to include new rows
+                    full_range = f'A{first_occurrence_row}:A{end_row_index}'
+                    print(f"Extending merge for existing project: {full_range}")
+                    # First unmerge existing
+                    try:
+                        sheet.unmerge_cells(f'A{first_occurrence_row}:A{actual_last_row}')
+                    except:
+                        pass  # Might not be merged
+                    # Then merge the full range
+                    sheet.merge_cells(full_range)
+                else:
+                    # Create new merge for new project (use FINAL position)
+                    merge_range = f'A{insert_row_index}:A{end_row_index}'
+                    print(f"Creating merge for new project: {merge_range}")
+                    sheet.merge_cells(merge_range)
+                    
+            except Exception as merge_error:
+                print(f"Warning: Could not merge cells: {merge_error}")
+
+        # Apply border formatting (top and bottom borders only, thick black) - USE FINAL POSITION
         try:
-            # Recalculate the final row positions after cleanup
-            if not is_existing_project:
-                # After cleanup, our data is now right after the last content
-                final_insert_row = last_content_row + 1
-                final_end_row = final_insert_row + len(rows_to_insert) - 1
-            else:
-                final_insert_row = insert_row_index
-                final_end_row = end_row_index
-            
-            # Apply thick black border to top row only
-            top_border_range = f'A{final_insert_row}:D{final_insert_row}'
+            # Apply thick black border to top row only (FINAL position)
+            top_border_range = f'A{insert_row_index}:D{insert_row_index}'
             sheet.format(top_border_range, {
                 "borders": {
                     "top": {"style": "SOLID_THICK", "color": {"red": 0, "green": 0, "blue": 0}}
                 }
             })
             
-            # Apply thick black border to bottom row only  
-            bottom_border_range = f'A{final_end_row}:D{final_end_row}'
+            # Apply thick black border to bottom row only (FINAL position)  
+            bottom_border_range = f'A{end_row_index}:D{end_row_index}'
             sheet.format(bottom_border_range, {
                 "borders": {
                     "bottom": {"style": "SOLID_THICK", "color": {"red": 0, "green": 0, "blue": 0}}
                 }
             })
             
-            print(f"Applied thick black borders to top row {final_insert_row} and bottom row {final_end_row}")
+            print(f"Applied thick black borders to top row {insert_row_index} and bottom row {end_row_index}")
         except Exception as format_error:
             print(f"Warning: Could not format borders: {format_error}")
 

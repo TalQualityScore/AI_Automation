@@ -16,25 +16,31 @@ from app.src.automation.timing_report import (generate_timing_report,
                                                prepare_video_sequence_info)
 from app.src import naming_generator
 
-# --- CONFIGURATION ---
-# All config is now handled by the individual modules via .env
-
 def parse_card_instructions(card_description):
     """Parse the card description using a standardized approach."""
     desc_lower = card_description.lower()
     
     print(f"Parsing card description: {card_description[:100]}...")
     
-    # PRIORITY 1: Check for "save as is" or "save as" first (most important)
-    if "save as is" in desc_lower or "save as" in desc_lower:
-        print("Detected 'save as is' instruction - will only rename and save files (but still add 'quiz' to name)")
-        return "save_only"
+    # PRIORITY 1: Check for "save as is" or "save as" first (most important) - ENHANCED
+    save_patterns = [
+        "save as is",
+        "save as", 
+        "save them as is",
+        "save it as is",
+        "just save"
+    ]
+    
+    for pattern in save_patterns:
+        if pattern in desc_lower:
+            print(f"Detected 'save as is' pattern: '{pattern}' - will only rename and save files")
+            return "save_only"
     
     # PRIORITY 2: Look for EXPLICIT "no connector" or "only quiz" instructions
     no_connector_patterns = [
         "no need.*connector",
         "only.*quiz",
-        "connect only to quiz",
+        "connect only to quiz", 
         "quiz.*no.*connector",
         "without.*connector",
         "skip.*connector",
@@ -64,9 +70,14 @@ def parse_card_instructions(card_description):
             print(f"Detected quiz + connector pattern: '{pattern}' - will add connector + quiz")
             return "connector_quiz"
     
-    # PRIORITY 4: Look for general processing instructions
+    # PRIORITY 4: Look for general processing instructions - BUT exclude "funnel" mentions
     processing_verbs = ["combine", "connect", "add", "merge", "stitch", "join", "attach"]
     quiz_keywords = ["quiz", "outro"]
+    
+    # ENHANCED: Don't trigger on "quiz funnel" mentions
+    if "quiz funnel" in desc_lower or "testing queue" in desc_lower:
+        print("Detected 'quiz funnel' or 'testing queue' - defaulting to save only")
+        return "save_only"
     
     has_processing_verb = any(verb in desc_lower for verb in processing_verbs)
     has_quiz_keyword = any(keyword in desc_lower for keyword in quiz_keywords)
@@ -86,7 +97,6 @@ def parse_card_instructions(card_description):
 
 def get_processing_suffix(processing_mode):
     """Get the suffix to add to the naming based on processing mode."""
-    # FIXED: Always add 'quiz' since the concept is always a quiz
     return "quiz"  # Always add quiz regardless of processing mode
 
 def main(trello_card_id):
