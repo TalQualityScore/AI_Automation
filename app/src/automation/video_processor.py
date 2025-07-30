@@ -21,21 +21,42 @@ def get_video_dimensions(video_path):
     except Exception as e:
         return None, None, f"Error getting video dimensions: {e}"
 
-def process_video_sequence(client_video, output_path, target_width, target_height):
-    """Processes a single video sequence using a dynamic resolution."""
+def process_video_sequence(client_video, output_path, target_width, target_height, processing_mode="connector_quiz"):
+    """Processes a single video sequence based on the processing mode."""
     try:
-        connector = os.path.join(CONNECTORS_PATH, os.listdir(CONNECTORS_PATH)[0])
-        outro = os.path.join(QUIZ_OUTRO_PATH, os.listdir(QUIZ_OUTRO_PATH)[0])
+        # Build video list based on processing mode
+        video_list = [client_video]
+        
+        if processing_mode == "connector_quiz":
+            # Add connector first, then quiz
+            connector = os.path.join(CONNECTORS_PATH, os.listdir(CONNECTORS_PATH)[0])
+            outro = os.path.join(QUIZ_OUTRO_PATH, os.listdir(QUIZ_OUTRO_PATH)[0])
+            video_list.extend([connector, outro])
+            
+        elif processing_mode == "quiz_only":
+            # Add only quiz outro
+            outro = os.path.join(QUIZ_OUTRO_PATH, os.listdir(QUIZ_OUTRO_PATH)[0])
+            video_list.append(outro)
+            
+        # processing_mode == "save_only" is handled in main script, not here
+        
     except (FileNotFoundError, IndexError) as e:
-        return f"Could not find connector or quiz outro files: {e}"
+        return f"Could not find required video files: {e}"
 
-    video_list = [client_video, connector, outro]
+    # If only one video (client), just copy it
+    if len(video_list) == 1:
+        import shutil
+        shutil.copy(client_video, output_path)
+        return None
+
+    # Process multiple videos with FFmpeg
     command = ['ffmpeg', '-y']
     filter_complex_parts, concat_inputs = [], ""
     target_fps, target_audio_rate = 30, 44100
 
     for j, video_path in enumerate(video_list):
-        if not os.path.exists(video_path): return f"Input file not found: {video_path}"
+        if not os.path.exists(video_path): 
+            return f"Input file not found: {video_path}"
         command.extend(['-i', video_path])
         filter_complex_parts.append(f"[{j}:v]scale={target_width}:{target_height}:force_original_aspect_ratio=decrease,pad={target_width}:{target_height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={target_fps},setpts=PTS-STARTPTS[v{j}];")
         filter_complex_parts.append(f"[{j}:a]aformat=sample_rates={target_audio_rate}:channel_layouts=stereo,asetpts=PTS-STARTPTS[a{j}];")
