@@ -4,6 +4,8 @@ __pycache__/
 *.pyo
 *.pyd
 *.env
+*.mp4
+*.png
 
 # Local Automation Files
 credentials.json
