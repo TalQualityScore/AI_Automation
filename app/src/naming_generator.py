@@ -3,19 +3,7 @@ import re
 import os
 import subprocess
 import sys
-import time
-import google.generativeai as genai
-from PIL import Image
-from dotenv import load_dotenv
 from unidecode import unidecode
-import io
-
-def load_api_key():
-    """Loads the Gemini API key from the .env file in the project root."""
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    dotenv_path = os.path.join(project_root, '.env')
-    load_dotenv(dotenv_path=dotenv_path)
-    return os.getenv("GEMINI_API_KEY")
 
 def parse_filename_for_folder(filename):
     """Parses only the parts needed for the main project folder name."""
@@ -57,63 +45,15 @@ def generate_output_name(project_name, first_client_video, ad_type_selection, im
     
     return f"{name_part}_{part6}-{version_part}"
 
-def get_image_description(video_path, api_key):
+def get_image_description(video_path, temp_dir=None):
     """
-    Gets image description from Gemini API with automatic retry on rate limit errors.
+    Returns a simple placeholder 'X' instead of calling any API.
+    This eliminates API quota issues and dependency on external services.
     """
-    temp_dir = "temp_downloads" # A temporary directory for frame extraction
-    os.makedirs(temp_dir, exist_ok=True)
-    temp_image_path = os.path.join(temp_dir, f"temp_frame_{os.path.basename(video_path)}.jpg")
-    
-    try:
-        command = ['ffmpeg', '-i', video_path, '-vframes', '1', '-q:v', '2', '-y', temp_image_path]
-        startupinfo = None
-        if sys.platform == "win32":
-            startupinfo = subprocess.STARTUPINFO()
-            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        subprocess.run(command, check=True, capture_output=True, text=True, startupinfo=startupinfo)
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
-        print(f"FFmpeg error extracting frame: {e}")
-        return "ffmpegerror"
+    print("Using placeholder 'X' for image description.")
+    return "X"
 
-    if not api_key:
-        return "noapikey"
-
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-flash')
-    prompt = "Analyze the visual elements, style, and subject of this image, ignoring any text. Describe the scene in one or two combined words (e.g., 'squeezebottle', 'womanoutside', 'vintagewoman'), all lowercase, with no spaces."
-    
-    # FIX: Implement automatic retry with exponential backoff for API calls
-    max_retries = 5
-    delay = 1.0 # Initial delay in seconds
-    for attempt in range(max_retries):
-        try:
-            with open(temp_image_path, 'rb') as f:
-                image_bytes = f.read()
-            img = Image.open(io.BytesIO(image_bytes))
-            
-            response = model.generate_content([prompt, img])
-            description = response.text.strip().replace(" ", "")
-            
-            if os.path.exists(temp_image_path):
-                os.remove(temp_image_path)
-            
-            return description
-
-        except Exception as e:
-            # Check if it's a rate limit error (often includes '429')
-            if '429' in str(e):
-                print(f"Rate limit hit. Retrying in {delay:.2f} seconds...")
-                time.sleep(delay)
-                delay *= 2 # Double the delay for the next attempt
-                continue
-            else:
-                print(f"An unexpected API error occurred: {e}")
-                if os.path.exists(temp_image_path):
-                    os.remove(temp_image_path)
-                return "apifail"
-    
-    print("API call failed after multiple retries.")
-    if os.path.exists(temp_image_path):
-        os.remove(temp_image_path)
-    return "apifail"
+# Deprecated function - keeping for compatibility but it does nothing
+def load_api_key():
+    """Returns None - API key no longer needed."""
+    return None

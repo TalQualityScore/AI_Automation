@@ -63,18 +63,14 @@ def main(trello_card_id):
     # --- Step 4: Process Videos (Sequentially for Stability) ---
     print(f"\n--- Step 4: Processing Videos (Starting from v{start_version}) ---")
     processed_files = []
-    api_key = naming_generator.load_api_key()
 
     for i, client_video in enumerate(client_video_final_paths):
         version_num = start_version + i
         print(f"\n--- Processing Version {version_num} ---")
         
-        # Get image description
-        image_desc = naming_generator.get_image_description(client_video, api_key)
-        if image_desc in ["apifail", "ffmpegerror", "noapikey"]:
-            print(f"ERROR: Could not get image description for {os.path.basename(client_video)}. Skipping.")
-            continue
-
+        # Get placeholder image description (no API call)
+        image_desc = naming_generator.get_image_description(client_video)
+        
         # Generate name and process video
         output_name = naming_generator.generate_output_name(
             project_name=project_info['project_name'], first_client_video=client_video,
@@ -86,6 +82,7 @@ def main(trello_card_id):
         if error:
             print(f"ERROR processing {os.path.basename(client_video)}: {error}")
         else:
+            print(f"Successfully processed: {output_name}.mp4")
             processed_files.append({
                 "version": f"v{version_num:02d}",
                 "source_file": os.path.basename(client_video),

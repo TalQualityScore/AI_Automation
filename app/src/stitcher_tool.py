@@ -20,7 +20,7 @@ class StitcherTool:
         self.sequences = []
         self.tag_colors = ["#2E86C1", "#AF7AC5", "#E67E22", "#52BE80", "#F39C12"]
         self.last_color_index = 0
-        self.api_key = naming_generator.load_api_key()
+        # Removed API key initialization
         self.project_name_var = tk.StringVar()
         self.ad_type_var = tk.StringVar(value="quiz")
         
@@ -178,7 +178,6 @@ class StitcherTool:
         export_thread = threading.Thread(target=self.run_export_process, args=(output_parent_folder, project_name, progress_bar))
         export_thread.start()
 
-    # --- MODIFIED: Switched to a fully standardized, robust concat filter method ---
     def run_export_process(self, output_parent_folder, project_name, progress_bar):
         temp_dir = ""
         try:
@@ -206,7 +205,8 @@ class StitcherTool:
                 client_path = seq['client']
                 shutil.copy(client_path, client_copy_folder)
                 
-                image_desc = naming_generator.get_image_description(client_path, temp_dir, self.api_key)
+                # Use placeholder instead of API call
+                image_desc = naming_generator.get_image_description(client_path)
                 output_name = naming_generator.generate_output_name(project_name, client_path, self.ad_type_var.get(), image_desc, i + 1)
                 output_path = os.path.join(output_folder, f"{output_name}.mp4")
 
