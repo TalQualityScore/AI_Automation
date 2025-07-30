@@ -20,20 +20,23 @@ def parse_card_instructions(card_description):
     """Parse the card description to determine processing mode."""
     desc_lower = card_description.lower()
     
-    if "save as is" in desc_lower:
+    # PRIORITY 1: Check for "save as is" or "save as" first (most important)
+    if "save as is" in desc_lower or "save as" in desc_lower:
+        print("Detected 'save as is' instruction - will only rename and save files")
         return "save_only"
+    
+    # PRIORITY 2: Check for specific connection instructions
     elif "connect to quiz + connector" in desc_lower or "connector + quiz" in desc_lower:
+        print("Detected 'connect to quiz + connector' instruction")
         return "connector_quiz"
     elif "connect to quiz" in desc_lower:
+        print("Detected 'connect to quiz' instruction")
         return "quiz_only"
+    
+    # PRIORITY 3: Default fallback (only if no "save as" found)
     else:
-        # Default fallback - look for keywords
-        if "connector" in desc_lower and "quiz" in desc_lower:
-            return "connector_quiz"
-        elif "quiz" in desc_lower:
-            return "quiz_only"
-        else:
-            return "save_only"
+        print("No specific instructions found - defaulting to save only")
+        return "save_only"
 
 def get_processing_suffix(processing_mode):
     """Get the suffix to add to the naming based on processing mode."""

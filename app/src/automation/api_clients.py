@@ -97,7 +97,7 @@ def write_to_google_sheets(concept_name, data_rows, creds):
         insert_row_index = len(all_values) + 1
         is_existing_project = False
         first_occurrence_row = None
-        last_row_of_concept = None
+        actual_last_row = None
 
         # Find existing project
         try:
@@ -105,27 +105,25 @@ def write_to_google_sheets(concept_name, data_rows, creds):
             is_existing_project = True
             print(f"Found existing project '{concept_name}' at row {first_occurrence_row}.")
 
-            # Find the last row of this concept by looking for the next non-empty concept or end of data
-            last_row_of_concept = first_occurrence_row
-            for i in range(first_occurrence_row, len(all_values)):
-                if i < len(all_values):
-                    current_row = all_values[i]
-                    # If we find another concept name (non-empty in column A), stop here
-                    if current_row[0] and current_row[0] != concept_name:
-                        break
-                    # If this row belongs to our concept (empty column A or same concept name)
-                    if not current_row[0] or current_row[0] == concept_name:
-                        last_row_of_concept = i + 1
+            # Get actual merged cell ranges using Google Sheets API
+            actual_last_row = get_merged_cell_end_row(creds, first_occurrence_row)
+            if not actual_last_row:
+                # Fallback to text-based scanning
+                actual_last_row = first_occurrence_row
+                for i in range(first_occurrence_row, len(all_values)):
+                    if i < len(all_values):
+                        current_row = all_values[i]
+                        if current_row[0] and current_row[0] != concept_name:
+                            break
+                        actual_last_row = i + 1
                     else:
                         break
-                else:
-                    break
             
-            print(f"Project spans from row {first_occurrence_row} to row {last_row_of_concept}")
+            print(f"Project spans from row {first_occurrence_row} to row {actual_last_row}")
             
             # Find highest version number in this concept's range
             highest_version = 0
-            for i in range(first_occurrence_row - 1, last_row_of_concept):
+            for i in range(first_occurrence_row - 1, actual_last_row):
                 if i < len(all_values) and len(all_values[i]) > 1 and all_values[i][1].startswith('v'):
                     try:
                         version_num = int(all_values[i][1][1:])
@@ -135,7 +133,7 @@ def write_to_google_sheets(concept_name, data_rows, creds):
                         continue
             
             start_version = highest_version + 1
-            insert_row_index = last_row_of_concept + 1
+            insert_row_index = actual_last_row + 1
             
         except ValueError:
             print(f"Project '{concept_name}' not found. Creating new entry.")
@@ -157,33 +155,22 @@ def write_to_google_sheets(concept_name, data_rows, creds):
         end_row_index = insert_row_index + len(rows_to_insert) - 1
         
         # Handle concept name and merging
-        if is_existing_project:
-            # For existing projects, we need to extend the existing merged cell
+        if is_existing_project and actual_last_row:
+            # For existing projects, extend the existing merged cell
             print(f"Extending existing project merge from row {first_occurrence_row} to {end_row_index}")
-            try:
-                # First, try to unmerge the existing range
-                try:
-                    sheet.unmerge_cells(f'A{first_occurrence_row}:A{last_row_of_concept}')
-                except:
-                    pass  # Might not be merged yet
-                
-                # Now merge the full range including new rows
-                sheet.merge_cells(f'A{first_occurrence_row}:A{end_row_index}')
-                print(f"Successfully merged A{first_occurrence_row}:A{end_row_index}")
-                
-            except Exception as merge_error:
-                print(f"Warning: Could not merge cells: {merge_error}")
+            success = extend_merged_range(sheet, creds, first_occurrence_row, actual_last_row, end_row_index)
+            if not success:
+                print("Could not extend merged range, but data was still inserted successfully")
         else:
             # For new projects, add concept name and merge if multiple rows
+            print("Adding concept name for new project")
             sheet.update_cell(insert_row_index, 1, concept_name)
             if len(rows_to_insert) > 1:
-                try:
-                    sheet.merge_cells(f'A{insert_row_index}:A{end_row_index}')
-                    print(f"Successfully merged new project A{insert_row_index}:A{end_row_index}")
-                except Exception as merge_error:
-                    print(f"Warning: Could not merge cells: {merge_error}")
+                success = create_new_merged_range(sheet, insert_row_index, end_row_index)
+                if not success:
+                    print("Could not merge new project cells, but data was still inserted successfully")
 
-        # Add border formatting
+        # Add border formatting (optional, don't fail if it doesn't work)
         try:
             sheet.format(f'A{insert_row_index}:D{end_row_index}', {
                 "borders": {
@@ -203,3 +190,118 @@ def write_to_google_sheets(concept_name, data_rows, creds):
         return f"Worksheet '{WORKSHEET_NAME}' not found.", 1
     except Exception as e:
         return f"An unexpected Google Sheets error occurred: {e}", 1
+
+def get_merged_cell_end_row(creds, first_occurrence_row):
+    """Get the actual end row of a merged cell range using Google Sheets API."""
+    try:
+        sheets_service = build("sheets", "v4", credentials=creds)
+        spreadsheet_data = sheets_service.spreadsheets().get(
+            spreadsheetId=GOOGLE_SHEET_ID,
+            includeGridData=False
+        ).execute()
+        
+        # Find the worksheet by name to get its ID
+        worksheet_id = None
+        for sheet_info in spreadsheet_data['sheets']:
+            if sheet_info['properties']['title'] == WORKSHEET_NAME:
+                worksheet_id = sheet_info['properties']['sheetId']
+                break
+        
+        if worksheet_id is not None:
+            # Get merged cells for this worksheet
+            for sheet_info in spreadsheet_data['sheets']:
+                if sheet_info['properties']['sheetId'] == worksheet_id:
+                    merges = sheet_info.get('merges', [])
+                    for merge in merges:
+                        # Convert to 1-based indexing and check if it contains our row
+                        start_row = merge['startRowIndex'] + 1
+                        end_row = merge['endRowIndex']  # Exclusive, so last row is end_row - 1
+                        start_col = merge['startColumnIndex'] + 1
+                        
+                        if (start_row <= first_occurrence_row < end_row and start_col == 1):  # Column A
+                            print(f"Found matching merged range: rows {start_row} to {end_row - 1}")
+                            return end_row - 1  # Convert to inclusive
+                    break
+        
+        return None
+    except Exception as e:
+        print(f"Warning: Could not get merged cells via API: {e}")
+        return None
+
+def extend_merged_range(sheet, creds, first_row, old_last_row, new_last_row):
+    """Safely extend an existing merged range."""
+    try:
+        # First, try to unmerge the existing range
+        existing_range = f'A{first_row}:A{old_last_row}'
+        print(f"Attempting to unmerge existing range: {existing_range}")
+        
+        try:
+            sheet.unmerge_cells(existing_range)
+            print("Successfully unmerged existing range")
+        except Exception as unmerge_error:
+            print(f"Could not unmerge existing range: {unmerge_error}")
+            # Try alternative: use Google Sheets API to unmerge
+            try:
+                sheets_service = build("sheets", "v4", credentials=creds)
+                worksheet_id = get_worksheet_id(sheets_service, GOOGLE_SHEET_ID, WORKSHEET_NAME)
+                if worksheet_id is not None:
+                    request_body = {
+                        'requests': [{
+                            'unmergeCells': {
+                                'range': {
+                                    'sheetId': worksheet_id,
+                                    'startRowIndex': first_row - 1,
+                                    'endRowIndex': old_last_row,
+                                    'startColumnIndex': 0,
+                                    'endColumnIndex': 1
+                                }
+                            }
+                        }]
+                    }
+                    sheets_service.spreadsheets().batchUpdate(
+                        spreadsheetId=GOOGLE_SHEET_ID, 
+                        body=request_body
+                    ).execute()
+                    print("Successfully unmerged using Sheets API")
+            except Exception as api_unmerge_error:
+                print(f"Could not unmerge using API either: {api_unmerge_error}")
+                return False
+        
+        # Now merge the extended range
+        new_range = f'A{first_row}:A{new_last_row}'
+        print(f"Attempting to merge new range: {new_range}")
+        sheet.merge_cells(new_range)
+        print(f"Successfully merged extended range: {new_range}")
+        return True
+        
+    except Exception as e:
+        print(f"Error extending merged range: {e}")
+        return False
+
+def create_new_merged_range(sheet, start_row, end_row):
+    """Create a new merged range for a new project."""
+    try:
+        new_range = f'A{start_row}:A{end_row}'
+        print(f"Creating new merged range: {new_range}")
+        sheet.merge_cells(new_range)
+        print(f"Successfully created new merged range: {new_range}")
+        return True
+    except Exception as e:
+        print(f"Error creating new merged range: {e}")
+        return False
+
+def get_worksheet_id(sheets_service, spreadsheet_id, worksheet_name):
+    """Get the worksheet ID for a given worksheet name."""
+    try:
+        spreadsheet_data = sheets_service.spreadsheets().get(
+            spreadsheetId=spreadsheet_id,
+            includeGridData=False
+        ).execute()
+        
+        for sheet_info in spreadsheet_data['sheets']:
+            if sheet_info['properties']['title'] == worksheet_name:
+                return sheet_info['properties']['sheetId']
+        return None
+    except Exception as e:
+        print(f"Error getting worksheet ID: {e}")
+        return None
