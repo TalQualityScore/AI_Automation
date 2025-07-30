@@ -1,3 +1,5 @@
+# Fixed version of app/src/automation/api_clients.py
+
 import os
 import re
 import gspread
@@ -92,12 +94,63 @@ def write_to_google_sheets(concept_name, data_rows, creds):
             is_existing_project = True
             print(f"Found existing project '{concept_name}'.")
 
-            merged_range = next((r for r in sheet.merged_cells if r.start_row_index < first_occurrence_row <= r.end_row_index), None)
-            last_row_of_concept = merged_range.end_row_index if merged_range else first_occurrence_row
+            # FIXED: Use Google Sheets API instead of gspread's merged_cells
+            # Get merged cells using the Google Sheets API directly
+            try:
+                sheets_service = build("sheets", "v4", credentials=creds)
+                spreadsheet_data = sheets_service.spreadsheets().get(
+                    spreadsheetId=GOOGLE_SHEET_ID,
+                    includeGridData=False
+                ).execute()
+                
+                # Find the worksheet by name
+                worksheet_id = None
+                for sheet_info in spreadsheet_data['sheets']:
+                    if sheet_info['properties']['title'] == WORKSHEET_NAME:
+                        worksheet_id = sheet_info['properties']['sheetId']
+                        break
+                
+                if worksheet_id is not None:
+                    # Get merged cells for this worksheet
+                    merged_ranges = []
+                    for sheet_info in spreadsheet_data['sheets']:
+                        if sheet_info['properties']['sheetId'] == worksheet_id:
+                            merges = sheet_info.get('merges', [])
+                            for merge in merges:
+                                merged_ranges.append({
+                                    'start_row_index': merge['startRowIndex'],
+                                    'end_row_index': merge['endRowIndex'],
+                                    'start_column_index': merge['startColumnIndex'],
+                                    'end_column_index': merge['endColumnIndex']
+                                })
+                            break
+                    
+                    # Find the merged range containing our concept
+                    merged_range = None
+                    for merge_range in merged_ranges:
+                        if (merge_range['start_row_index'] < first_occurrence_row <= merge_range['end_row_index'] and
+                            merge_range['start_column_index'] == 0):  # Column A
+                            merged_range = merge_range
+                            break
+                    
+                    last_row_of_concept = merged_range['end_row_index'] if merged_range else first_occurrence_row
+                else:
+                    # Fallback: assume no merging
+                    last_row_of_concept = first_occurrence_row
+                    
+            except Exception as api_error:
+                print(f"Warning: Could not get merged cells info: {api_error}")
+                # Fallback: find the last row with the same concept by scanning
+                last_row_of_concept = first_occurrence_row
+                for i in range(first_occurrence_row, len(all_values)):
+                    if i < len(all_values) and (not all_values[i][0] or all_values[i][0] == concept_name):
+                        last_row_of_concept = i + 1
+                    else:
+                        break
             
             highest_version = 0
             for i in range(first_occurrence_row - 1, last_row_of_concept):
-                if len(all_values[i]) > 1 and all_values[i][1].startswith('v'):
+                if i < len(all_values) and len(all_values[i]) > 1 and all_values[i][1].startswith('v'):
                     try:
                         version_num = int(all_values[i][1][1:])
                         if version_num > highest_version: highest_version = version_num
@@ -125,12 +178,21 @@ def write_to_google_sheets(concept_name, data_rows, creds):
         # Add the concept name to the first new row and merge
         sheet.update_cell(insert_row_index, 1, concept_name)
         if is_existing_project:
-            sheet.merge_cells(f'A{first_occurrence_row}:A{end_row_index}')
+            try:
+                sheet.merge_cells(f'A{first_occurrence_row}:A{end_row_index}')
+            except Exception as merge_error:
+                print(f"Warning: Could not merge cells: {merge_error}")
         elif len(rows_to_insert) > 1:
-            sheet.merge_cells(f'A{insert_row_index}:A{end_row_index}')
+            try:
+                sheet.merge_cells(f'A{insert_row_index}:A{end_row_index}')
+            except Exception as merge_error:
+                print(f"Warning: Could not merge cells: {merge_error}")
 
         # Add border
-        sheet.format(f'A{insert_row_index}:D{end_row_index}', {"borders": {"top": {"style": "SOLID"}, "bottom": {"style": "SOLID"}, "left": {"style": "SOLID"}, "right": {"style": "SOLID"}}})
+        try:
+            sheet.format(f'A{insert_row_index}:D{end_row_index}', {"borders": {"top": {"style": "SOLID"}, "bottom": {"style": "SOLID"}, "left": {"style": "SOLID"}, "right": {"style": "SOLID"}}})
+        except Exception as format_error:
+            print(f"Warning: Could not format borders: {format_error}")
 
         return None, start_version
     except gspread.exceptions.WorksheetNotFound:
