@@ -1,3 +1,4 @@
+# app/src/automation/api_clients.py - Updated with Activity Monitoring
 import os
 import re
 import gspread
@@ -53,38 +54,81 @@ def get_trello_card_data(card_id):
     except requests.exceptions.RequestException as e:
         return None, f"Trello API request failed: {e}"
 
-def download_files_from_gdrive(folder_url, creds):
-    """Downloads all video files from a Google Drive folder."""
-    if not creds: return None, "Google credentials not available."
+def download_files_from_gdrive(folder_url, creds, monitor=None):
+    """Downloads all video files from a Google Drive folder with activity monitoring."""
+    if not creds: 
+        return None, "Google credentials not available."
+    
     try:
+        if monitor:
+            monitor.update_activity("Connecting to Google Drive...")
+        
         drive_service = build("drive", "v3", credentials=creds)
         folder_id = folder_url.split('/')[-1]
         os.makedirs(DOWNLOADS_DIR, exist_ok=True)
+        
+        if monitor:
+            monitor.update_activity("Searching for video files...")
+        
         query = f"'{folder_id}' in parents and mimeType contains 'video/'"
-        results = drive_service.files().list(q=query, fields="files(id, name)").execute()
+        results = drive_service.files().list(q=query, fields="files(id, name, size)").execute()
         items = results.get("files", [])
-        if not items: return None, "No video files found in the Google Drive folder."
+        
+        if not items: 
+            return None, "No video files found in the Google Drive folder."
+        
+        if monitor:
+            monitor.update_activity(f"Found {len(items)} video files to download")
         
         downloaded_files = []
-        for item in items:
+        for i, item in enumerate(items):
             file_id, file_name = item['id'], item['name']
+            file_size = int(item.get('size', 0))
             local_path = os.path.join(DOWNLOADS_DIR, file_name)
+            
+            if monitor:
+                monitor.update_activity(f"Starting download: {file_name}")
+            
             print(f"Downloading {file_name}...")
             request = drive_service.files().get_media(fileId=file_id)
+            
             with open(local_path, "wb") as f:
                 downloader = MediaIoBaseDownload(f, request)
                 done = False
+                last_progress = 0
+                
                 while not done:
                     status, done = downloader.next_chunk()
-                    if status: print(f"Download {int(status.progress() * 100)}%.")
+                    if status:
+                        progress = int(status.progress() * 100)
+                        
+                        # Update activity for significant progress changes
+                        if progress - last_progress >= 5 or done:  # Every 5% or when done
+                            if monitor:
+                                monitor.update_activity(f"Downloading {file_name}: {progress}%")
+                            print(f"Download {progress}%.")
+                            last_progress = progress
+            
             downloaded_files.append(local_path)
+            
+            if monitor:
+                monitor.update_activity(f"Completed: {file_name} ({i+1}/{len(items)})")
+        
+        if monitor:
+            monitor.update_activity(f"All downloads completed: {len(downloaded_files)} files")
+        
         return downloaded_files, None
+        
     except HttpError as e:
         return None, f"Google Drive API error: {e}"
+    except Exception as e:
+        return None, f"Unexpected download error: {e}"
 
 def write_to_google_sheets(concept_name, data_rows, creds):
     """Intelligently finds and updates a project in Google Sheets."""
-    if not creds: return "Google credentials not available.", 1
+    if not creds: 
+        return "Google credentials not available.", 1
+    
     try:
         client = gspread.authorize(creds)
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
@@ -135,7 +179,8 @@ def write_to_google_sheets(concept_name, data_rows, creds):
         except ValueError:
             print(f"Project '{concept_name}' not found. Creating new entry.")
 
-        if not data_rows: return None, start_version
+        if not data_rows: 
+            return None, start_version
 
         # Find the absolute last row with any content
         last_content_row = 0
