@@ -102,11 +102,14 @@ class UnifiedWorkflowDialog:
 
     def _check_ui_queue(self):
         try:
-            result = self._ui_queue.get_nowait()
-            self._on_processing_complete(result)   # safe UI update
+            task = self._ui_queue.get_nowait()
+            if callable(task):          # it’s a function → just run it
+                task()
+            else:                       # it’s a ProcessingResult → finish up
+                self._on_processing_complete(task)
         except Empty:
             pass
-        self.root.after(100, self._check_ui_queue)  # keep polling
+        self.root.after(100, self._check_ui_queue)   # keep listening
     
     def _center_window(self):
         """Center dialog on screen"""
@@ -319,11 +322,10 @@ class UnifiedWorkflowDialog:
                         self.root.after(2000, lambda: self._show_results(result))
             except Exception:
                 # Fallback - go directly to results
-                self._show_results(result)
-        
+                self._ui_queue.put(update_ui)
         try:
             if hasattr(self, 'root') and self.root:
-                self.root.after(0, update_ui)
+                self._ui_queue.put(update_ui)
             else:
                 # Fallback if no root
                 self._show_results(result)
@@ -487,7 +489,8 @@ class UnifiedWorkflowDialog:
                 if not self.is_cancelled:
                     # Schedule error handling on main thread
                     try:
-                        self.root.after(0, lambda: self._on_processing_error(str(e)))
+                        self._ui_queue.put(lambda:
+                        self._on_processing_error(str(e)))
                     except:
                         pass  # will add logic later
         
@@ -511,10 +514,10 @@ class UnifiedWorkflowDialog:
             elapsed = time.time() - self.start_time
             # Use proper thread-safe update
             try:
-                self.root.after(0, lambda p=progress, m=message, e=elapsed: 
-                               self._update_progress(p, m, e))
+                self._ui_queue.put(lambda p=progress, m=message, e=elapsed: 
+                self._update_progress(p, m, e))
             except:
-                pass
+                pass 
             time.sleep(1)
         
         # Create mock result
@@ -558,7 +561,7 @@ class UnifiedWorkflowDialog:
                 if not self.is_cancelled:
                     # Schedule error handling on main thread
                     try:
-                        self.root.after(0, lambda: self._on_processing_error(str(e)))
+                        self._ui_queue.put(lambda: self._on_processing_error(str(e)))
                     except:
                         pass # will add logic later
 
@@ -585,7 +588,7 @@ class UnifiedWorkflowDialog:
         
         try:
             if hasattr(self, 'root') and self.root:
-                self.root.after(0, update_ui)
+                self._ui_queue.put(update_ui)
         except Exception:
             # Silently ignore scheduling errors
             pass
@@ -609,7 +612,7 @@ class UnifiedWorkflowDialog:
         
         try:
             if hasattr(self, 'root') and self.root:
-                self.root.after(0, update_ui)
+                self._ui_queue.put(update_ui)
         except Exception:
             pass
     

@@ -30,4 +30,4 @@ class ProcessingResult:
     processed_files: List[Dict]  # {version, source_file, output_name, description}
     output_folder: str
     error_message: str = ""
-    error_solution: str = ""
+    error_solution: str = ""    
