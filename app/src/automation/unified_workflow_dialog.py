@@ -476,7 +476,7 @@ class UnifiedWorkflowDialog:
                     try:
                         self.root.after(0, lambda: self._on_processing_error(str(e)))
                     except:
-                        pass
+                        pass  # will add logic later
         
         thread = threading.Thread(target=process, daemon=True)
         thread.start()
@@ -547,9 +547,8 @@ class UnifiedWorkflowDialog:
                     try:
                         self.root.after(0, lambda: self._on_processing_error(str(e)))
                     except:
-                        pass
+                        pass # will add logic later
 
-        
     def _update_progress(self, progress: float, step_text: str = "", elapsed_time: float = 0):
         """Update progress display - thread-safe with better error handling"""
         if self.is_cancelled or not self.processing_tab:
