@@ -1,4 +1,4 @@
-# app/src/automation/unified_workflow_dialog.py - Modular Main Dialog
+# app/src/automation/unified_workflow_dialog.py - FIXED Syntax Error
 import tkinter as tk
 from tkinter import ttk, messagebox
 import time
@@ -236,18 +236,18 @@ class UnifiedWorkflowDialog:
         self.confirmation_buttons = button_frame
     
     def _add_processing_buttons(self, parent):
-        """Add cancel button to processing tab (removed skip for production)"""
-    cancel_frame = ttk.Frame(parent, style='White.TFrame')
-    cancel_frame.pack(fill=tk.X, pady=30)
-    
-    cancel_container = ttk.Frame(cancel_frame, style='White.TFrame')
-    cancel_container.pack()
-    
-    # Only cancel button for production - no skip button
-    self.processing_tab.cancel_btn = ttk.Button(cancel_container, text="❌ Cancel", 
-                                               style='Secondary.TButton',
-                                               command=self._on_cancel)
-    self.processing_tab.cancel_btn.pack()
+        """Add cancel button to processing tab (removed skip for production) - FIXED SYNTAX"""
+        cancel_frame = ttk.Frame(parent, style='White.TFrame')
+        cancel_frame.pack(fill=tk.X, pady=30)
+        
+        cancel_container = ttk.Frame(cancel_frame, style='White.TFrame')
+        cancel_container.pack()
+        
+        # Only cancel button for production - no skip button
+        self.processing_tab.cancel_btn = ttk.Button(cancel_container, text="❌ Cancel", 
+                                                   style='Secondary.TButton',
+                                                   command=self._on_cancel)
+        self.processing_tab.cancel_btn.pack()
     
     def _update_tab_buttons(self, active_tab):
         """Update tab button appearance and enable/disable properly - FIXED"""
@@ -536,38 +536,6 @@ class UnifiedWorkflowDialog:
             # Silently ignore scheduling errors
             pass
     
-    def _on_processing_complete(self, result: ProcessingResult):
-        """Handle successful processing completion - thread-safe with better error handling"""
-        def update_ui():
-            try:
-                if not self.is_cancelled and hasattr(self, 'processing_tab') and self.processing_tab:
-                    if hasattr(self.processing_tab, 'update_progress'):
-                        self.processing_tab.update_progress(100, "Processing completed successfully!")
-                    
-                    if hasattr(self.processing_tab, 'cancel_btn') and self.processing_tab.cancel_btn:
-                        try:
-                            self.processing_tab.cancel_btn.config(text="✅ Continue", 
-                                                                 command=lambda: self._show_results(result))
-                        except:
-                            pass
-                    
-                    # Auto-advance to results after 2 seconds
-                    if hasattr(self, 'root') and self.root:
-                        self.root.after(2000, lambda: self._show_results(result))
-            except Exception:
-                # Fallback - go directly to results
-                self._show_results(result)
-        
-        try:
-            if hasattr(self, 'root') and self.root:
-                self.root.after(0, update_ui)
-            else:
-                # Fallback if no root
-                self._show_results(result)
-        except Exception:
-            # Ultimate fallback
-            self._show_results(result)
-    
     def _on_processing_error(self, error_message: str):
         """Handle processing error - thread-safe with better error handling"""
         def update_ui():
@@ -590,23 +558,6 @@ class UnifiedWorkflowDialog:
                 self.root.after(0, update_ui)
         except Exception:
             pass
-    
-    def _show_results(self, result: ProcessingResult):
-        """Show results tab"""
-        self._show_tab(2)
-        
-        if result.success:
-            self.results_tab.show_success_results(
-                result,
-                on_open_folder=open_folder,
-                on_done=self._on_success_close
-            )
-        else:
-            self.results_tab.show_error_results(
-                result,
-                on_copy_error=lambda msg: copy_to_clipboard(self.root, msg),
-                on_close=self._on_error_close
-            )
     
     def _generate_error_solution(self, error_message: str) -> str:
         """Generate error solutions based on message content"""

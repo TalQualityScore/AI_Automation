@@ -85,7 +85,7 @@ class AutomationOrchestrator:
             return success
             
         except Exception as e:
-            self._handle_error(e, trello_card_id)
+            self._handle_automation_error(e, trello_card_id)
             return False
     
     def execute(self, trello_card_id):
@@ -123,7 +123,7 @@ class AutomationOrchestrator:
             print("="*60)
             
         except Exception as e:
-            self._handle_error(e, trello_card_id)
+            self._handle_automation_error(e, trello_card_id)
     
     def _prepare_confirmation_data(self):
         """Prepare data for the confirmation dialog"""
@@ -616,6 +616,23 @@ def _setup_project_with_progress(self, card_data, project_info, progress_callbac
             f.write(f"Traceback:\n{traceback.format_exc()}\n")
         
         print(f"📝 Error logged to: {error_log_path}")
+    def _handle_automation_error(self, error, trello_card_id):
+        """Handle and log errors with detailed information"""
+        print("\n" + "="*60)
+        print("❌ AUTOMATION FAILED")
+        print("="*60)
+        print(f"Error: {str(error)}")
+        print(f"Card ID: {trello_card_id}")
+        
+        # Log error for debugging
+        error_log_path = "automation_error.log"
+        with open(error_log_path, "a", encoding="utf-8") as f:
+            f.write(f"\n--- ERROR at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---\n")
+            f.write(f"Card ID: {trello_card_id}\n")
+            f.write(f"Error: {str(error)}\n")
+        
+        print(f"📝 Error logged to: {error_log_path}")
+
 
 def main(card_id=None, use_ui=True):
     """Main entry point for automation - FIXED SIGNATURE"""
