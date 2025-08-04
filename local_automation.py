@@ -1,4 +1,4 @@
-# local_automation.py - Enhanced entry point with UI integration
+# local_automation.py - FIXED entry point with UI integration
 import sys
 import os
 
@@ -12,11 +12,13 @@ def show_usage():
     print("🎬 AI Automation Suite - Production Ready")
     print("=" * 50)
     print("Usage:")
-    print("  python local_automation.py <TRELLO_CARD_ID>              # UI Mode (recommended)")
+    print("  python local_automation.py                               # UI Mode (shows Trello popup)")
+    print("  python local_automation.py <TRELLO_CARD_ID>              # UI Mode with card ID")
     print("  python local_automation.py <TRELLO_CARD_ID> --headless   # Headless Mode")
     print("  python local_automation.py --test                        # Run Integration Tests")
     print()
     print("Examples:")
+    print("  python local_automation.py                               # Opens Trello card popup")
     print("  python local_automation.py 'abc123xyz'")
     print("  python local_automation.py 'abc123xyz' --headless") 
     print("  python local_automation.py --test")
@@ -29,30 +31,47 @@ def show_usage():
 def run_integration_tests():
     """Run the integration test suite"""
     try:
-        from test_integration_fixed import run_all_tests
+        from test_integration import run_all_tests
         print("🧪 Starting Integration Test Suite...")
         print("-" * 50)
         run_all_tests()
     except ImportError as e:
         print(f"❌ Could not import test suite: {e}")
-        print("Make sure test_integration_fixed.py is in the project root.")
+        print("Make sure test_integration.py is in the project root.")
     except Exception as e:
         print(f"❌ Test suite failed: {e}")
 
 if __name__ == "__main__":
-    # Handle special cases
-    if len(sys.argv) < 2:
-        show_usage()
-        sys.exit(1)
+    # FIXED: Handle no arguments case - show UI with popup
+    if len(sys.argv) == 1:
+        # No arguments provided - show UI with Trello card popup
+        print("🚀 Starting AI Automation Suite (UI Mode with Trello Card Popup)")
+        print("-" * 50)
+        try:
+            success = main(card_id=None, use_ui=True)  # This will trigger the popup
+            if success:
+                print("\n🎉 Automation completed successfully!")
+            else:
+                print("\n❌ Automation was cancelled or failed.")
+        except KeyboardInterrupt:
+            print("\n⚠️ Automation interrupted by user.")
+            sys.exit(1)
+        except Exception as e:
+            print(f"\n❌ Automation failed: {e}")
+            sys.exit(1)
+        sys.exit(0)
     
-    # Check for test mode
+    # Check for special flags
+    if "--help" in sys.argv or "-h" in sys.argv:
+        show_usage()
+        sys.exit(0)
+        
     if "--test" in sys.argv:
         run_integration_tests()
         sys.exit(0)
     
-    # Get card ID and determine mode
+    # Handle arguments provided
     card_id = sys.argv[1]
-    use_ui = "--headless" not in sys.argv
     
     # Validate card ID
     if not card_id or card_id.startswith('--'):
@@ -60,8 +79,10 @@ if __name__ == "__main__":
         show_usage()
         sys.exit(1)
     
-    # Show mode information
+    # Determine mode
+    use_ui = "--headless" not in sys.argv
     mode = "UI Mode" if use_ui else "Headless Mode"
+    
     print(f"🚀 Starting AI Automation Suite ({mode})")
     print(f"📋 Card ID: {card_id}")
     print("-" * 50)
