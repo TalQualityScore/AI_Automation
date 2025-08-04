@@ -42,8 +42,17 @@ class AutomationOrchestrator:
         self.creds = None
         self.processed_files = None
     
-    def execute_with_ui(self, trello_card_id):
+    def execute_with_ui(self, trello_card_id=None):
         """Execute automation with UI workflow"""
+        
+        # If no card ID provided, show popup to get it
+        if not trello_card_id:
+            print("🎬 Starting AI Automation Suite - Getting Trello Card...")
+            trello_card_id = UnifiedWorkflowDialog.get_trello_card_id()
+            if not trello_card_id:
+                print("❌ No Trello card ID provided. Automation cancelled.")
+                return False
+        
         self.trello_card_id = trello_card_id
         self.start_time = time.time()
         

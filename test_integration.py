@@ -6,8 +6,8 @@ import time
 # Add the project root to Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from app.src.automation.unified_workflow_dialog import (
-    UnifiedWorkflowDialog, 
+from app.src.automation.unified_workflow_dialog import UnifiedWorkflowDialog
+from app.src.automation.workflow_data_models import (
     ConfirmationData, 
     ValidationIssue,
     ProcessingResult

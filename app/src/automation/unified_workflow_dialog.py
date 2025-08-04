@@ -10,6 +10,7 @@ from .workflow_ui_components import (
     WorkflowTheme, ConfirmationTab, ProcessingTab, ResultsTab, 
     NotificationPopup, open_folder, copy_to_clipboard
 )
+from .trello_card_popup import TrelloCardPopup
 
 class UnifiedWorkflowDialog:
     """Main workflow dialog controller - simplified and focused"""
@@ -38,6 +39,12 @@ class UnifiedWorkflowDialog:
         self.start_time = None
         self.is_cancelled = False
         
+    @staticmethod
+    def get_trello_card_id(parent=None):
+        """Static method to get Trello card ID before starting workflow"""
+        popup = TrelloCardPopup(parent)
+        return popup.show_popup()
+    
     def show_workflow(self, confirmation_data: ConfirmationData, processing_callback: Callable) -> bool:
         """Main entry point - show unified workflow"""
         self.confirmation_data = confirmation_data
@@ -83,7 +90,7 @@ class UnifiedWorkflowDialog:
         self.root.geometry(f"600x800+{x}+{y}")
     
     def _create_header(self):
-        """Create header with title and notification icon"""
+        """Create header with title and notification icons"""
         header_frame = ttk.Frame(self.root, style='White.TFrame')
         header_frame.pack(fill=tk.X, padx=40, pady=(30, 0))
         
@@ -101,11 +108,21 @@ class UnifiedWorkflowDialog:
         ttk.Label(text_frame, text="AI Automation Workflow", style='Header.TLabel').pack(anchor=tk.W)
         ttk.Label(text_frame, text="Confirm → Process → Results", style='Subheader.TLabel').pack(anchor=tk.W)
         
-        # Notification icon
-        notification_icon = ttk.Label(title_container, text="📧", font=('Segoe UI', 20),
-                                     style='Body.TLabel', cursor="hand2")
-        notification_icon.pack(side=tk.RIGHT)
-        notification_icon.bind("<Button-1>", self._show_notification_popup)
+        # Notification icons container
+        notification_frame = ttk.Frame(title_container, style='White.TFrame')
+        notification_frame.pack(side=tk.RIGHT)
+        
+        # Slack icon
+        slack_icon = ttk.Label(notification_frame, text="💬", font=('Segoe UI', 18),
+                              style='Body.TLabel', cursor="hand2")
+        slack_icon.pack(side=tk.RIGHT, padx=(0, 10))
+        slack_icon.bind("<Button-1>", self._show_slack_popup)
+        
+        # Email icon
+        email_icon = ttk.Label(notification_frame, text="📧", font=('Segoe UI', 18),
+                              style='Body.TLabel', cursor="hand2")
+        email_icon.pack(side=tk.RIGHT, padx=(0, 5))
+        email_icon.bind("<Button-1>", self._show_email_popup)
     
     def _create_tab_navigation(self):
         """Create tab navigation buttons"""
@@ -149,6 +166,11 @@ class UnifiedWorkflowDialog:
     
     def _show_tab(self, tab_index):
         """Show specified tab and update navigation"""
+        # Clean up any existing confirmation buttons first
+        if hasattr(self, 'confirmation_buttons'):
+            self.confirmation_buttons.destroy()
+            delattr(self, 'confirmation_buttons')
+        
         # Hide all existing frames
         for widget in self.content_container.winfo_children():
             widget.pack_forget()
@@ -159,8 +181,9 @@ class UnifiedWorkflowDialog:
             frame = self.confirmation_tab.create_tab()
             frame.pack(fill=tk.BOTH, expand=True)
             
-            # Add action buttons
-            self._add_confirmation_buttons(frame)
+            # Only add buttons if we haven't started processing yet
+            if self.current_tab == 0 and not hasattr(self, 'processing_started'):
+                self._add_confirmation_buttons()
             
         elif tab_index == 1:
             # Processing tab
@@ -179,10 +202,11 @@ class UnifiedWorkflowDialog:
         self._update_tab_buttons(tab_index)
         self.current_tab = tab_index
     
-    def _add_confirmation_buttons(self, parent):
-        """Add action buttons to confirmation tab"""
-        button_frame = ttk.Frame(parent, style='White.TFrame')
-        button_frame.pack(fill=tk.X, pady=(20, 0))
+    def _add_confirmation_buttons(self):
+        """Add action buttons to confirmation tab - FIXED: Outside scrollable area"""
+        # Create button frame at root level, not inside tab content
+        button_frame = ttk.Frame(self.root, style='White.TFrame')
+        button_frame.pack(fill=tk.X, padx=40, pady=(0, 30), side=tk.BOTTOM)
         
         button_container = ttk.Frame(button_frame, style='White.TFrame')
         button_container.pack()
@@ -194,43 +218,158 @@ class UnifiedWorkflowDialog:
                                 style='Accent.TButton', command=self._on_confirm)
         confirm_btn.pack(side=tk.LEFT)
         confirm_btn.focus_set()
+        
+        # Store reference for cleanup
+        self.confirmation_buttons = button_frame
     
     def _add_processing_buttons(self, parent):
-        """Add cancel button to processing tab"""
+        """Add cancel and skip buttons to processing tab"""
         cancel_frame = ttk.Frame(parent, style='White.TFrame')
         cancel_frame.pack(fill=tk.X, pady=30)
         
         cancel_container = ttk.Frame(cancel_frame, style='White.TFrame')
         cancel_container.pack()
         
+        # Skip button for testing
+        self.processing_tab.skip_btn = ttk.Button(cancel_container, text="⏭️ Skip (Test)", 
+                                                 style='Accent.TButton',
+                                                 command=self._on_skip)
+        self.processing_tab.skip_btn.pack(side=tk.LEFT, padx=(0, 15))
+        
         self.processing_tab.cancel_btn = ttk.Button(cancel_container, text="❌ Cancel", 
                                                    style='Secondary.TButton',
                                                    command=self._on_cancel)
-        self.processing_tab.cancel_btn.pack()
+        self.processing_tab.cancel_btn.pack(side=tk.LEFT)
     
     def _update_tab_buttons(self, active_tab):
-        """Update tab button appearance"""
+        """Update tab button appearance and enable/disable properly"""
         for idx, btn in self.tab_buttons.items():
             if idx == active_tab:
+                # Active tab
                 btn.configure(bg=self.theme.colors['tab_active'], 
-                             fg=self.theme.colors['text_primary'])
+                             fg=self.theme.colors['text_primary'],
+                             state='normal')
+            elif hasattr(self, 'processing_started') and self.processing_started:
+                # During processing: allow navigation between confirmation and processing
+                if idx <= 1:  # Confirmation (0) and Processing (1) tabs
+                    btn.configure(bg=self.theme.colors['tab_inactive'], 
+                                 fg=self.theme.colors['text_secondary'],
+                                 state='normal')
+                else:  # Results tab (2) - disabled until processing complete
+                    btn.configure(bg=self.theme.colors['tab_inactive'], 
+                                 fg=self.theme.colors['text_secondary'], 
+                                 state='disabled')
             elif idx < active_tab:
                 # Previous tabs - accessible
                 btn.configure(bg=self.theme.colors['tab_inactive'], 
-                             fg=self.theme.colors['text_secondary'])
+                             fg=self.theme.colors['text_secondary'],
+                             state='normal')
             else:
                 # Future tabs - disabled
                 btn.configure(bg=self.theme.colors['tab_inactive'], 
                              fg=self.theme.colors['text_secondary'], 
                              state='disabled')
     
-    def _show_notification_popup(self, event):
-        """Show notification settings popup"""
-        popup = NotificationPopup(self.root, self.notification_settings, self.theme)
-        popup.show_popup()
+    def _show_email_popup(self, event):
+        """Show email notification popup"""
+        popup = tk.Toplevel(self.root)
+        popup.title("Email Notifications")
+        popup.geometry("400x200")
+        popup.resizable(False, False)
+        popup.configure(bg=self.theme.colors['bg'])
+        
+        # Center popup
+        popup.transient(self.root)
+        popup.grab_set()
+        
+        x = self.root.winfo_x() + 100
+        y = self.root.winfo_y() + 100
+        popup.geometry(f"400x200+{x}+{y}")
+        
+        main_frame = ttk.Frame(popup, style='White.TFrame', padding=20)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        ttk.Label(main_frame, text="📧 Email Notifications", style='Body.TLabel',
+                 font=('Segoe UI', 14, 'bold')).pack(pady=(0, 20))
+        
+        # Email settings
+        email_var = tk.BooleanVar(value=self.notification_settings['email']['enabled'])
+        email_check = ttk.Checkbutton(main_frame, text="Enable email notifications", 
+                                     variable=email_var)
+        email_check.pack(anchor=tk.W, pady=(0, 10))
+        
+        ttk.Label(main_frame, text="Email address:", style='Body.TLabel').pack(anchor=tk.W)
+        email_entry = ttk.Entry(main_frame, width=40)
+        email_entry.pack(fill=tk.X, pady=(5, 20))
+        email_entry.insert(0, self.notification_settings['email']['address'] or "your.email@domain.com")
+        
+        # Buttons
+        button_frame = ttk.Frame(main_frame, style='White.TFrame')
+        button_frame.pack(fill=tk.X)
+        
+        def save_email():
+            self.notification_settings['email']['enabled'] = email_var.get()
+            self.notification_settings['email']['address'] = email_entry.get()
+            popup.destroy()
+        
+        ttk.Button(button_frame, text="Cancel", command=popup.destroy).pack(side=tk.RIGHT, padx=(10, 0))
+        ttk.Button(button_frame, text="Save", command=save_email).pack(side=tk.RIGHT)
+    
+    def _show_slack_popup(self, event):
+        """Show Slack notification popup"""
+        popup = tk.Toplevel(self.root)
+        popup.title("Slack Notifications")
+        popup.geometry("400x200")
+        popup.resizable(False, False)
+        popup.configure(bg=self.theme.colors['bg'])
+        
+        # Center popup
+        popup.transient(self.root)
+        popup.grab_set()
+        
+        x = self.root.winfo_x() + 150
+        y = self.root.winfo_y() + 100
+        popup.geometry(f"400x200+{x}+{y}")
+        
+        main_frame = ttk.Frame(popup, style='White.TFrame', padding=20)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        ttk.Label(main_frame, text="💬 Slack Notifications", style='Body.TLabel',
+                 font=('Segoe UI', 14, 'bold')).pack(pady=(0, 20))
+        
+        # Slack settings
+        slack_var = tk.BooleanVar(value=self.notification_settings['slack']['enabled'])
+        slack_check = ttk.Checkbutton(main_frame, text="Enable Slack notifications",
+                                     variable=slack_var)
+        slack_check.pack(anchor=tk.W, pady=(0, 10))
+        
+        ttk.Label(main_frame, text="Slack webhook URL:", style='Body.TLabel').pack(anchor=tk.W)
+        slack_entry = ttk.Entry(main_frame, width=40)
+        slack_entry.pack(fill=tk.X, pady=(5, 20))
+        slack_entry.insert(0, self.notification_settings['slack']['webhook'] or "https://hooks.slack.com/...")
+        
+        # Buttons
+        button_frame = ttk.Frame(main_frame, style='White.TFrame')
+        button_frame.pack(fill=tk.X)
+        
+        def save_slack():
+            self.notification_settings['slack']['enabled'] = slack_var.get()
+            self.notification_settings['slack']['webhook'] = slack_entry.get()
+            popup.destroy()
+        
+        ttk.Button(button_frame, text="Cancel", command=popup.destroy).pack(side=tk.RIGHT, padx=(10, 0))
+        ttk.Button(button_frame, text="Save", command=save_slack).pack(side=tk.RIGHT)
     
     def _on_confirm(self):
         """Handle confirm button - start processing"""
+        # Mark that processing has started
+        self.processing_started = True
+        
+        # Clean up confirmation buttons before switching tabs
+        if hasattr(self, 'confirmation_buttons'):
+            self.confirmation_buttons.destroy()
+            delattr(self, 'confirmation_buttons')
+        
         self._show_tab(1)
         self.start_time = time.time()
         self._start_processing()
@@ -241,13 +380,21 @@ class UnifiedWorkflowDialog:
             try:
                 if self.processing_callback:
                     result = self.processing_callback(self._update_progress)
-                    self.root.after(0, lambda: self._on_processing_complete(result))
+                    # Schedule completion on main thread
+                    try:
+                        self.root.after(0, lambda: self._on_processing_complete(result))
+                    except:
+                        pass
                 else:
                     self._simulate_processing()
                     
             except Exception as e:
                 if not self.is_cancelled:
-                    self.root.after(0, lambda: self._on_processing_error(str(e)))
+                    # Schedule error handling on main thread
+                    try:
+                        self.root.after(0, lambda: self._on_processing_error(str(e)))
+                    except:
+                        pass
         
         thread = threading.Thread(target=process, daemon=True)
         thread.start()
@@ -267,8 +414,12 @@ class UnifiedWorkflowDialog:
                 return
             
             elapsed = time.time() - self.start_time
-            self.root.after(0, lambda p=progress, m=message, e=elapsed: 
-                           self._update_progress(p, m, e))
+            # Use proper thread-safe update
+            try:
+                self.root.after(0, lambda p=progress, m=message, e=elapsed: 
+                               self._update_progress(p, m, e))
+            except:
+                pass
             time.sleep(1)
         
         # Create mock result
@@ -284,41 +435,122 @@ class UnifiedWorkflowDialog:
             output_folder=r"C:\Users\Desktop\Test Output"
         )
         
-        self.root.after(0, lambda: self._on_processing_complete(result))
+        try:
+            self.root.after(0, lambda: self._on_processing_complete(result))
+        except:
+            pass
+    
+    def _on_skip(self):
+        """Handle skip button - for testing purposes"""
+        # Create a mock successful result
+        mock_result = ProcessingResult(
+            success=True,
+            duration="Skipped (Test Mode)",
+            processed_files=[
+                {
+                    'version': 'v01',
+                    'source_file': 'test_video_1.mp4',
+                    'output_name': 'GH-testproject_v01-m01-f00-c00',
+                    'description': 'Test video processed successfully'
+                },
+                {
+                    'version': 'v02', 
+                    'source_file': 'test_video_2.mp4',
+                    'output_name': 'GH-testproject_v02-m01-f00-c00',
+                    'description': 'Test video processed successfully'
+                }
+            ],
+            output_folder=r"C:\Users\Desktop\Test Output Folder"
+        )
+        
+        # Cancel any ongoing processing
+        self.is_cancelled = True
+        
+        # Show results immediately
+        self._show_results(mock_result)
     
     def _update_progress(self, progress: float, step_text: str = "", elapsed_time: float = 0):
-        """Update progress display"""
+        """Update progress display - thread-safe with better error handling"""
         if self.is_cancelled or not self.processing_tab:
             return
         
-        self.processing_tab.update_progress(progress, step_text, elapsed_time)
+        # Schedule UI update on main thread with better error handling
+        def update_ui():
+            try:
+                if not self.is_cancelled and self.processing_tab and hasattr(self.processing_tab, 'update_progress'):
+                    self.processing_tab.update_progress(progress, step_text, elapsed_time)
+                    
+                    # Update cancel button text
+                    if progress > 80 and hasattr(self.processing_tab, 'cancel_btn') and self.processing_tab.cancel_btn:
+                        try:
+                            self.processing_tab.cancel_btn.config(text="❌ Cancel (Almost done...)")
+                        except:
+                            pass
+            except Exception:
+                # Silently ignore UI update errors
+                pass
         
-        # Update cancel button text
-        if progress > 80 and self.processing_tab.cancel_btn:
-            self.processing_tab.cancel_btn.config(text="❌ Cancel (Almost done...)")
+        try:
+            if hasattr(self, 'root') and self.root:
+                self.root.after(0, update_ui)
+        except Exception:
+            # Silently ignore scheduling errors
+            pass
     
     def _on_processing_complete(self, result: ProcessingResult):
-        """Handle successful processing completion"""
-        self.processing_tab.update_progress(100, "Processing completed successfully!")
+        """Handle successful processing completion - thread-safe with better error handling"""
+        def update_ui():
+            try:
+                if not self.is_cancelled and hasattr(self, 'processing_tab') and self.processing_tab:
+                    if hasattr(self.processing_tab, 'update_progress'):
+                        self.processing_tab.update_progress(100, "Processing completed successfully!")
+                    
+                    if hasattr(self.processing_tab, 'cancel_btn') and self.processing_tab.cancel_btn:
+                        try:
+                            self.processing_tab.cancel_btn.config(text="✅ Continue", 
+                                                                 command=lambda: self._show_results(result))
+                        except:
+                            pass
+                    
+                    # Auto-advance to results after 2 seconds
+                    if hasattr(self, 'root') and self.root:
+                        self.root.after(2000, lambda: self._show_results(result))
+            except Exception:
+                # Fallback - go directly to results
+                self._show_results(result)
         
-        if self.processing_tab.cancel_btn:
-            self.processing_tab.cancel_btn.config(text="✅ Continue", 
-                                                 command=lambda: self._show_results(result))
-        
-        # Auto-advance to results after 2 seconds
-        self.root.after(2000, lambda: self._show_results(result))
+        try:
+            if hasattr(self, 'root') and self.root:
+                self.root.after(0, update_ui)
+            else:
+                # Fallback if no root
+                self._show_results(result)
+        except Exception:
+            # Ultimate fallback
+            self._show_results(result)
     
     def _on_processing_error(self, error_message: str):
-        """Handle processing error"""
-        error_result = ProcessingResult(
-            success=False,
-            duration="",
-            processed_files=[],
-            output_folder="",
-            error_message=error_message,
-            error_solution=self._generate_error_solution(error_message)
-        )
-        self._show_results(error_result)
+        """Handle processing error - thread-safe with better error handling"""
+        def update_ui():
+            try:
+                error_result = ProcessingResult(
+                    success=False,
+                    duration="",
+                    processed_files=[],
+                    output_folder="",
+                    error_message=error_message,
+                    error_solution=self._generate_error_solution(error_message)
+                )
+                self._show_results(error_result)
+            except Exception:
+                # Basic error fallback
+                pass
+        
+        try:
+            if hasattr(self, 'root') and self.root:
+                self.root.after(0, update_ui)
+        except Exception:
+            pass
     
     def _show_results(self, result: ProcessingResult):
         """Show results tab"""

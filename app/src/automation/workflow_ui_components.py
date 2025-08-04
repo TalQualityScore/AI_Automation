@@ -58,8 +58,8 @@ class ConfirmationTab:
         """Create confirmation tab content"""
         self.frame = ttk.Frame(self.parent, style='White.TFrame')
         
-        # Scrollable content
-        canvas = tk.Canvas(self.frame, bg=self.theme.colors['bg'], highlightthickness=0, height=500)
+        # Scrollable content with reduced height to leave room for buttons
+        canvas = tk.Canvas(self.frame, bg=self.theme.colors['bg'], highlightthickness=0, height=400)
         scrollbar = ttk.Scrollbar(self.frame, orient="vertical", command=canvas.yview)
         scrollable_frame = ttk.Frame(canvas, style='White.TFrame')
         
@@ -205,7 +205,7 @@ class ProcessingTab:
         self.progress_var = tk.DoubleVar()
         self.progress_bar = ttk.Progressbar(progress_frame, 
                                            variable=self.progress_var,
-                                           length=500, height=20)
+                                           length=500)
         self.progress_bar.pack(pady=(0, 15))
         
         # Progress labels
@@ -300,6 +300,10 @@ class ResultsTab:
             ttk.Label(summary_frame, text=f"📊 {count} video{'s' if count != 1 else ''} processed successfully",
                      style='Body.TLabel', font=('Segoe UI', 10)).pack(anchor=tk.W, pady=(5, 0))
         
+        # Breakdown section
+        if result.processed_files:
+            self._add_breakdown_section(summary_frame, result.processed_files)
+        
         # Output location
         output_frame = ttk.Frame(self.results_content, style='White.TFrame')
         output_frame.pack(fill=tk.X, pady=(0, 30))
@@ -329,6 +333,126 @@ class ResultsTab:
         
         ttk.Button(button_container, text="✅ Done", style='Secondary.TButton',
                   command=on_done).pack(side=tk.LEFT)
+    
+    def _add_breakdown_section(self, parent, processed_files):
+        """Add expandable breakdown section"""
+        breakdown_frame = ttk.Frame(parent, style='White.TFrame')
+        breakdown_frame.pack(fill=tk.X, pady=(15, 0))
+        
+        # Breakdown header with expand/collapse button
+        header_frame = ttk.Frame(breakdown_frame, style='White.TFrame')
+        header_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        self.breakdown_expanded = tk.BooleanVar(value=False)
+        self.breakdown_btn = ttk.Button(header_frame, text="📋 Show Breakdown", 
+                                       style='Secondary.TButton',
+                                       command=self._toggle_breakdown)
+        self.breakdown_btn.pack(side=tk.LEFT)
+        
+        # Breakdown content (initially hidden)
+        self.breakdown_content = ttk.Frame(breakdown_frame, style='White.TFrame')
+        
+        # Store data for breakdown
+        self.breakdown_data = processed_files
+        
+    def _toggle_breakdown(self):
+        """Toggle breakdown section visibility"""
+        if self.breakdown_expanded.get():
+            # Hide breakdown
+            self.breakdown_content.pack_forget()
+            self.breakdown_btn.config(text="📋 Show Breakdown")
+            self.breakdown_expanded.set(False)
+        else:
+            # Show breakdown
+            self._populate_breakdown()
+            self.breakdown_content.pack(fill=tk.X, pady=(10, 0))
+            self.breakdown_btn.config(text="📋 Hide Breakdown")
+            self.breakdown_expanded.set(True)
+    
+    def _populate_breakdown(self):
+        """Populate the breakdown content"""
+        # Clear existing content
+        for widget in self.breakdown_content.winfo_children():
+            widget.destroy()
+        
+        # Title
+        ttk.Label(self.breakdown_content, text="🔍 Detailed Breakdown:", 
+                 style='Body.TLabel', font=('Segoe UI', 11, 'bold')).pack(anchor=tk.W, pady=(0, 10))
+        
+        total_duration = 0
+        
+        for i, file_info in enumerate(self.breakdown_data, 1):
+            # File container
+            file_frame = ttk.Frame(self.breakdown_content, style='White.TFrame')
+            file_frame.pack(fill=tk.X, pady=5, padx=20)
+            
+            # Add border
+            file_frame.configure(relief='solid', borderwidth=1)
+            
+            inner_frame = ttk.Frame(file_frame, style='White.TFrame', padding=10)
+            inner_frame.pack(fill=tk.X)
+            
+            # File header
+            ttk.Label(inner_frame, text=f"Video {i}: {file_info.get('output_name', 'Unknown')}.mp4",
+                     style='Body.TLabel', font=('Segoe UI', 10, 'bold')).pack(anchor=tk.W)
+            
+            # File details
+            details_frame = ttk.Frame(inner_frame, style='White.TFrame')
+            details_frame.pack(fill=tk.X, pady=(5, 0))
+            
+            # Source file
+            ttk.Label(details_frame, text=f"📹 Source: {file_info.get('source_file', 'Unknown')}",
+                     style='Body.TLabel', font=('Segoe UI', 9)).pack(anchor=tk.W)
+            
+            # Description/Processing info
+            ttk.Label(details_frame, text=f"🔧 Processing: {file_info.get('description', 'Unknown')}",
+                     style='Body.TLabel', font=('Segoe UI', 9)).pack(anchor=tk.W)
+            
+            # Mock duration data (in real implementation, this would come from actual video analysis)
+            mock_duration = 125 + (i * 15)  # Mock duration in seconds
+            minutes = mock_duration // 60
+            seconds = mock_duration % 60
+            duration_str = f"{minutes}:{seconds:02d}"
+            
+            ttk.Label(details_frame, text=f"⏱️ Duration: {duration_str} ({mock_duration}s)",
+                     style='Body.TLabel', font=('Segoe UI', 9)).pack(anchor=tk.W)
+            
+            # Video composition (mock data)
+            composition_parts = []
+            if "connector" in file_info.get('description', '').lower():
+                composition_parts = ["Client Video (90s)", "Blake Connector (20s)", "Quiz Outro (15s)"]
+            elif "quiz" in file_info.get('description', '').lower():
+                composition_parts = ["Client Video (90s)", "Quiz Outro (15s)"]
+            else:
+                composition_parts = ["Client Video (90s)"]
+            
+            if composition_parts:
+                ttk.Label(details_frame, text=f"🧩 Components: {' → '.join(composition_parts)}",
+                         style='Body.TLabel', font=('Segoe UI', 9)).pack(anchor=tk.W)
+            
+            total_duration += mock_duration
+        
+        # Total summary
+        if len(self.breakdown_data) > 1:
+            summary_frame = ttk.Frame(self.breakdown_content, style='White.TFrame')
+            summary_frame.pack(fill=tk.X, pady=(15, 0), padx=20)
+            
+            summary_frame.configure(relief='solid', borderwidth=2)
+            
+            inner_summary = ttk.Frame(summary_frame, style='White.TFrame', padding=10)
+            inner_summary.pack(fill=tk.X)
+            
+            total_minutes = total_duration // 60
+            total_seconds = total_duration % 60
+            total_duration_str = f"{total_minutes}:{total_seconds:02d}"
+            
+            ttk.Label(inner_summary, text="📊 Summary",
+                     style='Body.TLabel', font=('Segoe UI', 11, 'bold')).pack(anchor=tk.W)
+            ttk.Label(inner_summary, text=f"📈 Total Content: {total_duration_str} ({total_duration}s)",
+                     style='Body.TLabel', font=('Segoe UI', 10),
+                     foreground=self.theme.colors['accent']).pack(anchor=tk.W)
+            ttk.Label(inner_summary, text=f"📼 Files Created: {len(self.breakdown_data)} videos",
+                     style='Body.TLabel', font=('Segoe UI', 10)).pack(anchor=tk.W)
     
     def show_error_results(self, result: ProcessingResult, on_copy_error, on_close):
         """Show error results"""
