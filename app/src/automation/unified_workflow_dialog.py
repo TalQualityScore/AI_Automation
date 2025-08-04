@@ -236,23 +236,18 @@ class UnifiedWorkflowDialog:
         self.confirmation_buttons = button_frame
     
     def _add_processing_buttons(self, parent):
-        """Add cancel and skip buttons to processing tab"""
-        cancel_frame = ttk.Frame(parent, style='White.TFrame')
-        cancel_frame.pack(fill=tk.X, pady=30)
-        
-        cancel_container = ttk.Frame(cancel_frame, style='White.TFrame')
-        cancel_container.pack()
-        
-        # Skip button for testing
-        self.processing_tab.skip_btn = ttk.Button(cancel_container, text="⏭️ Skip (Test)", 
-                                                 style='Accent.TButton',
-                                                 command=self._on_skip)
-        self.processing_tab.skip_btn.pack(side=tk.LEFT, padx=(0, 15))
-        
-        self.processing_tab.cancel_btn = ttk.Button(cancel_container, text="❌ Cancel", 
-                                                   style='Secondary.TButton',
-                                                   command=self._on_cancel)
-        self.processing_tab.cancel_btn.pack(side=tk.LEFT)
+        """Add cancel button to processing tab (removed skip for production)"""
+    cancel_frame = ttk.Frame(parent, style='White.TFrame')
+    cancel_frame.pack(fill=tk.X, pady=30)
+    
+    cancel_container = ttk.Frame(cancel_frame, style='White.TFrame')
+    cancel_container.pack()
+    
+    # Only cancel button for production - no skip button
+    self.processing_tab.cancel_btn = ttk.Button(cancel_container, text="❌ Cancel", 
+                                               style='Secondary.TButton',
+                                               command=self._on_cancel)
+    self.processing_tab.cancel_btn.pack()
     
     def _update_tab_buttons(self, active_tab):
         """Update tab button appearance and enable/disable properly - FIXED"""
@@ -512,36 +507,7 @@ class UnifiedWorkflowDialog:
             self.root.after(0, lambda: self._on_processing_complete(result))
         except:
             pass
-    
-    def _on_skip(self):
-        """Handle skip button - for testing purposes"""
-        # Create a mock successful result
-        mock_result = ProcessingResult(
-            success=True,
-            duration="Skipped (Test Mode)",
-            processed_files=[
-                {
-                    'version': 'v01',
-                    'source_file': 'test_video_1.mp4',
-                    'output_name': 'GH-testproject_v01-m01-f00-c00',
-                    'description': 'Test video processed successfully'
-                },
-                {
-                    'version': 'v02', 
-                    'source_file': 'test_video_2.mp4',
-                    'output_name': 'GH-testproject_v02-m01-f00-c00',
-                    'description': 'Test video processed successfully'
-                }
-            ],
-            output_folder=r"C:\Users\Desktop\Test Output Folder"
-        )
         
-        # Cancel any ongoing processing
-        self.is_cancelled = True
-        
-        # Show results immediately
-        self._show_results(mock_result)
-    
     def _update_progress(self, progress: float, step_text: str = "", elapsed_time: float = 0):
         """Update progress display - thread-safe with better error handling"""
         if self.is_cancelled or not self.processing_tab:

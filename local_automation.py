@@ -5,6 +5,25 @@ import os
 # Add the project root to the path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import importlib
+
+# Clear module cache before importing
+modules_to_clear = [
+    'app.src.automation.main_orchestrator',
+    'app.src.automation.unified_workflow_dialog',
+    'app.src.automation.api_clients',
+    'app.src.automation.video_processor',
+    'app.src.automation.validation_engine',
+    'app.src.automation.instruction_parser'
+]
+
+for module in modules_to_clear:
+    if module in sys.modules:
+        del sys.modules[module]
+
+# Clear importlib cache
+importlib.invalidate_caches()
+
 from app.src.automation.main_orchestrator import main
 
 def show_usage():

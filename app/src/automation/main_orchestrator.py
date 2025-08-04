@@ -165,93 +165,96 @@ class AutomationOrchestrator:
             }
         return project_info
     
-    def _ui_processing_callback(self, progress_callback):
-        """Processing callback that provides UI updates"""
-        try:
-            # Step 1: Fetch and Validate (10%)
-            progress_callback(10, "🔍 Validating Trello card data...")
-            # Card data already fetched in _prepare_confirmation_data
-            
-            # Step 2: Parse and Validate (25%)
-            progress_callback(25, "📐 Analyzing processing requirements...")
-            # Already done in _prepare_confirmation_data
-            
-            # Step 3: Setup Project and Download (50%)
-            progress_callback(30, "📥 Downloading videos from Google Drive...")
-            self.creds, self.downloaded_videos, self.project_paths = self._setup_project_with_progress(
-                self.card_data, self.project_info, progress_callback
-            )
-            
-            # Step 4: Process Videos (80%)
-            progress_callback(60, "🎬 Processing videos with FFmpeg...")
-            self.processed_files = self._process_videos_with_progress(
-                self.downloaded_videos, self.project_paths, self.project_info,
-                self.processing_mode, self.creds, progress_callback
-            )
-            
-            # Step 5: Finalize (95%)
-            progress_callback(90, "📊 Logging results to Google Sheets...")
-            self._finalize_and_cleanup(self.processed_files, self.project_info, self.creds, self.project_paths)
-            
-            progress_callback(100, "🎉 Processing complete!")
-            
-            # Return results in UI format
-            return create_processing_result_from_orchestrator(
-                processed_files=self.processed_files,
-                start_time=self.start_time,
-                output_folder=self.project_paths['project_root'],
-                success=True
-            )
-            
-        except Exception as e:
-            # Return error result
-            from .unified_workflow_dialog import ProcessingResult
-            return ProcessingResult(
-                success=False,
-                duration="",
-                processed_files=[],
-                output_folder="",
-                error_message=str(e),
-                error_solution=self._generate_error_solution(str(e))
-            )
-    
-    def _setup_project_with_progress(self, card_data, project_info, progress_callback):
-        """Setup project with progress updates"""
-        # Setup credentials
-        progress_callback(32, "🔑 Setting up Google credentials...")
-        creds = get_google_creds()
-        if not creds:
-            raise Exception("Google credentials not available")
+def _ui_processing_callback(self, progress_callback):
+    """Processing callback that provides UI updates"""
+    try:
+        # Step 1: Fetching Data from Trello (10-20%)
+        progress_callback(10, "🔍 Fetching Data from Trello...")
+        # Card data already fetched in _prepare_confirmation_data
         
-        # Download videos
-        progress_callback(35, "📥 Downloading videos from Google Drive...")
-        gdrive_link = self.validator.extract_gdrive_link(card_data.get('desc', ''))
-        downloaded_videos, error = download_files_from_gdrive(gdrive_link, creds, self.monitor)
-        if error:
-            raise Exception(f"Failed to download videos: {error}")
-        if not downloaded_videos:
-            raise Exception("No video files were downloaded")
-        
-        progress_callback(45, "📁 Creating project structure...")
-        
-        # Create project structure
-        naming_suffix = "quiz"
-        project_folder_name = generate_project_folder_name(
-            project_name=project_info['project_name'],
-            first_client_video=downloaded_videos[0],
-            ad_type_selection=naming_suffix.title()
+        # Step 2: Downloading Assets from Google Drive (20-50%)
+        progress_callback(20, "📥 Downloading Assets from Google Drive...")
+        self.creds, self.downloaded_videos, self.project_paths = self._setup_project_with_progress(
+            self.card_data, self.project_info, progress_callback
         )
-        project_paths = create_project_structure(project_folder_name)
         
-        # Move files to project structure
-        progress_callback(50, "📂 Organizing downloaded files...")
-        client_video_final_paths = []
-        for video_path in downloaded_videos:
-            final_path = os.path.join(project_paths['client_footage'], os.path.basename(video_path))
-            shutil.move(video_path, final_path)
-            client_video_final_paths.append(final_path)
+        # Step 3: Initializing Process and Creating Folder (50-60%)
+        progress_callback(55, "📁 Initializing process and creating project folder...")
+        # Already done in _setup_project_with_progress
         
-        return creds, client_video_final_paths, project_paths
+        # Step 4: Processing Videos (60-80%)
+        progress_callback(65, "🎬 Processing videos with FFmpeg...")
+        self.processed_files = self._process_videos_with_progress(
+            self.downloaded_videos, self.project_paths, self.project_info,
+            self.processing_mode, self.creds, progress_callback
+        )
+        
+        # Step 5: Updating Google Sheets (80-90%)
+        progress_callback(85, "📊 Updating Google Sheets...")
+        self._finalize_and_cleanup(self.processed_files, self.project_info, self.creds, self.project_paths)
+        
+        # Step 6: Finalizing (90-100%)
+        progress_callback(95, "🧹 Finalizing and cleaning up...")
+        
+        progress_callback(100, "🎉 Processing complete!")
+        
+        # Return results in UI format
+        return create_processing_result_from_orchestrator(
+            processed_files=self.processed_files,
+            start_time=self.start_time,
+            output_folder=self.project_paths['project_root'],
+            success=True
+        )
+        
+    except Exception as e:
+        # Return error result
+        from .unified_workflow_dialog import ProcessingResult
+        return ProcessingResult(
+            success=False,
+            duration="",
+            processed_files=[],
+            output_folder="",
+            error_message=str(e),
+            error_solution=self._generate_error_solution(str(e))
+        )
+    
+def _setup_project_with_progress(self, card_data, project_info, progress_callback):
+    """Setup project with progress updates"""
+    # Setup credentials
+    progress_callback(25, "🔑 Setting up Google credentials...")
+    creds = get_google_creds()
+    if not creds:
+        raise Exception("Google credentials not available")
+    
+    # Download videos
+    progress_callback(30, "📥 Downloading Assets from Google Drive...")
+    gdrive_link = self.validator.extract_gdrive_link(card_data.get('desc', ''))
+    downloaded_videos, error = download_files_from_gdrive(gdrive_link, creds, self.monitor)
+    if error:
+        raise Exception(f"Failed to download videos: {error}")
+    if not downloaded_videos:
+        raise Exception("No video files were downloaded")
+    
+    progress_callback(45, "📁 Creating project structure...")
+    
+    # Create project structure
+    naming_suffix = "quiz"
+    project_folder_name = generate_project_folder_name(
+        project_name=project_info['project_name'],
+        first_client_video=downloaded_videos[0],
+        ad_type_selection=naming_suffix.title()
+    )
+    project_paths = create_project_structure(project_folder_name)
+    
+    # Move files to project structure
+    progress_callback(50, "📂 Organizing downloaded files...")
+    client_video_final_paths = []
+    for video_path in downloaded_videos:
+        final_path = os.path.join(project_paths['client_footage'], os.path.basename(video_path))
+        shutil.move(video_path, final_path)
+        client_video_final_paths.append(final_path)
+    
+    return creds, client_video_final_paths, project_paths
     
     def _process_videos_with_progress(self, client_videos, project_paths, project_info, processing_mode, creds, progress_callback):
         """Process videos with progress updates"""
@@ -526,11 +529,21 @@ class AutomationOrchestrator:
         else:
             print("No files were processed, skipping log.")
         
-        # Cleanup temporary files
-        print("\n--- Step 6: Cleaning up temporary files ---")
-        temp_dir = "temp_downloads"
-        if os.path.exists(temp_dir):
+        # Step 6: Cleanup temporary files (FIXED)
+    print("\n--- Step 6: Cleaning up temporary files ---")
+    temp_dir = "temp_downloads"
+    
+    # Check if temp directory exists before trying to remove it
+    if os.path.exists(temp_dir):
+        try:
             shutil.rmtree(temp_dir)
+            print(f"✅ Cleaned up temporary directory: {temp_dir}")
+        except Exception as e:
+            print(f"⚠️ Warning: Could not remove temp directory {temp_dir}: {e}")
+    else:
+        print(f"✅ No temporary files to clean up (temp directory {temp_dir} does not exist)")
+    
+    print("✅ Cleanup completed successfully")
     
     def _generate_error_solution(self, error_message: str) -> str:
         """Generate helpful error solutions based on error message content"""
