@@ -319,7 +319,7 @@ class UnifiedWorkflowDialog:
                     
                     # Auto-advance to results after 2 seconds
                     if hasattr(self, 'root') and self.root:
-                        self.root.after(2000, lambda: self._show_results(result))
+                        self._ui_queue.put(lambda r=result: self._show_results(r))
             except Exception:
                 # Fallback - go directly to results
                 self._ui_queue.put(update_ui)

@@ -392,6 +392,10 @@ def show_success_results(self, result: ProcessingResult, on_open_folder, on_done
             self.breakdown_content.pack(fill=tk.X, pady=(10, 0))
             self.breakdown_btn.config(text="📋 Hide Breakdown")
             self.breakdown_expanded.set(True)
+
+    def show_success_results(self, processing_result):
+        """Display final OK message + summary (called by dialog)""" 
+        self._render_summary(processing_result) # reuse existing helper
     
 def _populate_breakdown(self):
     """Populate the breakdown content with scrollable container"""
