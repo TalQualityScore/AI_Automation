@@ -4,6 +4,8 @@ from tkinter import ttk, messagebox
 import time
 import threading
 from typing import Callable
+from queue import Queue, Empty      # ← NEW
+
 
 from .workflow_data_models import ConfirmationData, ProcessingResult
 from .workflow_ui_components import (
@@ -38,6 +40,8 @@ class UnifiedWorkflowDialog:
         self.processing_callback = None
         self.start_time = None
         self.is_cancelled = False
+        self._ui_queue = Queue()        # ← NEW
+
         
     @staticmethod
     def get_trello_card_id(parent=None):
@@ -93,7 +97,16 @@ class UnifiedWorkflowDialog:
         self._show_tab(0)  # Start with confirmation
         
         self.root.protocol("WM_DELETE_WINDOW", self._on_cancel)
+        self.root.after(100, self._check_ui_queue)   # ← NEW
         self.root.wait_window()
+
+    def _check_ui_queue(self):
+        try:
+            result = self._ui_queue.get_nowait()
+            self._on_processing_complete(result)   # safe UI update
+        except Empty:
+            pass
+        self.root.after(100, self._check_ui_queue)  # keep polling
     
     def _center_window(self):
         """Center dialog on screen"""
@@ -454,7 +467,7 @@ class UnifiedWorkflowDialog:
                         try:
                             # Check if the main loop is still running
                             if self.root and self.root.winfo_exists():
-                                self.root.after(0, lambda r=result: self._on_processing_complete(r))
+                                self._ui_queue.put(result)     # ← NEW
                             else:
                                 print("🔍 DEBUG: UI window closed, cannot show results")
                                 self._on_processing_complete(result)
@@ -526,7 +539,7 @@ class UnifiedWorkflowDialog:
                         try:
                             # Check if the main loop is still running
                             if self.root and self.root.winfo_exists():
-                                self.root.after(0, lambda r=result: self._on_processing_complete(r))
+                                self._ui_queue.put(result)     # ← NEW
                             else:
                                 print("🔍 DEBUG: UI window closed, cannot show results")
                         except Exception as e:
