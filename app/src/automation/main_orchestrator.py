@@ -165,40 +165,34 @@ class AutomationOrchestrator:
             }
         return project_info
     
-    def  _ui_processing_callback(self, progress_callback):
+    def _ui_processing_callback(self, progress_callback):
         """Processing callback that provides UI updates"""
         try:
-            # Step 1: Fetching Data from Trello (10-20%)
-            progress_callback(10, "🔍 Fetching Data from Trello...")
-            # Card data already fetched in _prepare_confirmation_data
+            # Step 1: Already done in preparation
+            progress_callback(15, "🔍 Fetching Data from Trello...")
+            time.sleep(0.5)  # Brief pause for UI update
             
-            # Step 2: Downloading Assets from Google Drive (20-50%)
-            progress_callback(20, "📥 Downloading Assets from Google Drive...")
+            # Step 2: Downloading Assets from Google Drive
+            progress_callback(25, "📥 Downloading Assets from Google Drive...")
             self.creds, self.downloaded_videos, self.project_paths = self._setup_project_with_progress(
                 self.card_data, self.project_info, progress_callback
             )
             
-            # Step 3: Initializing Process and Creating Folder (50-60%)
-            progress_callback(55, "📁 Initializing process and creating project folder...")
-            # Already done in _setup_project_with_progress
-            
-            # Step 4: Processing Videos (60-80%)
-            progress_callback(65, "🎬 Processing videos with FFmpeg...")
+            # Step 3: Processing Videos 
+            progress_callback(60, "🎬 Processing videos...")
             self.processed_files = self._process_videos_with_progress(
                 self.downloaded_videos, self.project_paths, self.project_info,
                 self.processing_mode, self.creds, progress_callback
             )
             
-            # Step 5: Updating Google Sheets (80-90%)
-            progress_callback(85, "📊 Updating Google Sheets...")
+            # Step 4: Updating Google Sheets
+            progress_callback(90, "📊 Updating Google Sheets...")
             self._finalize_and_cleanup(self.processed_files, self.project_info, self.creds, self.project_paths)
             
-            # Step 6: Finalizing (90-100%)
-            progress_callback(95, "🧹 Finalizing and cleaning up...")
-            
+            # Step 5: Finalizing
             progress_callback(100, "🎉 Processing complete!")
             
-            # Return results in UI format
+            # Return results
             return create_processing_result_from_orchestrator(
                 processed_files=self.processed_files,
                 start_time=self.start_time,
@@ -207,7 +201,6 @@ class AutomationOrchestrator:
             )
             
         except Exception as e:
-            # Return error result
             from .unified_workflow_dialog import ProcessingResult
             return ProcessingResult(
                 success=False,
@@ -217,7 +210,7 @@ class AutomationOrchestrator:
                 error_message=str(e),
                 error_solution=self._generate_error_solution(str(e))
             )
-    
+            
     def _setup_project_with_progress(self, card_data, project_info, progress_callback):
         """Setup project with progress updates"""
         # Setup credentials
@@ -529,21 +522,21 @@ class AutomationOrchestrator:
         else:
             print("No files were processed, skipping log.")
         
-        # Step 6: Cleanup temporary files (FIXED)
-    print("\n--- Step 6: Cleaning up temporary files ---")
-    temp_dir = "temp_downloads"
-    
-    # Check if temp directory exists before trying to remove it
-    if os.path.exists(temp_dir):
-        try:
-            shutil.rmtree(temp_dir)
-            print(f"✅ Cleaned up temporary directory: {temp_dir}")
-        except Exception as e:
-            print(f"⚠️ Warning: Could not remove temp directory {temp_dir}: {e}")
-    else:
-        print(f"✅ No temporary files to clean up (temp directory {temp_dir} does not exist)")
-    
-    print("✅ Cleanup completed successfully")
+# Step 6: Cleanup temporary files (FIXED)
+        print("\n--- Step 6: Cleaning up temporary files ---")
+        temp_dir = "temp_downloads"
+        
+        # Check if temp directory exists before trying to remove it
+        if os.path.exists(temp_dir):
+            try:
+                shutil.rmtree(temp_dir)
+                print(f"✅ Cleaned up temporary directory: {temp_dir}")
+            except Exception as e:
+                print(f"⚠️ Warning: Could not remove temp directory {temp_dir}: {e}")
+        else:
+            print(f"✅ No temporary files to clean up (temp directory {temp_dir} does not exist)")
+        
+        print("✅ Cleanup completed successfully")
     
     def _generate_error_solution(self, error_message: str) -> str:
         """Generate helpful error solutions based on error message content"""
