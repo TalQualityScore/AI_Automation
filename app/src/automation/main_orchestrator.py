@@ -604,21 +604,30 @@ class AutomationOrchestrator:
         
         print(f"📝 Error logged to: {error_log_path}")
 
-def main(trello_card_id, use_ui=True):
-    """Main entry point for automation"""
+def main(card_id=None, use_ui=True):
+    """Main entry point for automation - FIXED SIGNATURE"""
     orchestrator = AutomationOrchestrator()
     
     if use_ui:
         # Try UI mode first
         try:
-            return orchestrator.execute_with_ui(trello_card_id)
+            return orchestrator.execute_with_ui(card_id)  # card_id can be None
         except Exception as ui_error:
             print(f"UI mode failed: {ui_error}")
-            print("Falling back to headless mode...")
-            orchestrator.execute(trello_card_id)
+            if card_id:  # Only fallback if we have a card_id
+                print("Falling back to headless mode...")
+                orchestrator.execute(card_id)
+            else:
+                print("No card ID available for headless fallback.")
+                return False
     else:
-        # Direct headless execution
-        orchestrator.execute(trello_card_id)
+        # Direct headless execution (requires card_id)
+        if card_id:
+            orchestrator.execute(card_id) 
+            return True
+        else:
+            print("❌ Headless mode requires a Trello card ID")
+            return False
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
