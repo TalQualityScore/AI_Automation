@@ -447,12 +447,26 @@ class UnifiedWorkflowDialog:
         def process():
             try:
                 if self.processing_callback:
+                    print("🔍 DEBUG: About to call processing callback")
                     result = self.processing_callback(self._update_progress)
-                    # Schedule completion on main thread
-                    try:
-                        self.root.after(0, lambda: self._on_processing_complete(result))
-                    except:
-                        pass
+                    print(f"🔍 DEBUG: Processing returned result: {result}")
+                    if result:
+                        try:
+                            # Check if the main loop is still running
+                            if self.root and self.root.winfo_exists():
+                                self.root.after(0, lambda r=result: self._on_processing_complete(r))
+                            else:
+                                print("🔍 DEBUG: UI window closed, cannot show results")
+                                self._on_processing_complete(result)
+                        except Exception as e:
+                                print(f"❌ Failed to schedule completion: {e}")
+                                # Fallback: try to show results directly
+                        except Exception as e:
+                            print(f"❌ Failed to schedule completion: {e}")
+                            print("🔍 DEBUG: Calling completion directly as fallback")
+                        self._on_processing_complete(result)
+                    else:
+                        print("❌ No result returned from processing")
                 else:
                     self._simulate_processing()
                     
@@ -504,9 +518,37 @@ class UnifiedWorkflowDialog:
         )
         
         try:
-            self.root.after(0, lambda: self._on_processing_complete(result))
-        except:
-            pass
+                if self.processing_callback:
+                    print("🔍 DEBUG: About to call processing callback")
+                    result = self.processing_callback(self._update_progress)
+                    print(f"🔍 DEBUG: Processing returned result: {result}")
+                    if result:
+                        try:
+                            # Check if the main loop is still running
+                            if self.root and self.root.winfo_exists():
+                                self.root.after(0, lambda r=result: self._on_processing_complete(r))
+                            else:
+                                print("🔍 DEBUG: UI window closed, cannot show results")
+                        except Exception as e:
+                                print(f"❌ Failed to schedule completion: {e}")
+                                # Fallback: try to show results directly
+                        except Exception as e:
+                            print(f"❌ Failed to schedule completion: {e}")
+                            print("🔍 DEBUG: Calling completion directly as fallback")
+                        self._on_processing_complete(result)
+                    else:
+                        print("❌ No result returned from processing")
+                else:
+                    self._simulate_processing()
+                    
+        except Exception as e:
+                if not self.is_cancelled:
+                    # Schedule error handling on main thread
+                    try:
+                        self.root.after(0, lambda: self._on_processing_error(str(e)))
+                    except:
+                        pass
+
         
     def _update_progress(self, progress: float, step_text: str = "", elapsed_time: float = 0):
         """Update progress display - thread-safe with better error handling"""

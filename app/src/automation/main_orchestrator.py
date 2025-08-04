@@ -191,7 +191,8 @@ class AutomationOrchestrator:
             
             # Step 5: Finalizing
             progress_callback(100, "🎉 Processing complete!")
-            
+            print("🔍 DEBUG: About to return result to UI")
+
             # Return results
             return create_processing_result_from_orchestrator(
                 processed_files=self.processed_files,
@@ -201,7 +202,7 @@ class AutomationOrchestrator:
             )
             
         except Exception as e:
-            from .unified_workflow_dialog import ProcessingResult
+            from .workflow_data_models import ConfirmationData, ProcessingResult
             return ProcessingResult(
                 success=False,
                 duration="",
@@ -522,21 +523,21 @@ class AutomationOrchestrator:
         else:
             print("No files were processed, skipping log.")
         
-# Step 6: Cleanup temporary files (FIXED)
-        print("\n--- Step 6: Cleaning up temporary files ---")
-        temp_dir = "temp_downloads"
-        
-        # Check if temp directory exists before trying to remove it
-        if os.path.exists(temp_dir):
-            try:
-                shutil.rmtree(temp_dir)
-                print(f"✅ Cleaned up temporary directory: {temp_dir}")
-            except Exception as e:
-                print(f"⚠️ Warning: Could not remove temp directory {temp_dir}: {e}")
-        else:
-            print(f"✅ No temporary files to clean up (temp directory {temp_dir} does not exist)")
-        
-        print("✅ Cleanup completed successfully")
+        # Step 6: Cleanup temporary files (FIXED)
+            print("\n--- Step 6: Cleaning up temporary files ---")
+            temp_dir = "temp_downloads"
+            
+            # Check if temp directory exists before trying to remove it
+            if os.path.exists(temp_dir):
+                try:
+                    shutil.rmtree(temp_dir)
+                    print(f"✅ Cleaned up temporary directory: {temp_dir}")
+                except Exception as e:
+                    print(f"⚠️ Warning: Could not remove temp directory {temp_dir}: {e}")
+            else:
+                print(f"✅ No temporary files to clean up (temp directory {temp_dir} does not exist)")
+            
+            print("✅ Cleanup completed successfully")
     
     def _generate_error_solution(self, error_message: str) -> str:
         """Generate helpful error solutions based on error message content"""
