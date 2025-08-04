@@ -41,9 +41,22 @@ class UnifiedWorkflowDialog:
         
     @staticmethod
     def get_trello_card_id(parent=None):
-        """Static method to get Trello card ID before starting workflow"""
-        popup = TrelloCardPopup(parent)
-        return popup.show_popup()
+        """Static method to get Trello card ID before starting workflow - FIXED"""
+        print("🎬 UnifiedWorkflowDialog.get_trello_card_id() called")
+        
+        try:
+            from .trello_card_popup import TrelloCardPopup
+            popup = TrelloCardPopup(parent)
+            card_id = popup.show_popup()
+            
+            print(f"🎬 get_trello_card_id() returning: {card_id}")
+            return card_id
+            
+        except Exception as e:
+            print(f"❌ Error in get_trello_card_id(): {e}")
+            import traceback
+            traceback.print_exc()
+            return None
     
     def show_workflow(self, confirmation_data: ConfirmationData, processing_callback: Callable) -> bool:
         """Main entry point - show unified workflow"""
@@ -242,33 +255,93 @@ class UnifiedWorkflowDialog:
         self.processing_tab.cancel_btn.pack(side=tk.LEFT)
     
     def _update_tab_buttons(self, active_tab):
-        """Update tab button appearance and enable/disable properly"""
+        """Update tab button appearance and enable/disable properly - FIXED"""
         for idx, btn in self.tab_buttons.items():
             if idx == active_tab:
                 # Active tab
                 btn.configure(bg=self.theme.colors['tab_active'], 
                              fg=self.theme.colors['text_primary'],
                              state='normal')
-            elif hasattr(self, 'processing_started') and self.processing_started:
-                # During processing: allow navigation between confirmation and processing
-                if idx <= 1:  # Confirmation (0) and Processing (1) tabs
+            else:
+                # FIXED: Allow navigation based on processing state
+                if hasattr(self, 'processing_started') and self.processing_started:
+                    # During/after processing: allow all tabs
                     btn.configure(bg=self.theme.colors['tab_inactive'], 
                                  fg=self.theme.colors['text_secondary'],
                                  state='normal')
-                else:  # Results tab (2) - disabled until processing complete
+                elif hasattr(self, 'processing_complete') and self.processing_complete:
+                    # After processing: allow all tabs
+                    btn.configure(bg=self.theme.colors['tab_inactive'], 
+                                 fg=self.theme.colors['text_secondary'],
+                                 state='normal')
+                elif idx < active_tab:
+                    # Previous tabs - accessible
+                    btn.configure(bg=self.theme.colors['tab_inactive'], 
+                                 fg=self.theme.colors['text_secondary'],
+                                 state='normal')
+                else:
+                    # Future tabs - disabled until processing starts
                     btn.configure(bg=self.theme.colors['tab_inactive'], 
                                  fg=self.theme.colors['text_secondary'], 
                                  state='disabled')
-            elif idx < active_tab:
-                # Previous tabs - accessible
-                btn.configure(bg=self.theme.colors['tab_inactive'], 
-                             fg=self.theme.colors['text_secondary'],
-                             state='normal')
+    
+    def _on_processing_complete(self, result: ProcessingResult):
+        """Handle successful processing completion - FIXED"""
+        def update_ui():
+            try:
+                # Mark processing as complete
+                self.processing_complete = True
+                
+                if not self.is_cancelled and hasattr(self, 'processing_tab') and self.processing_tab:
+                    if hasattr(self.processing_tab, 'update_progress'):
+                        self.processing_tab.update_progress(100, "Processing completed successfully!")
+                    
+                    if hasattr(self.processing_tab, 'cancel_btn') and self.processing_tab.cancel_btn:
+                        try:
+                            self.processing_tab.cancel_btn.config(text="✅ Continue", 
+                                                                 command=lambda: self._show_results(result))
+                        except:
+                            pass
+                    
+                    # FIXED: Update tab navigation to allow access to all tabs
+                    self._update_tab_buttons(self.current_tab)
+                    
+                    # Auto-advance to results after 2 seconds
+                    if hasattr(self, 'root') and self.root:
+                        self.root.after(2000, lambda: self._show_results(result))
+            except Exception:
+                # Fallback - go directly to results
+                self._show_results(result)
+        
+        try:
+            if hasattr(self, 'root') and self.root:
+                self.root.after(0, update_ui)
             else:
-                # Future tabs - disabled
-                btn.configure(bg=self.theme.colors['tab_inactive'], 
-                             fg=self.theme.colors['text_secondary'], 
-                             state='disabled')
+                # Fallback if no root
+                self._show_results(result)
+        except Exception:
+            # Ultimate fallback
+            self._show_results(result)
+    
+    def _show_results(self, result: ProcessingResult):
+        """Show results tab - FIXED with real data"""
+        # Mark processing as complete to enable all tabs
+        self.processing_complete = True
+        
+        self._show_tab(2)
+        
+        if result.success:
+            self.results_tab.show_success_results(
+                result,
+                on_open_folder=open_folder,
+                on_done=self._on_success_close
+            )
+        else:
+            self.results_tab.show_error_results(
+                result,
+                on_copy_error=lambda msg: copy_to_clipboard(self.root, msg),
+                on_close=self._on_error_close
+            )
     
     def _show_email_popup(self, event):
         """Show email notification popup"""
@@ -625,25 +698,57 @@ def create_confirmation_data_from_orchestrator(card_data: dict,
                                              project_info: dict,
                                              downloaded_videos: list,
                                              validation_issues: list = None):
-    """Convert orchestrator data to ConfirmationData format"""
+    """Convert orchestrator data to ConfirmationData format - FIXED"""
     import os
     from .workflow_data_models import ConfirmationData, ValidationIssue
     
     project_name = project_info.get('project_name', 'Unknown Project')
-    account = f"{project_info.get('account_code', 'Unknown')} Account"
-    platform = "YouTube"
+    
+    # FIXED 1: Account Detection from Card Title
+    account_mapping = {
+        'OO': 'Olive Oil',
+        'MCT': 'Main Client', 
+        'PP': 'Pro Plant',
+        'GH': 'Green House',
+        'AT': 'Auto Tech'
+    }
+    
+    # Extract account code from card name
+    card_title = card_data.get('name', '')
+    detected_account = 'Unknown Account'
+    
+    for code, full_name in account_mapping.items():
+        if code in card_title.upper():
+            detected_account = f"{code} ({full_name})"
+            break
+    
+    # FIXED 2: Platform Detection from Card Title  
+    platform_mapping = {
+        'FB': 'Facebook',
+        'YT': 'YouTube', 
+        'SHORTS': 'YouTube Shorts',
+        'TT': 'TikTok',
+        'TIKTOK': 'TikTok'
+    }
+    
+    detected_platform = 'YouTube'  # Default
+    
+    for code, full_name in platform_mapping.items():
+        if code in card_title.upper():
+            detected_platform = full_name
+            break
     
     # Determine templates based on processing mode
     templates = []
     if processing_mode == "connector_quiz":
         templates = [
-            "Add Blake connector (YT/Connectors/)",
-            "Add quiz outro (YT/Quiz/)",
+            f"Add Blake connector ({detected_platform}/Connectors/)",
+            f"Add quiz outro ({detected_platform}/Quiz/)",
             "Apply slide transition effects"
         ]
     elif processing_mode == "quiz_only":
         templates = [
-            "Add quiz outro (YT/Quiz/)",
+            f"Add quiz outro ({detected_platform}/Quiz/)",
             "Apply slide transition effects"  
         ]
     elif processing_mode == "save_only":
@@ -669,8 +774,8 @@ def create_confirmation_data_from_orchestrator(card_data: dict,
     
     return ConfirmationData(
         project_name=project_name,
-        account=account,
-        platform=platform,
+        account=detected_account,  # FIXED: Now shows "OO (Olive Oil)"
+        platform=detected_platform,  # FIXED: Now shows "Facebook" for FB
         processing_mode=processing_mode.replace('_', ' ').upper(),
         client_videos=[os.path.basename(video) for video in downloaded_videos],
         templates_to_add=templates,
@@ -679,6 +784,7 @@ def create_confirmation_data_from_orchestrator(card_data: dict,
         issues=issues,
         file_sizes=file_sizes
     )
+
 
 def create_processing_result_from_orchestrator(processed_files: list,
                                              start_time: float,

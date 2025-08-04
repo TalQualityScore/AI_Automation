@@ -1,147 +1,161 @@
-# app/src/automation/trello_card_popup.py
+# app/src/automation/trello_card_popup.py - FIXED for Windows
 import tkinter as tk
 from tkinter import ttk, messagebox
 import re
 
 class TrelloCardPopup:
-    """Initial popup to get Trello card URL"""
+    """Initial popup to get Trello card URL - FIXED for Windows compatibility"""
     
     def __init__(self, parent=None):
         self.parent = parent
         self.result = None
         self.card_id = None
+        self.root = None
         
     def show_popup(self):
-        """Show the Trello card input popup and return card ID"""
-        self._create_popup()
-        return self.card_id
+        """Show the Trello card input popup and return card ID - FIXED"""
+        print("🎬 Creating Trello card popup...")
+        
+        try:
+            self._create_popup()
+            print(f"✅ Popup completed. Result: {self.card_id}")
+            return self.card_id
+        except Exception as e:
+            print(f"❌ Popup failed: {e}")
+            return None
     
     def _create_popup(self):
-        """Create the main popup with overlay"""
-        # Create main window if no parent
+        """Create the main popup - FIXED for Windows"""
+        # FIXED: Create root window if no parent
         if not self.parent:
-            self.parent = tk.Tk()
-            self.parent.withdraw()  # Hide it
+            print("Creating new root window...")
+            self.root = tk.Tk()
+            self.root.withdraw()  # Hide the main window
+            parent_window = self.root
+        else:
+            parent_window = self.parent
         
-        # Create overlay window
-        self.overlay = tk.Toplevel(self.parent)
-        self.overlay.title("AI Automation - Trello Card")
-        self.overlay.geometry("600x800")
-        self.overlay.resizable(False, False)
-        self.overlay.configure(bg='black')
+        # Create the popup window
+        print("Creating popup dialog...")
+        self.popup = tk.Toplevel(parent_window)
+        self.popup.title("AI Automation - Trello Card")
+        self.popup.geometry("500x400")
+        self.popup.resizable(False, False)
         
-        # Make it modal
-        self.overlay.transient(self.parent)
-        self.overlay.grab_set()
+        # FIXED: Windows compatibility - ensure window appears
+        self.popup.attributes('-topmost', True)
+        self.popup.grab_set()
+        self.popup.focus_force()
         
-        # Center the overlay
-        self._center_window(self.overlay, 600, 800)
+        # Center the window
+        self._center_window()
         
-        # Create semi-transparent background
-        bg_frame = tk.Frame(self.overlay, bg='black')
-        bg_frame.pack(fill=tk.BOTH, expand=True)
+        # Create the UI content
+        self._create_content()
         
-        # Set opacity (Windows)
-        try:
-            self.overlay.attributes('-alpha', 0.85)
-        except:
-            pass
+        # FIXED: Proper event handling
+        self.popup.protocol("WM_DELETE_WINDOW", self._on_cancel)
         
-        # Create the popup dialog
-        self._create_dialog()
+        print("Starting popup mainloop...")
+        self.popup.wait_window()  # FIXED: Use wait_window instead of mainloop
         
-        # Handle window close
-        self.overlay.protocol("WM_DELETE_WINDOW", self._on_cancel)
-        
-        # Wait for result
-        self.overlay.wait_window()
+        # Clean up
+        if self.root:
+            self.root.destroy()
     
-    def _create_dialog(self):
-        """Create the centered dialog box"""
-        # Main dialog frame
-        dialog_frame = tk.Frame(self.overlay, bg='white', relief='raised', borderwidth=2)
-        dialog_frame.place(relx=0.5, rely=0.5, anchor='center')
+    def _center_window(self):
+        """Center the popup window"""
+        self.popup.update_idletasks()
+        width = 500
+        height = 400
+        x = (self.popup.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.popup.winfo_screenheight() // 2) - (height // 2)
+        self.popup.geometry(f"{width}x{height}+{x}+{y}")
+    
+    def _create_content(self):
+        """Create the popup content"""
+        # Main container
+        main_frame = tk.Frame(self.popup, bg='white', padx=30, pady=25)
+        main_frame.pack(fill=tk.BOTH, expand=True)
         
-        # Apply padding
-        content_frame = tk.Frame(dialog_frame, bg='white', padx=40, pady=30)
-        content_frame.pack()
-        
-        # Header
-        header_frame = tk.Frame(content_frame, bg='white')
-        header_frame.pack(fill=tk.X, pady=(0, 25))
+        # Header section
+        header_frame = tk.Frame(main_frame, bg='white')
+        header_frame.pack(fill=tk.X, pady=(0, 20))
         
         # Icon and title
-        icon_label = tk.Label(header_frame, text="🎬", font=('Segoe UI', 24), bg='white')
-        icon_label.pack(side=tk.LEFT, padx=(0, 15))
-        
         title_frame = tk.Frame(header_frame, bg='white')
         title_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
         
-        tk.Label(title_frame, text="AI Automation Workflow", 
-                font=('Segoe UI', 18, 'bold'), bg='white', fg='#323130').pack(anchor=tk.W)
-        tk.Label(title_frame, text="Enter your Trello card to get started", 
-                font=('Segoe UI', 11), bg='white', fg='#605e5c').pack(anchor=tk.W)
+        title_label = tk.Label(title_frame, text="🎬 AI Automation Workflow", 
+                              font=('Segoe UI', 16, 'bold'), bg='white', fg='#323130')
+        title_label.pack(anchor=tk.W)
+        
+        subtitle_label = tk.Label(title_frame, text="Enter your Trello card to get started", 
+                                 font=('Segoe UI', 10), bg='white', fg='#605e5c')
+        subtitle_label.pack(anchor=tk.W)
         
         # Input section
-        input_frame = tk.Frame(content_frame, bg='white')
-        input_frame.pack(fill=tk.X, pady=(0, 25))
+        input_frame = tk.Frame(main_frame, bg='white')
+        input_frame.pack(fill=tk.X, pady=(0, 20))
         
-        tk.Label(input_frame, text="📋 Trello Card URL or ID:", 
-                font=('Segoe UI', 12, 'bold'), bg='white', fg='#323130').pack(anchor=tk.W, pady=(0, 10))
+        input_label = tk.Label(input_frame, text="📋 Trello Card URL or ID:", 
+                              font=('Segoe UI', 11, 'bold'), bg='white', fg='#323130')
+        input_label.pack(anchor=tk.W, pady=(0, 8))
         
-        # URL input
-        self.url_entry = tk.Entry(input_frame, font=('Segoe UI', 10), width=50, relief='solid', borderwidth=1)
-        self.url_entry.pack(fill=tk.X, pady=(0, 5))
+        # Entry field
+        self.url_entry = tk.Entry(input_frame, font=('Segoe UI', 10), 
+                                 relief='solid', borderwidth=1, width=50)
+        self.url_entry.pack(fill=tk.X, pady=(0, 8))
         self.url_entry.insert(0, "Paste your Trello card URL here...")
         self.url_entry.bind('<FocusIn>', self._on_entry_focus)
         self.url_entry.bind('<Return>', lambda e: self._on_ok())
         
-        # Help text
+        # Help section
         help_frame = tk.Frame(input_frame, bg='white')
         help_frame.pack(fill=tk.X, pady=(5, 0))
         
-        tk.Label(help_frame, text="💡 Examples:", 
-                font=('Segoe UI', 9, 'bold'), bg='white', fg='#605e5c').pack(anchor=tk.W)
-        tk.Label(help_frame, text="• Full URL: https://trello.com/c/abc123xyz/...", 
-                font=('Segoe UI', 9), bg='white', fg='#605e5c').pack(anchor=tk.W, padx=(15, 0))
-        tk.Label(help_frame, text="• Card ID only: abc123xyz", 
-                font=('Segoe UI', 9), bg='white', fg='#605e5c').pack(anchor=tk.W, padx=(15, 0))
+        help_title = tk.Label(help_frame, text="💡 Examples:", 
+                             font=('Segoe UI', 9, 'bold'), bg='white', fg='#605e5c')
+        help_title.pack(anchor=tk.W)
         
-        # Buttons
-        button_frame = tk.Frame(content_frame, bg='white')
-        button_frame.pack(fill=tk.X, pady=(15, 0))
+        example1 = tk.Label(help_frame, text="• Full URL: https://trello.com/c/abc123xyz/...", 
+                           font=('Segoe UI', 9), bg='white', fg='#605e5c')
+        example1.pack(anchor=tk.W, padx=(15, 0))
+        
+        example2 = tk.Label(help_frame, text="• Card ID only: abc123xyz", 
+                           font=('Segoe UI', 9), bg='white', fg='#605e5c')
+        example2.pack(anchor=tk.W, padx=(15, 0))
+        
+        # Button section
+        button_frame = tk.Frame(main_frame, bg='white')
+        button_frame.pack(fill=tk.X, pady=(20, 0))
         
         # Center the buttons
         button_container = tk.Frame(button_frame, bg='white')
         button_container.pack()
         
+        # Cancel button
         cancel_btn = tk.Button(button_container, text="❌ Cancel", 
-                              font=('Segoe UI', 11), bg='#f3f3f3', fg='#323130',
-                              relief='flat', borderwidth=0, padx=25, pady=12,
+                              font=('Segoe UI', 10), bg='#f3f3f3', fg='#323130',
+                              relief='flat', borderwidth=0, padx=20, pady=10,
                               command=self._on_cancel, cursor='hand2')
-        cancel_btn.pack(side=tk.LEFT, padx=(0, 15))
+        cancel_btn.pack(side=tk.LEFT, padx=(0, 10))
         
+        # OK button
         ok_btn = tk.Button(button_container, text="✅ Start Processing", 
-                          font=('Segoe UI', 11, 'bold'), bg='#0078d4', fg='white',
-                          relief='flat', borderwidth=0, padx=25, pady=12,
+                          font=('Segoe UI', 10, 'bold'), bg='#0078d4', fg='white',
+                          relief='flat', borderwidth=0, padx=20, pady=10,
                           command=self._on_ok, cursor='hand2')
         ok_btn.pack(side=tk.LEFT)
         
-        # Set focus to entry
+        # Set focus to entry and select placeholder text
         self.url_entry.focus_set()
         self.url_entry.select_range(0, tk.END)
     
-    def _center_window(self, window, width, height):
-        """Center window on screen"""
-        screen_width = window.winfo_screenwidth()
-        screen_height = window.winfo_screenheight()
-        x = (screen_width // 2) - (width // 2)
-        y = (screen_height // 2) - (height // 2)
-        window.geometry(f"{width}x{height}+{x}+{y}")
-    
     def _on_entry_focus(self, event):
         """Clear placeholder text when entry gets focus"""
-        if self.url_entry.get() == "Paste your Trello card URL here...":
+        current_text = self.url_entry.get()
+        if current_text == "Paste your Trello card URL here...":
             self.url_entry.delete(0, tk.END)
     
     def _extract_card_id(self, input_text):
@@ -164,6 +178,7 @@ class TrelloCardPopup:
     
     def _on_ok(self):
         """Handle OK button"""
+        print("OK button clicked")
         url_text = self.url_entry.get().strip()
         
         # Check if empty or placeholder
@@ -183,22 +198,27 @@ class TrelloCardPopup:
             return
         
         # Success
+        print(f"Card ID extracted: {card_id}")
         self.card_id = card_id
-        self.overlay.destroy()
+        self.popup.destroy()
     
     def _on_cancel(self):
         """Handle Cancel button"""
+        print("Cancel button clicked")
         self.card_id = None
-        self.overlay.destroy()
+        self.popup.destroy()
 
-# Test function
+
+# FIXED: Test function
 def test_trello_popup():
-    """Test the Trello card popup"""
+    """Test the Trello card popup - FIXED"""
+    print("🧪 Testing Trello Card Popup...")
+    
     popup = TrelloCardPopup()
     card_id = popup.show_popup()
     
     if card_id:
-        print(f"✅ Card ID extracted: {card_id}")
+        print(f"✅ Success! Card ID: {card_id}")
     else:
         print("❌ User cancelled or no card ID provided")
     
