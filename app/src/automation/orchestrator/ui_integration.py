@@ -8,7 +8,7 @@ from ..video_processor import get_video_dimensions
 from ..workflow_utils import parse_project_info, create_project_structure
 from ...naming_generator import generate_project_folder_name
 
-from ..unified_workflow_dialog import create_confirmation_data_from_orchestrator, create_processing_result_from_orchestrator
+from ..workflow_dialog.helpers import create_confirmation_data_from_orchestrator, create_processing_result_from_orchestrator
 
 class UIIntegration:
     """Handles UI-specific integration methods for the orchestrator"""
