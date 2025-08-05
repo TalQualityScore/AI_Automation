@@ -7,7 +7,8 @@ from ..validation_engine import ValidationEngine
 from ..instruction_parser import InstructionParser
 
 # Import UI components
-from ..unified_workflow_dialog import (UnifiedWorkflowDialog, create_confirmation_data_from_orchestrator, 
+from ..unified_workflow_dialog import UnifiedWorkflowDialog
+from ..workflow_dialog.helpers import (create_confirmation_data_from_orchestrator, 
                                      create_processing_result_from_orchestrator)
 
 from .processing_steps import ProcessingSteps

@@ -24,10 +24,13 @@ class ConfirmationData:
 
 @dataclass
 class ProcessingResult:
-    """Results from processing operation"""
+    """Enhanced results from processing operation with detailed video information"""
     success: bool
     duration: str
-    processed_files: List[Dict]  # {version, source_file, output_name, description}
+    processed_files: List[Dict]  # Enhanced with duration, file_size_mb, etc.
     output_folder: str
     error_message: str = ""
-    error_solution: str = ""    
+    error_solution: str = ""
+    video_connections: List[Dict] = None  # NEW: Detailed breakdown of video assembly
+    total_content_duration: str = ""  # NEW: Total duration of all content
+    total_file_size_mb: int = 0  # NEW: Total file size
