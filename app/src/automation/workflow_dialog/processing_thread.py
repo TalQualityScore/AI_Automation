@@ -167,80 +167,70 @@ class ProcessingThreadManager:
             import traceback
             traceback.print_exc()
             
-    def _show_results_tab(self, result: ProcessingResult):
-        """Show results tab with data - RUNS ON UI THREAD - FIXED"""
+    def _handle_processing_completion_ui_thread(self, result: ProcessingResult):
+        """Handle processing completion - FIXED to properly store results"""
         try:
-            print("🎬 Showing results tab...")
+            print(f"🎬 Processing completed on UI thread: {result.success if result else 'No result'}")
+            
+            self.processing_complete = True
+            
+            if result and result.success:
+                print("✅ PROCESSING SUCCESSFUL - Transitioning to Results")
+                
+                # Update processing tab to show completion
+                if self.dialog.tab_manager and self.dialog.tab_manager.processing_tab:
+                    if hasattr(self.dialog.tab_manager.processing_tab, 'update_progress'):
+                        self.dialog.tab_manager.processing_tab.update_progress(100, "✅ Processing completed successfully!")
+                    
+                    # Update cancel button to continue button
+                    if hasattr(self.dialog.tab_manager.processing_tab, 'cancel_btn'):
+                        try:
+                            def go_to_results():
+                                self._show_results_tab(result)
+                            
+                            self.dialog.tab_manager.processing_tab.cancel_btn.config(
+                                text="✅ View Results", 
+                                command=go_to_results
+                            )
+                        except Exception as btn_error:
+                            print(f"Button update error: {btn_error}")
+                
+                # FIXED: Store result in tab manager for proper restoration
+                if self.dialog.tab_manager:
+                    self.dialog.tab_manager.processing_complete = True
+                    self.dialog.tab_manager.processing_result = result
+                    self.dialog.tab_manager._update_tab_buttons(self.dialog.tab_manager.current_tab)
+                
+                # Auto-advance to results after 3 seconds
+                self.dialog.root.after(3000, lambda: self._show_results_tab(result))
+                
+            else:
+                print("❌ Processing failed - showing error")
+                self._show_results_tab(result)
+                
+        except Exception as completion_error:
+            print(f"Error in completion handler: {completion_error}")
+            import traceback
+            traceback.print_exc()
+
+    def _show_results_tab(self, result: ProcessingResult):
+        """Show results tab with proper result storage - FIXED"""
+        try:
+            print("🎬 Showing results tab with proper storage...")
             
             if not self.dialog.tab_manager:
                 print("❌ No tab manager available")
                 return
             
-            # FIXED: Try different method names that might exist
-            try:
-                # Try the show_tab method (without underscore)
-                if hasattr(self.dialog.tab_manager, 'show_tab'):
-                    self.dialog.tab_manager.show_tab(2)
-                # Try _show_tab method (with underscore) 
-                elif hasattr(self.dialog.tab_manager, '_show_tab'):
-                    self.dialog.tab_manager._show_tab(2)
-                # Try show_results method directly
-                elif hasattr(self.dialog.tab_manager, 'show_results'):
-                    self.dialog.tab_manager.show_results(result)
-                    return  # Exit early if this works
-                else:
-                    print("❌ No tab switching method found, using direct results display")
-                    # Fallback - try to show results directly
-                    self._show_results_directly(result)
-                    return
-                    
-            except Exception as tab_switch_error:
-                print(f"❌ Tab switching failed: {tab_switch_error}")
-                # Fallback to direct results display
-                self._show_results_directly(result)
-                return
+            # FIXED: Use the tab manager's method which properly stores results
+            self.dialog.tab_manager.show_results(result)
             
-            # If we got here, tab switching worked, now show results
-            print("✅ Tab switched successfully, now showing results...")
-            
-            # Show results based on success/failure
-            if result.success:
-                print("📊 Showing success results...")
-                
-                # Import the helper functions we need
-                from ..workflow_ui_components import open_folder
-                
-                if hasattr(self.dialog.tab_manager, 'results_tab') and self.dialog.tab_manager.results_tab:
-                    self.dialog.tab_manager.results_tab.show_success_results(
-                        result,
-                        on_open_folder=open_folder,
-                        on_done=self._on_success_close
-                    )
-                else:
-                    print("❌ No results tab available")
-                    self._show_results_directly(result)
-            else:
-                print("❌ Showing error results...")
-                
-                # Import the helper functions we need
-                from ..workflow_ui_components import copy_to_clipboard
-                
-                if hasattr(self.dialog.tab_manager, 'results_tab') and self.dialog.tab_manager.results_tab:
-                    self.dialog.tab_manager.results_tab.show_error_results(
-                        result,
-                        on_copy_error=lambda msg: copy_to_clipboard(self.dialog.root, msg),
-                        on_close=self._on_error_close
-                    )
-                else:
-                    print("❌ No results tab available")
-                    self._show_results_directly(result)
-                    
         except Exception as results_error:
             print(f"❌ Error showing results tab: {results_error}")
             import traceback
             traceback.print_exc()
             
-            # Fallback - show results directly
+            # Fallback to direct results display
             self._show_results_directly(result)
 
     def _show_results_directly(self, result: ProcessingResult):

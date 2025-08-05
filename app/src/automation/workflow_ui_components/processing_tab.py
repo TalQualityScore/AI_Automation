@@ -1,9 +1,9 @@
-# app/src/automation/workflow_ui_components/processing_tab.py
+# app/src/automation/workflow_ui_components/processing_tab.py - FIXED VERSION
 import tkinter as tk
 from tkinter import ttk
 
 class ProcessingTab:
-    """Handles the processing tab content and logic"""
+    """Handles the processing tab content and logic - FIXED without time estimation"""
     
     def __init__(self, parent, theme):
         self.parent = parent
@@ -12,7 +12,6 @@ class ProcessingTab:
         self.progress_var = None
         self.progress_label = None
         self.step_label = None
-        self.time_label = None
         self.cancel_btn = None
         
     def create_tab(self, estimated_time: str):
@@ -49,38 +48,30 @@ class ProcessingTab:
                                            length=500)
         self.progress_bar.pack(pady=(0, 15))
         
-        # Progress labels
+        # Progress percentage
         self.progress_label = ttk.Label(progress_frame, text="Initializing...",
                                        style='Body.TLabel', font=('Segoe UI', 11, 'bold'))
         self.progress_label.pack(pady=(0, 8))
         
+        # Current step
         self.step_label = ttk.Label(progress_frame, text="Starting validation process...",
                                    style='Body.TLabel', font=('Segoe UI', 10))
-        self.step_label.pack(pady=(0, 8))
+        self.step_label.pack(pady=(0, 15))
         
-        self.time_label = ttk.Label(progress_frame, text=f"Estimated duration: {estimated_time}",
-                                   style='Body.TLabel', font=('Segoe UI', 9, 'italic'),
-                                   foreground=self.theme.colors['text_secondary'])
-        self.time_label.pack()
+        # REMOVED: Time estimation (unreliable)
+        # Show estimated duration only initially
+        ttk.Label(progress_frame, text=f"Estimated duration: {estimated_time}",
+                 style='Body.TLabel', font=('Segoe UI', 9, 'italic'),
+                 foreground=self.theme.colors['text_secondary']).pack()
         
         return self.frame
     
     def update_progress(self, progress: float, step_text: str = "", elapsed_time: float = 0):
-        """Update progress bar and labels"""
+        """Update progress bar and labels - SIMPLIFIED without time calculation"""
         self.progress_var.set(progress)
         self.progress_label.config(text=f"{int(progress)}%")
         
         if step_text:
             self.step_label.config(text=step_text)
         
-        # Calculate time remaining
-        if progress > 5 and elapsed_time > 0:
-            estimated_total = (elapsed_time / progress) * 100
-            remaining = max(0, estimated_total - elapsed_time)
-            
-            if remaining > 60:
-                remaining_str = f"{int(remaining // 60)}m {int(remaining % 60)}s"
-            else:
-                remaining_str = f"{int(remaining)}s"
-                
-            self.time_label.config(text=f"Estimated time remaining: {remaining_str}")
+        # REMOVED: Time remaining calculation - too unreliable

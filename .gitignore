@@ -12,6 +12,7 @@ credentials.json
 temp_downloads/
 Output/
 *.log
+QuickCommitPush.bat
 
 # IDE / OS specific
 .vscode/
