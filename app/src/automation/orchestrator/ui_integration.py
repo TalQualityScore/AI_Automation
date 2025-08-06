@@ -1,4 +1,4 @@
-# app/src/automation/orchestrator/ui_integration.py - FIXED PROJECT NAME FLOW
+# app/src/automation/orchestrator/ui_integration.py - FIXED SHEETS COLUMN 1
 
 import time
 from ..workflow_dialog.helpers import (
@@ -17,9 +17,9 @@ class UIIntegration:
         # Fetch basic card data for validation
         self.orchestrator.card_data = self.orchestrator.processing_steps.fetch_and_validate_card(self.orchestrator.trello_card_id)
         
-        # IMPORTANT: Store the original card title for Google Sheets
+        # IMPORTANT: Store the original card title for Google Sheets ROUTING ONLY
         self.orchestrator.original_card_title = self.orchestrator.card_data['name']
-        print(f"🔍 UI INTEGRATION - Stored original card title: '{self.orchestrator.original_card_title}'")
+        print(f"🔍 UI INTEGRATION - Stored original card title for routing: '{self.orchestrator.original_card_title}'")
         
         # Parse project info
         self.orchestrator.project_info = self._parse_project_info_for_ui(self.orchestrator.card_data)
@@ -58,13 +58,13 @@ class UIIntegration:
         return project_info
     
     def ui_processing_callback(self, progress_callback):
-        """Processing callback that provides UI updates - FIXED TO USE UPDATED PROJECT NAME"""
+        """Processing callback that provides UI updates - FIXED SHEETS COLUMN 1"""
         try:
             # Step 1: Already done in preparation
             progress_callback(15, "🔍 Fetching Data from Trello...")
             time.sleep(0.5)
             
-            # FIXED: Get the updated project name from confirmation data
+            # FIXED: Get the updated project name from confirmation data and store it
             if hasattr(self.orchestrator, 'updated_project_name') and self.orchestrator.updated_project_name:
                 # User edited the project name in confirmation tab
                 final_project_name = self.orchestrator.updated_project_name
@@ -83,6 +83,10 @@ class UIIntegration:
                 self.orchestrator.card_data, self.orchestrator.project_info, progress_callback
             )
             
+            # CRITICAL: Store the generated folder name for sheets column 1
+            self.orchestrator.generated_folder_name = os.path.basename(self.orchestrator.project_paths['project_root'])
+            print(f"📁 Generated folder name for sheets: '{self.orchestrator.generated_folder_name}'")
+            
             # Step 3: Processing Videos 
             progress_callback(60, "🎬 Processing videos...")
             self.orchestrator.processed_files = self._process_videos_with_progress(
@@ -90,17 +94,22 @@ class UIIntegration:
                 self.orchestrator.processing_mode, self.orchestrator.creds, progress_callback
             )
             
-            # Step 4: FIXED - Use ORIGINAL card title for Google Sheets, not generated folder name
+            # Step 4: FIXED - Use folder name for column 1, original card title for routing
             progress_callback(90, "📊 Updating Google Sheets...")
             
-            # CRITICAL FIX: Use original card title for sheets routing, not generated concept name
-            sheets_concept_name = self.orchestrator.original_card_title
-            print(f"📊 FIXED - Using ORIGINAL card title for sheets: '{sheets_concept_name}'")
+            # Use original card title for ROUTING to correct worksheet
+            sheets_routing_name = self.orchestrator.original_card_title
+            # Use generated folder name for COLUMN 1 content
+            sheets_column1_name = self.orchestrator.generated_folder_name
             
-            # Call finalize with corrected concept name
-            self._finalize_with_original_card_title(
+            print(f"📊 Sheets routing (find worksheet): '{sheets_routing_name}'")
+            print(f"📊 Sheets column 1 (display name): '{sheets_column1_name}'")
+            
+            # Call finalize with both names
+            self._finalize_with_correct_names(
                 self.orchestrator.processed_files, self.orchestrator.project_info, 
-                self.orchestrator.creds, self.orchestrator.project_paths, sheets_concept_name
+                self.orchestrator.creds, self.orchestrator.project_paths, 
+                sheets_routing_name, sheets_column1_name
             )
             
             # Step 5: Finalizing
@@ -142,24 +151,26 @@ class UIIntegration:
         progress_callback(85, "✅ Video processing complete...")
         return processed_files
     
-    def _finalize_with_original_card_title(self, processed_files, project_info, creds, project_paths, original_card_title):
-        """Finalize using original card title for proper Google Sheets routing"""
+    def _finalize_with_correct_names(self, processed_files, project_info, creds, project_paths, 
+                                   routing_name, column1_name):
+        """FIXED: Use routing name for worksheet selection, folder name for column 1"""
         
-        print(f"\n--- Step 5: Logging to Google Sheets with ORIGINAL title ---")
-        print(f"🔍 Original Card Title: '{original_card_title}'")
+        print(f"\n--- Step 5: Logging to Google Sheets ---")
+        print(f"🔍 Routing name (worksheet): '{routing_name}'")
+        print(f"📁 Column 1 name (folder): '{column1_name}'")
         
         if processed_files:
-            # Use ORIGINAL card title for sheets routing - this fixes the BC3 FB issue
-            concept_name = original_card_title  # NOT the generated folder name
-            
             data_to_write = [
                 [pf['version'], pf['description'], pf['output_name']]
                 for pf in processed_files
             ]
             
             def write_results():
-                from ..api_clients import write_to_google_sheets
-                error, _ = write_to_google_sheets(concept_name, data_to_write, creds)
+                from ..api_clients import write_to_google_sheets_with_custom_name
+                # Use routing name to find worksheet, column1 name for actual content
+                error, _ = write_to_google_sheets_with_custom_name(
+                    routing_name, column1_name, data_to_write, creds
+                )
                 if error:
                     raise Exception(f"Failed to write to Google Sheets: {error}")
                 return "Results logged successfully"

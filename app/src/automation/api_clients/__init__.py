@@ -1,19 +1,4 @@
-# app/src/automation/api_clients/__init__.py
-"""
-API Clients Module - Refactored with Backward Compatibility
-
-This module provides a clean, modular API client architecture while maintaining
-backward compatibility with existing imports.
-
-Usage:
-    # New modular usage (recommended)
-    from .trello_client import TrelloClient
-    from .google_drive_client import GoogleDriveClient
-    from .google_sheets_client import GoogleSheetsClient
-    
-    # Legacy usage (still works)
-    from . import get_trello_card_data, download_files_from_gdrive, write_to_google_sheets
-"""
+# app/src/automation/api_clients/__init__.py - UPDATED WITH CUSTOM NAMES
 
 from .config import get_google_creds, ACCOUNT_MAPPING, PLATFORM_MAPPING
 from .trello_client import TrelloClient
@@ -48,6 +33,14 @@ def write_to_google_sheets(concept_name: str, data_rows: list, creds):
     client = GoogleSheetsClient(creds)
     return client.write_to_sheet(concept_name, data_rows, creds)
 
+def write_to_google_sheets_with_custom_name(routing_name: str, column1_name: str, data_rows: list, creds):
+    """
+    NEW FUNCTION: Write to sheets with custom column 1 name
+    Uses routing_name to find worksheet, column1_name for actual content
+    """
+    client = GoogleSheetsClient(creds)
+    return client.write_to_sheet_with_custom_name(routing_name, column1_name, data_rows, creds)
+
 def find_correct_worksheet(concept_name: str, creds):
     """
     LEGACY FUNCTION: Backward compatibility wrapper
@@ -74,12 +67,13 @@ __all__ = [
     'get_trello_card_data',
     'download_files_from_gdrive', 
     'write_to_google_sheets',
+    'write_to_google_sheets_with_custom_name',  # NEW
     'find_correct_worksheet',
 ]
 
 # Module Information
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 __author__ = "AI Automation Suite"
-__description__ = "Modular API clients for Trello, Google Drive, and Google Sheets"
+__description__ = "Modular API clients with custom naming support"
 
-print("✅ API Clients v2.0.0 loaded - Modular architecture with backward compatibility")
+print("✅ API Clients v2.1.0 loaded - Custom naming support added")

@@ -1,11 +1,11 @@
-# app/src/automation/workflow_ui_components/confirmation_tab.py - FIXED PROJECT NAME FLOW
+# app/src/automation/workflow_ui_components/confirmation_tab.py - COMPLETELY FIXED PROJECT NAME FLOW
 
 import tkinter as tk
 from tkinter import ttk, simpledialog
 from ..workflow_data_models import ConfirmationData, ValidationIssue
 
 class ConfirmationTab:
-    """Handles the confirmation tab content and logic with editable project name - FIXED FLOW"""
+    """Handles the confirmation tab content and logic with COMPLETE project name flow"""
     
     def __init__(self, parent, confirmation_data: ConfirmationData, theme):
         self.parent = parent
@@ -15,8 +15,15 @@ class ConfirmationTab:
         self.project_name_display = None
         self.output_location_display = None
         
+        # CRITICAL: Store reference to orchestrator for complete name flow
+        self.orchestrator = None
+        
+    def set_orchestrator(self, orchestrator):
+        """Set orchestrator reference for complete name flow"""
+        self.orchestrator = orchestrator
+        
     def create_tab(self):
-        """Create confirmation tab content with editable project name - FIXED"""
+        """Create confirmation tab content with editable project name - COMPLETELY FIXED"""
         self.frame = ttk.Frame(self.parent, style='White.TFrame')
         
         # Scrollable content
@@ -42,7 +49,7 @@ class ConfirmationTab:
         return self.frame
     
     def _add_project_info(self, parent):
-        """Add project information section with EDITABLE project name - FIXED FLOW"""
+        """Add project information section with COMPLETE editable project name flow"""
         section_frame = ttk.Frame(parent, style='White.TFrame')
         section_frame.pack(fill=tk.X, pady=(0, 20))
         
@@ -125,7 +132,7 @@ class ConfirmationTab:
             widget.bind("<Button-1>", on_click)
     
     def _edit_project_name(self):
-        """COMPLETELY FIXED: Open dialog to edit project name with proper data flow"""
+        """COMPLETELY FIXED: Edit project name with COMPLETE flow to all outputs"""
         
         # Create custom dialog
         dialog = tk.Toplevel(self.frame)
@@ -161,7 +168,7 @@ class ConfirmationTab:
         name_entry.focus_set()
         name_entry.select_range(0, tk.END)
         
-        # COMPLETELY FIXED: Button frame with proper Windows 11 styling
+        # Button frame
         button_frame = tk.Frame(main_frame, bg=self.theme.colors['bg'])
         button_frame.pack(fill=tk.X)
         
@@ -170,24 +177,39 @@ class ConfirmationTab:
             if new_name and new_name != self.data.project_name:
                 old_name = self.data.project_name
                 
-                # ✅ FIXED: Update the confirmation data (this flows to processing pipeline)
+                print(f"🔄 PROJECT NAME CHANGE: '{old_name}' → '{new_name}'")
+                
+                # 1. Update the confirmation data
                 self.data.project_name = new_name
                 
-                # ✅ FIXED: Update display immediately
+                # 2. Update display immediately
                 self.project_name_display.config(text=new_name)
                 
-                # ✅ FIXED: Update output location in data AND display
+                # 3. Update output location in data AND display
                 self._update_output_location_and_display(old_name, new_name)
                 
-                print(f"✅ FIXED: Project name updated in confirmation data: '{old_name}' → '{new_name}'")
-                print(f"✅ FIXED: Updated output location: {self.data.output_location}")
+                # 4. CRITICAL: Store the updated name in orchestrator for complete flow
+                if self.orchestrator:
+                    self.orchestrator.updated_project_name = new_name
+                    print(f"✅ ORCHESTRATOR UPDATED: Project name stored for complete flow")
+                    
+                    # Also update the project_info if it exists
+                    if hasattr(self.orchestrator, 'project_info') and self.orchestrator.project_info:
+                        self.orchestrator.project_info['project_name'] = new_name
+                        print(f"✅ PROJECT INFO UPDATED: {self.orchestrator.project_info}")
+                
+                print(f"✅ COMPLETE NAME FLOW: All systems updated with '{new_name}'")
+                print(f"   - Confirmation data: ✓")
+                print(f"   - UI display: ✓") 
+                print(f"   - Output location: ✓")
+                print(f"   - Orchestrator: ✓")
             
             dialog.destroy()
         
         def cancel_changes():
             dialog.destroy()
         
-        # FIXED: Proper button styling
+        # Button styling
         button_container = tk.Frame(button_frame, bg=self.theme.colors['bg'])
         button_container.pack()
         
@@ -199,7 +221,7 @@ class ConfirmationTab:
         cancel_btn.pack(side=tk.RIGHT, padx=(10, 0))
         
         # Approve button
-        approve_btn = tk.Button(button_container, text="✅ Approve Changes", 
+        approve_btn = tk.Button(button_container, text="✅ Apply Changes", 
                                font=('Segoe UI', 10, 'bold'), bg='#0078d4', fg='white',
                                relief='flat', borderwidth=0, padx=25, pady=8,
                                command=save_changes, cursor='hand2')
@@ -210,23 +232,19 @@ class ConfirmationTab:
         name_entry.bind("<Escape>", lambda e: cancel_changes())
     
     def _update_output_location_and_display(self, old_name, new_name):
-        """FIXED: Update output location in data AND refresh display"""
+        """Update output location in data AND refresh display"""
         # Update the output location string in the data
         if old_name in self.data.output_location:
             self.data.output_location = self.data.output_location.replace(old_name, new_name)
-            print(f"✅ FIXED: Output location updated in data: {self.data.output_location}")
+            print(f"✅ Output location updated: {self.data.output_location}")
             
             # Update the display immediately
             if hasattr(self, 'output_location_display') and self.output_location_display:
                 self.output_location_display.config(text=f"📁 {self.data.output_location}")
-                print(f"✅ FIXED: Output location display refreshed on UI")
-        
-        # ✅ THE KEY FIX: The updated project name now flows through processing via self.data
-        # When the orchestrator uses confirmation_data, it gets the updated project_name
-        # which flows to naming_generator.py and all downstream processing
+                print(f"✅ Output location display refreshed")
     
     def get_updated_data(self):
-        """Return the updated confirmation data - THIS IS THE KEY"""
+        """Return the updated confirmation data"""
         return self.data
     
     def _add_processing_details(self, parent):

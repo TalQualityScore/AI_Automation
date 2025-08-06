@@ -1,4 +1,4 @@
-# app/src/automation/api_clients/google_sheets_client.py - FIXED SILENT FAILURES
+# app/src/automation/api_clients/google_sheets_client.py - ADDED CUSTOM COLUMN 1 SUPPORT
 
 import gspread
 from typing import List, Optional, Tuple
@@ -6,7 +6,7 @@ from .config import GOOGLE_SHEET_ID
 from .account_mapper import AccountMapper
 
 class GoogleSheetsClient:
-    """Handles Google Sheets API operations - FIXED to handle errors properly"""
+    """Handles Google Sheets API operations - ENHANCED with custom column 1 names"""
     
     def __init__(self, credentials):
         """
@@ -29,10 +29,26 @@ class GoogleSheetsClient:
     
     def write_to_sheet(self, concept_name: str, data_rows: List[List], credentials) -> Tuple[Optional[str], int]:
         """
-        FIXED: Write project data to correct worksheet - NO MORE SILENT FAILURES
+        ORIGINAL: Write project data to correct worksheet
         
         Args:
-            concept_name: Project name from card title
+            concept_name: Project name from card title (used for both routing and column 1)
+            data_rows: Data rows to insert
+            credentials: Google credentials (for backward compatibility)
+            
+        Returns:
+            Tuple of (error_message, start_version_number)
+        """
+        return self.write_to_sheet_with_custom_name(concept_name, concept_name, data_rows, credentials)
+    
+    def write_to_sheet_with_custom_name(self, routing_name: str, column1_name: str, 
+                                      data_rows: List[List], credentials) -> Tuple[Optional[str], int]:
+        """
+        NEW: Write project data with custom column 1 name
+        
+        Args:
+            routing_name: Name used to find the correct worksheet (e.g., card title)
+            column1_name: Name to display in column 1 (e.g., folder name)
             data_rows: Data rows to insert
             credentials: Google credentials (for backward compatibility)
             
@@ -44,10 +60,12 @@ class GoogleSheetsClient:
             return "Google Sheets not initialized", 1
         
         try:
-            print(f"📝 Writing to Google Sheets: '{concept_name}'")
+            print(f"📝 Writing to Google Sheets:")
+            print(f"   🔍 Routing (worksheet): '{routing_name}'")
+            print(f"   📁 Column 1 (display): '{column1_name}'")
             
-            # Find the correct worksheet using corrected logic
-            worksheet, error = self.find_correct_worksheet(concept_name)
+            # Find the correct worksheet using routing name
+            worksheet, error = self.find_correct_worksheet(routing_name)
             if error:
                 return error, 1
             
@@ -57,14 +75,16 @@ class GoogleSheetsClient:
                 print("⚠️ No data rows provided - returning version 1")
                 return None, 1  # Return version 1 if no data to write
             
-            # FIXED: Actually handle the insertion properly and catch ALL errors
+            # Insert data using custom column 1 name
             try:
-                start_version = self._insert_project_data_safe(worksheet, concept_name, data_rows)
-                print(f"✅ Successfully wrote {len(data_rows)} rows to worksheet '{worksheet.title}' starting at version {start_version}")
+                start_version = self._insert_project_data_with_custom_name(
+                    worksheet, column1_name, data_rows
+                )
+                print(f"✅ Successfully wrote {len(data_rows)} rows to worksheet '{worksheet.title}' with column 1 name '{column1_name}'")
                 return None, start_version
                 
             except Exception as insert_error:
-                # FIXED: Don't hide insertion errors - report them properly
+                # Don't hide insertion errors - report them properly
                 error_msg = f"Failed to insert data into Google Sheets: {insert_error}"
                 print(f"❌ {error_msg}")
                 return error_msg, 1
@@ -115,20 +135,20 @@ class GoogleSheetsClient:
         except Exception as e:
             return None, f"Error finding worksheet: {e}"
     
-    def _insert_project_data_safe(self, worksheet, concept_name: str, data_rows: List[List]) -> int:
+    def _insert_project_data_with_custom_name(self, worksheet, column1_name: str, data_rows: List[List]) -> int:
         """
-        FIXED: Insert project data with proper error handling - NO SILENT FAILURES
+        ENHANCED: Insert project data with custom column 1 name
         
         Args:
             worksheet: Google Sheets worksheet object
-            concept_name: Project name
+            column1_name: Custom name for column 1 (e.g., folder name)
             data_rows: Data rows to insert
             
         Returns:
             Starting version number
             
         Raises:
-            Exception: If insertion fails (no more silent failures)
+            Exception: If insertion fails
         """
         
         try:
@@ -141,24 +161,24 @@ class GoogleSheetsClient:
             
             # Always insert at end
             insert_row_index = last_content_row + 1
-            print(f"📝 Adding new project at row {insert_row_index}")
+            print(f"📝 Adding new project '{column1_name}' at row {insert_row_index}")
             
             # Get starting version number (simplified for now)
             start_version = 1
             
-            # Prepare data with correct column structure
+            # Prepare data with correct column structure using CUSTOM column 1 name
             rows_to_insert = []
             for i, row in enumerate(data_rows):
                 if i == 0:
-                    # First row gets concept name in column A
-                    rows_to_insert.append([concept_name] + row)
+                    # First row gets CUSTOM column 1 name (folder name, not card title)
+                    rows_to_insert.append([column1_name] + row)
                 else:
                     # Subsequent rows have empty column A
                     rows_to_insert.append([""] + row)
             
-            print(f"📝 Inserting {len(rows_to_insert)} rows starting at row {insert_row_index}")
+            print(f"📝 Inserting {len(rows_to_insert)} rows with column 1 name: '{column1_name}'")
             
-            # FIXED: Use batch update which is more reliable and provides better error reporting
+            # Use batch update which is more reliable and provides better error reporting
             try:
                 # Prepare the range for batch update
                 end_col_letter = chr(ord('A') + len(rows_to_insert[0]) - 1)  # A, B, C, D etc.
@@ -199,7 +219,7 @@ class GoogleSheetsClient:
             return start_version
             
         except Exception as e:
-            # FIXED: Don't catch and hide errors - let them bubble up
+            # Don't catch and hide errors - let them bubble up
             error_msg = f"Error inserting project data: {e}"
             print(f"❌ {error_msg}")
             raise Exception(error_msg)
@@ -242,7 +262,7 @@ class GoogleSheetsClient:
                     # Apply vertical alignment, horizontal alignment, and text wrapping
                     worksheet.format(merge_range, {
                         "verticalAlignment": "MIDDLE",
-                        "horizontalAlignment": "CENTER",  # FIXED: Added horizontal centering
+                        "horizontalAlignment": "CENTER",
                         "wrapStrategy": "WRAP",
                         "textFormat": {"bold": False}
                     })

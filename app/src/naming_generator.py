@@ -1,4 +1,4 @@
-# app/src/naming_generator.py - COMPLETE VERSION WITH ALL REQUIRED FUNCTIONS
+# app/src/naming_generator.py - FIXED VERSION LETTER EXTRACTION
 
 import os
 import re
@@ -27,7 +27,7 @@ def generate_project_folder_name(project_name, first_client_video, ad_type_selec
     return folder_name
 
 def generate_output_name(project_name, first_client_video, ad_type_selection, image_desc, version_num, version_letter=""):
-    """FIXED: Extract version letters B/C from client filenames properly"""
+    """COMPLETELY FIXED: Extract version letters A/B/C from client filenames properly"""
     
     base_name = os.path.splitext(os.path.basename(first_client_video))[0].replace("Copy of OO_", "")
     
@@ -39,35 +39,41 @@ def generate_output_name(project_name, first_client_video, ad_type_selection, im
     test_name_match = re.search(r'(?:VTD|STOR|ACT)-(\d+)', base_name)
     test_name = test_name_match.group(1) if test_name_match else ""
     
-    # FIXED: Multiple patterns for version letter extraction
+    # COMPLETELY FIXED: Enhanced version letter extraction with priority order
     if not version_letter:
         print(f"🔍 EXTRACTING VERSION LETTER from: '{base_name}'")
         
-        # Pattern 1: _250416C (most common)
-        pattern1 = re.search(r'_\d{6}([A-Z])(?:_\d+)?$', base_name)
-        if pattern1:
-            version_letter = pattern1.group(1)
-            print(f"✅ PATTERN 1 MATCH: Found '{version_letter}' in '{base_name}'")
+        # Priority 1: Date format + letter (e.g., 20250408A, 250416B)
+        pattern_date = re.search(r'(\d{6,8})([A-Z])', base_name)
+        if pattern_date:
+            version_letter = pattern_date.group(2)
+            print(f"✅ DATE PATTERN MATCH: Found '{version_letter}' after date '{pattern_date.group(1)}' in '{base_name}'")
         else:
-            # Pattern 2: _250416B_001 (with suffix)
-            pattern2 = re.search(r'_\d{6}([A-Z])_', base_name)
-            if pattern2:
-                version_letter = pattern2.group(1)
-                print(f"✅ PATTERN 2 MATCH: Found '{version_letter}' in '{base_name}'")
+            # Priority 2: Test number + letter (e.g., STOR-3133A, VTD-1234B)
+            pattern_test = re.search(r'(?:VTD|STOR|ACT)-\d+([A-Z])(?:[_\-]|$)', base_name)
+            if pattern_test:
+                version_letter = pattern_test.group(1)
+                print(f"✅ TEST PATTERN MATCH: Found '{version_letter}' after test number in '{base_name}'")
             else:
-                # Pattern 3: STOR-3133B (directly after test number)
-                pattern3 = re.search(r'(?:VTD|STOR|ACT)-\d+([A-Z])', base_name)
-                if pattern3:
-                    version_letter = pattern3.group(1)
-                    print(f"✅ PATTERN 3 MATCH: Found '{version_letter}' in '{base_name}'")
-                else:
-                    # Pattern 4: Any single letter at end of filename
-                    pattern4 = re.search(r'([A-Z])(?:_\d+)?$', base_name)
-                    if pattern4:
-                        version_letter = pattern4.group(1)
-                        print(f"✅ PATTERN 4 MATCH: Found '{version_letter}' in '{base_name}'")
+                # Priority 3: Single letter at end with optional underscore and numbers
+                pattern_end = re.search(r'([A-Z])(?:_\d+)?\.?(?:mp4|mov|avi)?$', base_name, re.IGNORECASE)
+                if pattern_end:
+                    candidate_letter = pattern_end.group(1).upper()
+                    # Exclude common false positives
+                    if candidate_letter not in ['T', 'P', 'V', 'R', 'S'] or len(base_name.split('_')[-1]) <= 3:
+                        version_letter = candidate_letter
+                        print(f"✅ END PATTERN MATCH: Found '{version_letter}' at end in '{base_name}'")
                     else:
-                        print(f"⚠️ NO VERSION LETTER FOUND in '{base_name}' - using default")
+                        print(f"⚠️ EXCLUDED FALSE POSITIVE: '{candidate_letter}' likely part of word, not version letter")
+                        version_letter = ""
+                else:
+                    # Priority 4: Letter before file extension or underscore
+                    pattern_before_ext = re.search(r'([A-Z])(?:\.|_\d+\.)', base_name)
+                    if pattern_before_ext:
+                        version_letter = pattern_before_ext.group(1)
+                        print(f"✅ BEFORE EXT MATCH: Found '{version_letter}' before extension in '{base_name}'")
+                    else:
+                        print(f"⚠️ NO VERSION LETTER FOUND in '{base_name}' - using empty string")
                         version_letter = ""
 
     part1 = "GH"
@@ -88,8 +94,9 @@ def generate_output_name(project_name, first_client_video, ad_type_selection, im
     print(f"   📋 Breakdown:")
     print(f"   - Project: {part2}")
     print(f"   - Ad Type: {part3}")
-    print(f"   - Test + Letter: {part4}")
+    print(f"   - Test Number: {test_name}")
     print(f"   - Version Letter: '{version_letter}'")
+    print(f"   - Test + Letter: {part4}")
     
     return final_name
 
@@ -302,11 +309,12 @@ def test_version_letter_extraction():
     """Test version letter extraction with various filename patterns"""
     
     test_files = [
-        "AGMD_BC3_Dinner_Mashup_OPT_STOR-3133_250416C.mp4",
+        "AGMD_BC3_Dinner_Mashup_OPT_STOR-3133_250416A.mp4",
         "AGMD_BC3_Dinner_Mashup_OPT_STOR-3133_250416B.mp4", 
         "Copy of OO_GroceryOils_AD_STOR-5421B_002.mp4",
         "MCT_CookingOil_AD_VTD-1234C_220315.mp4",
-        "PP_HealthOils_STOR-9999A_001.mp4"
+        "PP_HealthOils_STOR-9999A_001.mp4",
+        "GMD_BC3_Dinner_Mashup_OPT_STOR-3133_250416A.mp4"
     ]
     
     print("🧪 TESTING VERSION LETTER EXTRACTION:")
@@ -317,22 +325,9 @@ def test_version_letter_extraction():
         print(f"\n📁 File: {filename}")
         print(f"📄 Base: {base_name}")
         
-        # Test each pattern
-        pattern1 = re.search(r'_\d{6}([A-Z])(?:_\d+)?$', base_name)
-        pattern2 = re.search(r'_\d{6}([A-Z])_', base_name)
-        pattern3 = re.search(r'(?:VTD|STOR|ACT)-\d+([A-Z])', base_name)
-        pattern4 = re.search(r'([A-Z])(?:_\d+)?$', base_name)
-        
-        if pattern1:
-            print(f"✅ Pattern 1: {pattern1.group(1)}")
-        elif pattern2:
-            print(f"✅ Pattern 2: {pattern2.group(1)}")
-        elif pattern3:
-            print(f"✅ Pattern 3: {pattern3.group(1)}")
-        elif pattern4:
-            print(f"✅ Pattern 4: {pattern4.group(1)}")
-        else:
-            print(f"❌ No letter found")
+        # Test the actual function
+        result = generate_output_name("Test Project", filename, "quiz", "test", 1, "")
+        print(f"🎯 Result: {result}")
 
 if __name__ == "__main__":
     test_version_letter_extraction()
