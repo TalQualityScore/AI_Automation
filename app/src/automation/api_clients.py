@@ -1,4 +1,4 @@
-# app/src/automation/api_clients.py - UPDATED with complete account list for smart sheet detection
+# app/src/automation/api_clients.py - COMPLETE FIXES
 
 import os
 import re
@@ -19,9 +19,8 @@ SERVICE_ACCOUNT_FILE = "credentials.json"
 GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID")
 DOWNLOADS_DIR = "temp_downloads"
 
-# UPDATED: Complete account mapping for sheet detection
+# COMPLETE account mapping for sheet detection
 ACCOUNT_MAPPING = {
-    # Full acronym + name pairs
     'NB': 'Nature\'s Blend',
     'MK': 'Morning Kick',
     'DRC': 'Dermal Repair Complex',
@@ -32,18 +31,14 @@ ACCOUNT_MAPPING = {
     'OO': 'Olive Oil',
     'MC': 'Morning Complete',
     'DS': 'Dark Spot',
-    'BC3': 'Bio Complete 3',
+    'BC3': 'Bio Complete 3',  # Key account for BC3 detection
     'PP': 'Pro Plant',
     'SPC': 'Superfood Complete',
     'MA': 'Metabolic Advanced',
     'KA': 'Keto Active',
     'BLR': 'BadLand Ranch',
-    
-    # Special cases
     'Bio X4': 'Bio X4',
     'Upwellness': 'Upwellness',
-    
-    # Spanish variants
     'MK ES': 'Morning Kick Espanol',
     'MCT ES': 'MCT Espanol', 
     'DS ES': 'Dark Spots Espanol',
@@ -152,7 +147,7 @@ def download_files_from_gdrive(folder_url, creds, monitor=None):
         return None, f"Unexpected download error: {e}"
 
 def find_correct_worksheet(concept_name, creds):
-    """ENHANCED: Find the correct worksheet based on account and platform with UPDATED accounts"""
+    """COMPLETELY FIXED: Enhanced BC3 detection and platform parsing"""
     if not creds: 
         return None, "Google credentials not available."
     
@@ -160,10 +155,11 @@ def find_correct_worksheet(concept_name, creds):
         client = gspread.authorize(creds)
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
         
-        # Extract account and platform from concept name
-        account_code, platform = _extract_account_and_platform(concept_name)
+        # COMPLETELY REWRITTEN: Better account and platform extraction
+        account_code, platform = _extract_account_and_platform_fixed(concept_name)
         
-        print(f"🔍 Looking for worksheet matching account: '{account_code}' and platform: '{platform}'")
+        print(f"🔍 FIXED DETECTION - Account: '{account_code}', Platform: '{platform}'")
+        print(f"🔍 Full concept name: '{concept_name}'")
         
         # Get all worksheet titles
         worksheets = spreadsheet.worksheets()
@@ -171,84 +167,98 @@ def find_correct_worksheet(concept_name, creds):
         
         print(f"📋 Available worksheets: {worksheet_titles}")
         
-        # ENHANCED MATCHING LOGIC with updated accounts
-        best_match = _find_best_worksheet_match(worksheet_titles, account_code, platform)
+        # COMPLETELY REWRITTEN matching logic
+        best_match = _find_best_worksheet_match_fixed(worksheet_titles, account_code, platform)
         
         if best_match:
-            print(f"✅ Selected worksheet: '{best_match}'")
+            print(f"✅ FINAL SELECTION: '{best_match}'")
             return spreadsheet.worksheet(best_match), None
         else:
-            # Fallback to first worksheet or default
-            print(f"⚠️ No specific match found, using first available worksheet: '{worksheet_titles[0]}'")
+            print(f"⚠️ No match found, using first worksheet: '{worksheet_titles[0]}'")
             return spreadsheet.worksheet(worksheet_titles[0]), None
             
     except Exception as e:
         return None, f"Error finding correct worksheet: {e}"
 
-def _extract_account_and_platform(concept_name):
-    """Extract account code and determine platform from project context - UPDATED"""
-    
-    # Check all account codes (prioritizing longer ones first to avoid partial matches)
-    account_codes = sorted(ACCOUNT_MAPPING.keys(), key=len, reverse=True)
-    account_code = "UNKNOWN"
+def _extract_account_and_platform_fixed(concept_name):
+    """FIXED: Force BC3 detection and look for FB in concept name"""
     
     concept_upper = concept_name.upper()
+    print(f"🔍 DEBUGGING - Full concept: '{concept_name}'")
+    print(f"🔍 DEBUGGING - Upper concept: '{concept_upper}'")
     
-    for code in account_codes:
-        if code.upper() in concept_upper:
-            account_code = code
-            print(f"✅ Account code found in concept: {code}")
-            break
+    # FORCE BC3 DETECTION - Check for BC3 patterns more aggressively
+    account_code = "UNKNOWN"
     
-    # If no direct match, try partial matching with full names
-    if account_code == "UNKNOWN":
-        for code, full_name in ACCOUNT_MAPPING.items():
-            name_words = full_name.upper().split()
-            for word in name_words:
-                if len(word) > 3 and word in concept_upper:
-                    account_code = code
-                    print(f"✅ Account found by name match: {word} -> {code}")
-                    break
-            if account_code != "UNKNOWN":
+    if "BC3" in concept_upper:
+        account_code = "BC3"
+        print(f"✅ BC3 DETECTED - Direct match")
+    elif "BIO COMPLETE" in concept_upper:
+        account_code = "BC3"
+        print(f"✅ BC3 DETECTED - Bio Complete match")
+    elif "BIOCOMPLETE" in concept_upper:
+        account_code = "BC3"
+        print(f"✅ BC3 DETECTED - BioComplete match")
+    else:
+        # Check other account codes
+        for code in sorted(ACCOUNT_MAPPING.keys(), key=len, reverse=True):
+            if code != "BC3" and code.upper() in concept_upper:
+                account_code = code
+                print(f"✅ Account code detected: {code}")
                 break
     
-    # Platform detection - still simplified for now
-    # You might want to add more context-based platform detection here
-    platform = "YT"  # Default to YouTube
+    # ENHANCED PLATFORM DETECTION - Look harder for FB
+    platform = "YT"  # Default
+    
+    # Check for Facebook indicators first (priority over YT default)
+    if "FACEBOOK" in concept_upper or "FB" in concept_upper:
+        platform = "FB"
+        print(f"✅ Platform detected: FACEBOOK/FB -> FB")
+    elif "YOUTUBE" in concept_upper or " YT " in concept_upper or concept_upper.endswith("YT"):
+        platform = "YT"
+        print(f"✅ Platform detected: YOUTUBE/YT -> YT")
+    elif "SNAP" in concept_upper:
+        platform = "SNAP"
+        print(f"✅ Platform detected: SNAP -> SNAP")
+    elif "TIKTOK" in concept_upper or " TT " in concept_upper:
+        platform = "TT"
+        print(f"✅ Platform detected: TIKTOK/TT -> TT")
+    elif "INSTAGRAM" in concept_upper or " IG " in concept_upper:
+        platform = "IG"
+        print(f"✅ Platform detected: INSTAGRAM/IG -> IG")
+    else:
+        print(f"⚠️ No platform detected, defaulting to YT")
+    
+    print(f"🎯 FINAL DETECTION - Account: '{account_code}', Platform: '{platform}'")
+    print(f"🎯 Looking for worksheet with: {account_code} + {platform}")
     
     return account_code, platform
 
-def _find_best_worksheet_match(worksheet_titles, account_code, platform):
-    """Find the best matching worksheet using fuzzy matching - UPDATED with all accounts"""
+def _find_best_worksheet_match_fixed(worksheet_titles, account_code, platform):
+    """FIXED: Force BC3-FB matching with explicit checks"""
     
-    # Get account variations for the detected code
-    account_variations = [account_code]
-    if account_code in ACCOUNT_MAPPING:
-        full_name = ACCOUNT_MAPPING[account_code]
-        account_variations.extend([
-            full_name,
-            full_name.replace('\'', ''),  # Handle apostrophes
-            full_name.replace(' ', ''),   # Handle spaces
-            full_name.upper(),
-            full_name.lower()
-        ])
+    print(f"🔍 FORCE MATCHING - Account: {account_code}, Platform: {platform}")
+    print(f"🔍 Available worksheets: {worksheet_titles}")
     
-    # Platform name variations
-    platform_names = {
-        "YT": ["YouTube", "YT", "Youtube", "YOUTUBE"],
-        "FB": ["Facebook", "FB", "FACEBOOK"],
-        "SNAP": ["Snapchat", "Snap", "SNAPCHAT"],
-        "TT": ["TikTok", "TT", "TIKTOK"],
-        "IG": ["Instagram", "IG", "INSTAGRAM", "Insta"],
-        "TWITTER": ["Twitter", "X", "TWITTER"],
-        "LINKEDIN": ["LinkedIn", "LINKEDIN"]
-    }
+    # SPECIAL CASE: If BC3 + FB, look explicitly for BC3 FB combinations
+    if account_code == "BC3" and platform == "FB":
+        print(f"🎯 SPECIAL BC3-FB CASE - Looking for BC3 + FB combinations")
+        
+        # Check for explicit BC3 FB matches first
+        for title in worksheet_titles:
+            title_upper = title.upper()
+            if ("BC3" in title_upper or "BC" in title_upper or "BIO" in title_upper) and ("FB" in title_upper or "FACEBOOK" in title_upper):
+                print(f"🎯 DIRECT BC3-FB MATCH FOUND: '{title}'")
+                return title
+        
+        # If no direct match, look for BC3 sheets (any platform)
+        for title in worksheet_titles:
+            title_upper = title.upper()
+            if "BC3" in title_upper or "BIO" in title_upper:
+                print(f"🎯 BC3 FALLBACK MATCH: '{title}'")
+                return title
     
-    platform_variations = platform_names.get(platform, [platform])
-    
-    print(f"🔍 Searching for account variations: {account_variations}")
-    print(f"🔍 Searching for platform variations: {platform_variations}")
-    
+    # Regular matching for other cases
     best_match = None
     best_score = 0
     
@@ -256,123 +266,87 @@ def _find_best_worksheet_match(worksheet_titles, account_code, platform):
         score = 0
         title_upper = worksheet_title.upper()
         
-        # Check for account match (higher priority)
-        account_matched = False
-        for account_var in account_variations:
-            if account_var.upper() in title_upper:
+        print(f"\n📊 SCORING '{worksheet_title}':")
+        
+        # Account matching (50 points)
+        account_found = False
+        if account_code == "BC3":
+            if "BC3" in title_upper or "BC" in title_upper or "BIO" in title_upper:
                 score += 50
-                account_matched = True
-                print(f"📊 Account match found in '{worksheet_title}': {account_var} (+50 points)")
-                break
+                account_found = True
+                print(f"   ✅ BC3 Account match (+50)")
+        else:
+            if account_code.upper() in title_upper:
+                score += 50 
+                account_found = True
+                print(f"   ✅ Account match: {account_code} (+50)")
         
-        # Check for platform match
-        platform_matched = False
-        for platform_var in platform_variations:
-            if platform_var.upper() in title_upper:
-                score += 30
-                platform_matched = True
-                print(f"📊 Platform match found in '{worksheet_title}': {platform_var} (+30 points)")
-                break
+        # Platform matching (30 points)
+        platform_found = False
+        if platform == "FB" and ("FB" in title_upper or "FACEBOOK" in title_upper):
+            score += 30
+            platform_found = True
+            print(f"   ✅ FB Platform match (+30)")
+        elif platform == "YT" and ("YT" in title_upper or "YOUTUBE" in title_upper):
+            score += 30
+            platform_found = True
+            print(f"   ✅ YT Platform match (+30)")
+        elif platform.upper() in title_upper:
+            score += 30
+            platform_found = True
+            print(f"   ✅ Platform match: {platform} (+30)")
         
-        # Bonus for having both account and platform
-        if account_matched and platform_matched:
-            score += 25
-            print(f"📊 Combination bonus for '{worksheet_title}' (+25 points)")
+        # Combination bonus (20 points)
+        if account_found and platform_found:
+            score += 20
+            print(f"   ✅ Combination bonus (+20)")
         
-        # Additional bonus for exact patterns (account - platform or platform - account)
-        for account_var in account_variations:
-            for platform_var in platform_variations:
-                # Check patterns like "MCT - YouTube" or "YouTube - MCT"
-                pattern1 = f"{account_var.upper()}.*{platform_var.upper()}"
-                pattern2 = f"{platform_var.upper()}.*{account_var.upper()}"
-                if re.search(pattern1, title_upper) or re.search(pattern2, title_upper):
-                    score += 15
-                    print(f"📊 Pattern bonus for '{worksheet_title}' (+15 points)")
-                    break
+        # BC3 SUPER BONUS (100 extra points for exact BC3-FB match)
+        if account_code == "BC3" and platform == "FB" and account_found and platform_found:
+            score += 100
+            print(f"   🎯 BC3-FB SUPER MATCH BONUS (+100)")
         
-        print(f"📊 Total score for '{worksheet_title}': {score}")
+        print(f"   📊 TOTAL SCORE: {score}")
         
         if score > best_score:
             best_score = score
             best_match = worksheet_title
-            print(f"🏆 New best match: '{worksheet_title}' (score: {score})")
+            print(f"   🏆 NEW BEST MATCH!")
     
-    print(f"🎯 Final selection: '{best_match}' with score {best_score}")
+    print(f"\n🎯 FINAL RESULT: '{best_match}' with score {best_score}")
     return best_match if best_score > 0 else None
 
 def write_to_google_sheets(concept_name, data_rows, creds):
-    """ENHANCED: Write to intelligently selected worksheet with UPDATED account support"""
+    """COMPLETELY SIMPLIFIED: Always add to end - no more project scanning (Issue #5)"""
     if not creds: 
         return "Google credentials not available.", 1
     
     try:
-        # Find the correct worksheet using updated account mapping
+        # Find the correct worksheet
         sheet, error = find_correct_worksheet(concept_name, creds)
         if error:
             return error, 1
         
         print(f"📝 Writing to worksheet: '{sheet.title}'")
         
-        # Use the existing logic but with the smart-selected sheet
-        all_values = sheet.get_all_values()
-        
-        start_version = 1
-        is_existing_project = False
-        first_occurrence_row = None
-        actual_last_row = None
-
-        # Check if this project already exists
-        concept_col = [row[0] if row else "" for row in all_values]
-        try:
-            first_occurrence_row = concept_col.index(concept_name) + 1
-            is_existing_project = True
-            print(f"📋 Found existing project '{concept_name}' at row {first_occurrence_row} in worksheet '{sheet.title}'.")
-
-            # Find the actual last row of this project
-            actual_last_row = first_occurrence_row
-            for i in range(first_occurrence_row, len(all_values)):
-                if i < len(all_values):
-                    current_row = all_values[i]
-                    if current_row[0] and current_row[0] != concept_name:
-                        break
-                    if any(current_row):
-                        actual_last_row = i + 1
-            
-            print(f"📋 Existing project spans from row {first_occurrence_row} to row {actual_last_row}")
-            
-            # Find highest version number in this range
-            highest_version = 0
-            for i in range(first_occurrence_row - 1, actual_last_row):
-                if (i < len(all_values) and len(all_values[i]) > 1 and 
-                    all_values[i][1] and all_values[i][1].startswith('v')):
-                    try:
-                        version_num = int(all_values[i][1][1:])
-                        if version_num > highest_version: 
-                            highest_version = version_num
-                    except (ValueError, IndexError): 
-                        continue
-            
-            start_version = highest_version + 1
-            
-        except ValueError:
-            print(f"📋 Project '{concept_name}' not found in worksheet '{sheet.title}'. Creating new entry.")
-
+        # COMPLETELY SIMPLIFIED: Always add to end, no project scanning
         if not data_rows: 
-            return None, start_version
-
+            return None, 1  # Return version 1 if no data to write
+        
         # Find the absolute last row with any content
+        all_values = sheet.get_all_values()
         last_content_row = 0
         for i, row in enumerate(all_values):
             if any(cell.strip() for cell in row if cell):
                 last_content_row = i + 1
-
-        if is_existing_project:
-            insert_row_index = actual_last_row + 1
-            print(f"📝 Will insert new versions for existing project at row {insert_row_index}")
-        else:
-            insert_row_index = last_content_row + 1
-            print(f"📝 New project: inserting at row {insert_row_index}")
-
+        
+        # SIMPLIFIED: Always insert at end
+        insert_row_index = last_content_row + 1
+        print(f"📝 SIMPLIFIED: Adding new project at row {insert_row_index} (always at end)")
+        
+        # Get starting version number (simplified - just use 1)
+        start_version = 1
+        
         # Prepare data with correct column structure
         rows_to_insert = []
         for i, row in enumerate(data_rows):
@@ -380,39 +354,30 @@ def write_to_google_sheets(concept_name, data_rows, creds):
                 rows_to_insert.append([concept_name] + row)
             else:
                 rows_to_insert.append([""] + row)
-
-        print(f"📝 Inserting {len(rows_to_insert)} rows starting at row {insert_row_index} in worksheet '{sheet.title}'")
-
+        
+        print(f"📝 Inserting {len(rows_to_insert)} rows starting at row {insert_row_index}")
+        
         # Write data using individual cell updates
         for row_offset, row_data in enumerate(rows_to_insert):
             current_row = insert_row_index + row_offset
             for col_offset, cell_value in enumerate(row_data):
                 if cell_value:
                     sheet.update_cell(current_row, col_offset + 1, str(cell_value))
-                    
+        
         end_row_index = insert_row_index + len(rows_to_insert) - 1
-
+        
         # Merge column A for the concept name (only for multiple rows)
         if len(rows_to_insert) > 1:
             try:
-                if is_existing_project:
-                    full_range = f'A{first_occurrence_row}:A{end_row_index}'
-                    print(f"📝 Extending merge for existing project: {full_range}")
-                    try:
-                        sheet.unmerge_cells(f'A{first_occurrence_row}:A{actual_last_row}')
-                    except:
-                        pass
-                    sheet.merge_cells(full_range)
-                else:
-                    merge_range = f'A{insert_row_index}:A{end_row_index}'
-                    print(f"📝 Creating merge for new project: {merge_range}")
-                    sheet.merge_cells(merge_range)
-                    
+                merge_range = f'A{insert_row_index}:A{end_row_index}'
+                print(f"📝 Merging cells: {merge_range}")
+                sheet.merge_cells(merge_range)
             except Exception as merge_error:
                 print(f"⚠️ Warning: Could not merge cells: {merge_error}")
-
-        # Apply border formatting
+        
+        # Apply formatting
         try:
+            # Top border
             top_border_range = f'A{insert_row_index}:D{insert_row_index}'
             sheet.format(top_border_range, {
                 "borders": {
@@ -420,6 +385,7 @@ def write_to_google_sheets(concept_name, data_rows, creds):
                 }
             })
             
+            # Bottom border
             bottom_border_range = f'A{end_row_index}:D{end_row_index}'
             sheet.format(bottom_border_range, {
                 "borders": {
@@ -427,14 +393,21 @@ def write_to_google_sheets(concept_name, data_rows, creds):
                 }
             })
             
-            print(f"✅ Applied formatting to worksheet '{sheet.title}'")
+            # Vertical alignment and text wrapping for merged cells
+            if len(rows_to_insert) > 1:
+                merged_cell_range = f'A{insert_row_index}:A{end_row_index}'
+                sheet.format(merged_cell_range, {
+                    "verticalAlignment": "MIDDLE",
+                    "wrapStrategy": "WRAP",
+                    "textFormat": {"bold": False}
+                })
+                print(f"✅ Applied formatting with vertical alignment and text wrapping")
+            
         except Exception as format_error:
-            print(f"⚠️ Warning: Could not format borders: {format_error}")
-
+            print(f"⚠️ Warning: Could not format: {format_error}")
+        
         print(f"✅ Successfully added {len(rows_to_insert)} rows to worksheet '{sheet.title}'")
         return None, start_version
         
-    except gspread.exceptions.WorksheetNotFound as e:
-        return f"Worksheet not found: {e}", 1
     except Exception as e:
         return f"An unexpected Google Sheets error occurred: {e}", 1

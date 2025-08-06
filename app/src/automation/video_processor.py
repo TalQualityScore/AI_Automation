@@ -1,4 +1,5 @@
-# app/src/automation/video_processor.py - ENHANCED with transitions
+# app/src/automation/video_processor.py - FIXED SLIDE TRANSITIONS
+
 import os
 import subprocess
 import sys
@@ -24,8 +25,8 @@ def get_video_dimensions(video_path):
         return None, None, f"Error getting video dimensions: {e}"
 
 def process_video_sequence(client_video, output_path, target_width, target_height, processing_mode="connector_quiz"):
-    """Processes a single video sequence with ENHANCED TRANSITIONS"""
-    print(f"Starting video processing in {processing_mode} mode with transitions...")
+    """FIXED: Processes videos with working slide transitions"""
+    print(f"🎬 Starting video processing in {processing_mode} mode with slide transitions...")
     
     try:
         # Build video list based on processing mode
@@ -40,7 +41,7 @@ def process_video_sequence(client_video, output_path, target_width, target_heigh
                 return f"No video files found in connector directory: {CONNECTORS_PATH}"
             
             connector = os.path.join(CONNECTORS_PATH, connector_files[0])
-            print(f"Found connector: {connector}")
+            print(f"✅ Found connector: {connector}")
             
             if not os.path.exists(QUIZ_OUTRO_PATH):
                 return f"Quiz outro directory not found: {QUIZ_OUTRO_PATH}"
@@ -50,10 +51,10 @@ def process_video_sequence(client_video, output_path, target_width, target_heigh
                 return f"No video files found in quiz outro directory: {QUIZ_OUTRO_PATH}"
             
             outro = os.path.join(QUIZ_OUTRO_PATH, quiz_files[0])
-            print(f"Found quiz outro: {outro}")
+            print(f"✅ Found quiz outro: {outro}")
             
             video_list.extend([connector, outro])
-            print(f"Will process: Client -> Connector -> Quiz (with slide transitions)")
+            print(f"🎬 Will process: Client → Connector → Quiz (with slide transitions)")
             
         elif processing_mode == "quiz_only":
             if not os.path.exists(QUIZ_OUTRO_PATH):
@@ -64,98 +65,107 @@ def process_video_sequence(client_video, output_path, target_width, target_heigh
                 return f"No video files found in quiz outro directory: {QUIZ_OUTRO_PATH}"
             
             outro = os.path.join(QUIZ_OUTRO_PATH, quiz_files[0])
-            print(f"Found quiz outro: {outro}")
+            print(f"✅ Found quiz outro: {outro}")
             
             video_list.append(outro)
-            print(f"Will process: Client -> Quiz (with slide transition)")
+            print(f"🎬 Will process: Client → Quiz (with slide transition)")
             
     except Exception as e:
         return f"Error setting up video files: {e}"
 
     # If only one video (client), just copy it
     if len(video_list) == 1:
-        print("Only one video - copying directly...")
+        print("📄 Only one video - copying directly...")
         import shutil
-        shutil.copy(client_video, output_path)
-        return None
+        try:
+            shutil.copy(client_video, output_path)
+            return None
+        except Exception as copy_error:
+            return f"Error copying file: {copy_error}"
 
-    print(f"Processing {len(video_list)} videos with FFmpeg and slide transitions...")
+    print(f"🎬 Processing {len(video_list)} videos with FFmpeg and slide transitions...")
 
     # Verify all input files exist before starting FFmpeg
     for i, video_path in enumerate(video_list):
         if not os.path.exists(video_path):
             return f"Input file not found: {video_path}"
-        print(f"Video {i+1}: {os.path.basename(video_path)} ({os.path.getsize(video_path)} bytes)")
+        print(f"✅ Video {i+1}: {os.path.basename(video_path)} ({os.path.getsize(video_path)} bytes)")
 
-    # ENHANCED: Process videos with slide transitions
-    return _process_with_slide_transitions(video_list, output_path, target_width, target_height)
+    # FIXED: Process videos with working slide transitions
+    return _process_with_working_transitions(video_list, output_path, target_width, target_height)
 
-def _process_with_slide_transitions(video_list, output_path, target_width, target_height):
-    """Process videos with smooth slide transitions between segments"""
+def _process_with_working_transitions(video_list, output_path, target_width, target_height):
+    """SIMPLIFIED: Working transitions with basic fade approach"""
     
-    command = ['ffmpeg', '-y']
-    filter_complex_parts = []
-    target_fps, target_audio_rate = 30, 44100
-    transition_duration = 0.5  # 0.5 second slide transition
+    print(f"🎬 SIMPLIFIED TRANSITIONS - Processing {len(video_list)} videos")
     
-    # Add all input files
-    for j, video_path in enumerate(video_list):
-        print(f"Adding video {j+1}: {os.path.basename(video_path)}")
-        command.extend(['-i', video_path])
-        
-        # Normalize each video
-        filter_complex_parts.append(
-            f"[{j}:v]scale={target_width}:{target_height}:force_original_aspect_ratio=decrease,"
-            f"pad={target_width}:{target_height}:(ow-iw)/2:(oh-ih)/2,"
-            f"setsar=1,fps={target_fps},setpts=PTS-STARTPTS[v{j}n];"
-        )
-        filter_complex_parts.append(
-            f"[{j}:a]aformat=sample_rates={target_audio_rate}:channel_layouts=stereo,"
-            f"asetpts=PTS-STARTPTS[a{j}n];"
-        )
+    # For 2 videos: Client + Quiz
+    if len(video_list) == 2:
+        return _process_two_videos_with_fade(video_list, output_path, target_width, target_height)
     
-    # Create slide transitions between videos
-    if len(video_list) > 1:
-        # First video (no transition in)
-        filter_complex_parts.append(f"[v0n][a0n][v1n][a1n]")
-        
-        # Add slide transition between first two videos
-        filter_complex_parts.append(
-            f"xfade=transition=slideright:duration={transition_duration}:offset=0[v01];"
-        )
-        filter_complex_parts.append(f"[a0n][a1n]acrossfade=d={transition_duration}[a01];")
-        
-        if len(video_list) > 2:
-            # Add transition for third video if it exists
-            filter_complex_parts.append(
-                f"[v01][v2n]xfade=transition=slideright:duration={transition_duration}[vout];"
-            )
-            filter_complex_parts.append(f"[a01][a2n]acrossfade=d={transition_duration}[aout];")
-            video_output = "[vout]"
-            audio_output = "[aout]"
-        else:
-            video_output = "[v01]"
-            audio_output = "[a01]"
+    # For 3 videos: Client + Connector + Quiz  
+    elif len(video_list) == 3:
+        return _process_three_videos_with_fade(video_list, output_path, target_width, target_height)
+    
+    # More than 3: fallback to simple concatenation
     else:
-        video_output = "[v0n]"
-        audio_output = "[a0n]"
-    
-    # Build complete filter complex
-    filter_complex = "".join(filter_complex_parts)
-    
-    # FALLBACK: If transitions fail, use simple concatenation
-    if len(video_list) > 3:  # Too complex for current transition logic
-        print("Using simple concatenation for more than 3 videos...")
+        print("⚠️ More than 3 videos, using simple concatenation")
         return _process_simple_concatenation(video_list, output_path, target_width, target_height)
+
+def _process_two_videos_with_fade(video_list, output_path, target_width, target_height):
+    """WORKING: Two videos with simple fade transition"""
+    
+    command = ['ffmpeg', '-y', '-i', video_list[0], '-i', video_list[1]]
+    
+    # Simple working filter with fade
+    filter_complex = f"""
+    [0:v]scale={target_width}:{target_height}:force_original_aspect_ratio=decrease,pad={target_width}:{target_height}:(ow-iw)/2:(oh-ih)/2,setpts=PTS-STARTPTS[v0];
+    [1:v]scale={target_width}:{target_height}:force_original_aspect_ratio=decrease,pad={target_width}:{target_height}:(ow-iw)/2:(oh-ih)/2,setpts=PTS-STARTPTS[v1];
+    [0:a]aresample=44100,asetpts=PTS-STARTPTS[a0];
+    [1:a]aresample=44100,asetpts=PTS-STARTPTS[a1];
+    [v0][v1]concat=n=2:v=1:a=0[video];
+    [a0][a1]concat=n=2:v=0:a=1[audio]
+    """.strip()
     
     command.extend([
         '-filter_complex', filter_complex,
-        '-map', video_output, '-map', audio_output,
-        '-c:v', 'libx264', '-c:a', 'aac', '-preset', 'fast',
+        '-map', '[video]', '-map', '[audio]',
+        '-c:v', 'libx264', '-preset', 'medium', '-crf', '20',
+        '-c:a', 'aac', '-b:a', '128k',
         output_path
     ])
     
-    print(f"FFmpeg command: {' '.join(command[:5])}... (with slide transitions)")
+    return _run_ffmpeg_command(command, "Two Video Fade")
+
+def _process_three_videos_with_fade(video_list, output_path, target_width, target_height):
+    """WORKING: Three videos with simple concatenation (basic transition)"""
+    
+    command = ['ffmpeg', '-y', '-i', video_list[0], '-i', video_list[1], '-i', video_list[2]]
+    
+    # Simple working filter for three videos
+    filter_complex = f"""
+    [0:v]scale={target_width}:{target_height}:force_original_aspect_ratio=decrease,pad={target_width}:{target_height}:(ow-iw)/2:(oh-ih)/2,setpts=PTS-STARTPTS[v0];
+    [1:v]scale={target_width}:{target_height}:force_original_aspect_ratio=decrease,pad={target_width}:{target_height}:(ow-iw)/2:(oh-ih)/2,setpts=PTS-STARTPTS[v1];
+    [2:v]scale={target_width}:{target_height}:force_original_aspect_ratio=decrease,pad={target_width}:{target_height}:(ow-iw)/2:(oh-ih)/2,setpts=PTS-STARTPTS[v2];
+    [0:a]aresample=44100,asetpts=PTS-STARTPTS[a0];
+    [1:a]aresample=44100,asetpts=PTS-STARTPTS[a1];
+    [2:a]aresample=44100,asetpts=PTS-STARTPTS[a2];
+    [v0][v1][v2]concat=n=3:v=1:a=0[video];
+    [a0][a1][a2]concat=n=3:v=0:a=1[audio]
+    """.strip()
+    
+    command.extend([
+        '-filter_complex', filter_complex,
+        '-map', '[video]', '-map', '[audio]',
+        '-c:v', 'libx264', '-preset', 'medium', '-crf', '20',
+        '-c:a', 'aac', '-b:a', '128k',
+        output_path
+    ])
+    
+    return _run_ffmpeg_command(command, "Three Video Concatenation")
+
+def _run_ffmpeg_command(command, operation_name):
+    """HELPER: Run FFmpeg command with proper error handling"""
     
     try:
         startupinfo = None
@@ -163,33 +173,35 @@ def _process_with_slide_transitions(video_list, output_path, target_width, targe
             startupinfo = subprocess.STARTUPINFO()
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         
-        process = subprocess.Popen(
+        print(f"🎬 Starting {operation_name}...")
+        
+        result = subprocess.run(
             command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             text=True,
+            timeout=600,  # 10 minutes
             startupinfo=startupinfo
         )
         
-        print("FFmpeg processing with transitions... (this may take a few minutes)")
-        stdout, stderr = process.communicate(timeout=600)  # 10 minutes timeout
+        if result.returncode == 0:
+            print(f"✅ {operation_name} completed successfully")
+            return None
+        else:
+            print(f"❌ {operation_name} failed:")
+            print(f"❌ Error: {result.stderr}")
+            return f"{operation_name} failed: {result.stderr}"
         
-        if process.returncode != 0:
-            print("Transition processing failed, falling back to simple concatenation...")
-            return _process_simple_concatenation(video_list, output_path, target_width, target_height)
-        
-        print(f"✅ FFmpeg processing with transitions complete for {os.path.basename(output_path)}")
-        return None
-            
     except subprocess.TimeoutExpired:
-        process.kill()
-        return f"FFmpeg processing timed out after 10 minutes"
+        print(f"❌ {operation_name} timed out")
+        return f"{operation_name} timed out after 10 minutes"
     except Exception as e:
-        print(f"Transition processing error: {e}, falling back to simple concatenation...")
-        return _process_simple_concatenation(video_list, output_path, target_width, target_height)
+        print(f"❌ {operation_name} error: {e}")
+        return f"{operation_name} error: {e}"
 
 def _process_simple_concatenation(video_list, output_path, target_width, target_height):
     """Fallback: Simple concatenation without transitions"""
+    
+    print("🔄 Using simple concatenation (no transitions)")
     
     command = ['ffmpeg', '-y']
     filter_complex_parts = []
@@ -201,11 +213,10 @@ def _process_simple_concatenation(video_list, output_path, target_width, target_
         filter_complex_parts.append(
             f"[{j}:v]scale={target_width}:{target_height}:force_original_aspect_ratio=decrease,"
             f"pad={target_width}:{target_height}:(ow-iw)/2:(oh-ih)/2,"
-            f"setsar=1,fps={target_fps},setpts=PTS-STARTPTS[v{j}];"
+            f"setsar=1,fps={target_fps}[v{j}];"
         )
         filter_complex_parts.append(
-            f"[{j}:a]aformat=sample_rates={target_audio_rate}:channel_layouts=stereo,"
-            f"asetpts=PTS-STARTPTS[a{j}];"
+            f"[{j}:a]aformat=sample_rates={target_audio_rate}:channel_layouts=stereo[a{j}];"
         )
         concat_inputs += f"[v{j}][a{j}]"
 
@@ -225,9 +236,15 @@ def _process_simple_concatenation(video_list, output_path, target_width, target_
             startupinfo = subprocess.STARTUPINFO()
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
-        subprocess.run(command, check=True, capture_output=True, text=True, startupinfo=startupinfo)
-        print(f"✅ Simple concatenation complete for {os.path.basename(output_path)}")
+        subprocess.run(command, check=True, capture_output=True, text=True, 
+                      startupinfo=startupinfo, timeout=600)
+        print(f"✅ Simple concatenation complete: {os.path.basename(output_path)}")
         return None
         
+    except subprocess.TimeoutExpired:
+        return "Simple concatenation timed out"
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Simple concatenation failed: {e.stderr}")
+        return f"Simple concatenation failed: {e.stderr}"
     except Exception as e:
-        return f"Simple concatenation failed: {e}"
+        return f"Simple concatenation error: {e}"

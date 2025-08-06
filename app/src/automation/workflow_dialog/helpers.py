@@ -1,4 +1,5 @@
-# app/src/automation/workflow_dialog/helpers.py - UPDATED with complete account list
+# app/src/automation/workflow_dialog/helpers.py - ENHANCED DEBUG for BC3
+
 import os
 import time
 
@@ -9,74 +10,78 @@ def create_confirmation_data_from_orchestrator(card_data: dict,
                                              project_info: dict,
                                              downloaded_videos: list,
                                              validation_issues: list = None):
-    """Convert orchestrator data to ConfirmationData format - UPDATED with complete accounts"""
+    """Convert orchestrator data to ConfirmationData format - ENHANCED DEBUG"""
     
     project_name = project_info.get('project_name', 'Unknown Project')
     
-    # UPDATED: Complete Account Detection with all current accounts
+    # ENHANCED: Account Detection with DEBUG logging
     account_mapping = {
-        # Full acronym + name pairs
         'NB': 'Nature\'s Blend',
-        'MK': 'Morning Kick',
+        'MK': 'Morning Kick', 
         'DRC': 'Dermal Repair Complex',
         'TR': 'Total Restore',
         'MCT': 'MCT',
-        'PC': 'Phyto Collagen', 
+        'PC': 'Phyto Collagen',
         'GD': 'Glucose Defense',
         'OO': 'Olive Oil',
         'MC': 'Morning Complete',
         'DS': 'Dark Spot',
-        'BC3': 'Bio Complete 3',
+        'BC3': 'Bio Complete 3',  # KEY: BC3 mapping
         'PP': 'Pro Plant',
         'SPC': 'Superfood Complete',
         'MA': 'Metabolic Advanced',
         'KA': 'Keto Active',
         'BLR': 'BadLand Ranch',
-        
-        # Special cases (full names only or unique patterns)
         'Bio X4': 'Bio X4',
         'Upwellness': 'Upwellness',
-        
-        # Spanish variants
         'MK ES': 'Morning Kick Espanol',
-        'MCT ES': 'MCT Espanol', 
+        'MCT ES': 'MCT Espanol',
         'DS ES': 'Dark Spots Espanol',
     }
     
-    # Account Detection from Card Title
+    # DEBUG: Print what we're analyzing
     card_title = card_data.get('name', '')
+    print(f"🔍 HELPERS DEBUG - Card Title: '{card_title}'")
+    print(f"🔍 HELPERS DEBUG - Project Name: '{project_name}'")
+    
+    # Account Detection from Card Title with BC3 PRIORITY
     detected_account = 'Unknown Account'
     detected_account_code = 'UNKNOWN'
     
-    # First, try to find exact matches (prioritizing longer matches first)
-    account_codes = sorted(account_mapping.keys(), key=len, reverse=True)
-    
-    for code in account_codes:
-        if code.upper() in card_title.upper():
-            detected_account = f"{code} ({account_mapping[code]})"
-            detected_account_code = code
-            print(f"✅ Account detected: {code} -> {account_mapping[code]}")
-            break
-    
-    # If no exact match, try partial matching for full names
-    if detected_account_code == 'UNKNOWN':
-        for code, full_name in account_mapping.items():
-            # Check if any significant word from the full name appears in the title
-            name_words = full_name.lower().split()
-            for word in name_words:
-                if len(word) > 3 and word in card_title.lower():  # Only check words longer than 3 chars
-                    detected_account = f"{code} ({full_name})"
-                    detected_account_code = code
-                    print(f"✅ Account detected by name: {word} -> {code} ({full_name})")
-                    break
-            if detected_account_code != 'UNKNOWN':
+    # PRIORITY 1: Check for BC3 specifically first
+    if 'BC3' in card_title.upper():
+        detected_account_code = 'BC3'
+        detected_account = 'BC3 (Bio Complete 3)'
+        print(f"🎯 HELPERS DEBUG - BC3 DETECTED directly in card title")
+    else:
+        # Check other account codes (prioritizing longer matches first)
+        account_codes = sorted([k for k in account_mapping.keys() if k != 'BC3'], key=len, reverse=True)
+        
+        for code in account_codes:
+            if code.upper() in card_title.upper():
+                detected_account = f"{code} ({account_mapping[code]})"
+                detected_account_code = code
+                print(f"🔍 HELPERS DEBUG - Account detected: {code} -> {account_mapping[code]}")
                 break
+        
+        # If no exact match, try partial matching for full names
+        if detected_account_code == 'UNKNOWN':
+            for code, full_name in account_mapping.items():
+                name_words = full_name.lower().split()
+                for word in name_words:
+                    if len(word) > 3 and word in card_title.lower():
+                        detected_account = f"{code} ({full_name})"
+                        detected_account_code = code
+                        print(f"🔍 HELPERS DEBUG - Account detected by name: {word} -> {code} ({full_name})")
+                        break
+                if detected_account_code != 'UNKNOWN':
+                    break
     
     # Enhanced Platform Detection from Card Title
     platform_mapping = {
         'FB': 'Facebook',
         'FACEBOOK': 'Facebook',
-        'YT': 'YouTube', 
+        'YT': 'YouTube',
         'YOUTUBE': 'YouTube',
         'SHORTS': 'YouTube Shorts',
         'TT': 'TikTok',
@@ -94,19 +99,30 @@ def create_confirmation_data_from_orchestrator(card_data: dict,
     detected_platform = 'YouTube'  # Default
     detected_platform_code = 'YT'
     
-    # Prioritize longer platform names first
-    platform_codes = sorted(platform_mapping.keys(), key=len, reverse=True)
+    # Prioritize Facebook detection for BC3
+    if detected_account_code == 'BC3':
+        # Look harder for Facebook indicators when BC3 is detected
+        if 'FB' in card_title.upper() or 'FACEBOOK' in card_title.upper():
+            detected_platform = 'Facebook'
+            detected_platform_code = 'FB'
+            print(f"🎯 HELPERS DEBUG - BC3 + Facebook combination detected!")
     
-    for code in platform_codes:
-        if code in card_title.upper():
-            detected_platform = platform_mapping[code]
-            detected_platform_code = code
-            print(f"✅ Platform detected: {code} -> {detected_platform}")
-            break
+    # Regular platform detection
+    if detected_platform_code == 'YT':  # Only if we haven't found FB for BC3
+        platform_codes = sorted(platform_mapping.keys(), key=len, reverse=True)
+        for code in platform_codes:
+            if code in card_title.upper():
+                detected_platform = platform_mapping[code]
+                detected_platform_code = code
+                print(f"🔍 HELPERS DEBUG - Platform detected: {code} -> {detected_platform}")
+                break
     
     # Store account and platform codes for sheet detection
     project_info['account_code'] = detected_account_code
     project_info['platform_code'] = detected_platform_code
+    
+    print(f"🎯 HELPERS FINAL - Account: {detected_account_code}, Platform: {detected_platform_code}")
+    print(f"🎯 HELPERS FINAL - Looking for: {detected_account_code} + {detected_platform_code} sheet")
     
     # Determine templates based on processing mode
     templates = []
@@ -119,7 +135,7 @@ def create_confirmation_data_from_orchestrator(card_data: dict,
     elif processing_mode == "quiz_only":
         templates = [
             f"Add quiz outro ({detected_platform}/Quiz/) with slide transition",
-            "Apply professional slide transitions"  
+            "Apply professional slide transitions"
         ]
     elif processing_mode == "save_only":
         templates = ["Save and rename videos (no processing)"]
@@ -204,7 +220,7 @@ def create_processing_result_from_orchestrator(processed_files: list,
         if 'connector' in file_info['description'].lower():
             connection_info['components'] = [
                 f"Client Video ({file_info['duration']})",
-                "Blake Connector (20s)", 
+                "Blake Connector (20s)",
                 "Quiz Outro (15s)"
             ]
         elif 'quiz' in file_info['description'].lower():

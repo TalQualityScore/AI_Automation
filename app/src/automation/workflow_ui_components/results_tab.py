@@ -1,4 +1,4 @@
-# app/src/automation/workflow_ui_components/results_tab.py - CORRECTED breakdown export
+# app/src/automation/workflow_ui_components/results_tab.py - FIXED ISSUES 3 & 4
 
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -46,7 +46,7 @@ class ResultsTab:
         return self.frame
     
     def show_success_results(self, result: ProcessingResult, on_open_folder, on_done):
-        """Show success results with CORRECTED breakdown file export"""
+        """Show success results with FIXED breakdown file export"""
         # Store result and callbacks
         self.current_result = result
         self.current_callbacks = {
@@ -54,7 +54,7 @@ class ResultsTab:
             'on_done': on_done
         }
         
-        # FIRST: Export breakdown file (CORRECTED)
+        # FIRST: Export breakdown file (FIXED - Simple name)
         self._export_breakdown_file(result)
         
         # Clear existing content
@@ -96,8 +96,8 @@ class ResultsTab:
             ttk.Label(summary_frame, text=f"📊 {count} video{'s' if count != 1 else ''} processed successfully",
                      style='Body.TLabel', font=('Segoe UI', 10)).pack(anchor=tk.W, pady=(5, 0))
         
-        # BREAKDOWN SECTION - CORRECTED and simplified
-        if result.processed_files:  # Only show if we have files to show breakdown for
+        # BREAKDOWN SECTION - FIXED
+        if result.processed_files:
             breakdown_frame = ttk.Frame(main_container, style='White.TFrame')
             breakdown_frame.pack(fill=tk.X, pady=(15, 0))
             
@@ -163,7 +163,7 @@ class ResultsTab:
         done_btn.pack(side=tk.LEFT)
     
     def _export_breakdown_file(self, result: ProcessingResult):
-        """CORRECTED: Export detailed breakdown to a text file"""
+        """FIXED: Export breakdown with simple filename - just 'Processing_Breakdown.txt'"""
         try:
             print("🔍 Starting breakdown file export...")
             
@@ -182,9 +182,8 @@ class ResultsTab:
                     print(f"❌ Could not create output directory: {dir_error}")
                     return
             
-            # Create breakdown filename with timestamp to avoid conflicts
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            breakdown_filename = f"Processing_Breakdown_{timestamp}.txt"
+            # FIXED: Simple filename - just "Processing_Breakdown.txt"
+            breakdown_filename = "Processing_Breakdown.txt"
             self.breakdown_file_path = os.path.join(result.output_folder, breakdown_filename)
             
             print(f"📄 Creating breakdown file: {self.breakdown_file_path}")
@@ -214,7 +213,7 @@ class ResultsTab:
             self.breakdown_file_path = None
     
     def _generate_breakdown_content(self, result: ProcessingResult) -> str:
-        """ENHANCED: Generate detailed breakdown content for the text file"""
+        """FIXED: Generate simplified breakdown content - removed unwanted sections"""
         lines = []
         
         # Header
@@ -229,26 +228,7 @@ class ResultsTab:
         lines.append(f"Output Location: {result.output_folder}")
         lines.append("")
         
-        # Processing Summary
-        lines.append("=" * 60)
-        lines.append("PROCESSING SUMMARY")
-        lines.append("=" * 60)
-        lines.append("")
-        
-        if result.success:
-            lines.append("✅ All videos processed successfully")
-            lines.append("✅ Professional slide transitions applied between segments")  
-            lines.append("✅ Audio crossfading implemented for smooth transitions")
-            lines.append("✅ Format normalization applied (1080x1920, 30fps)")
-            lines.append("✅ Project organized with professional folder structure")
-        else:
-            lines.append("❌ Processing failed - see error details")
-            if hasattr(result, 'error_message') and result.error_message:
-                lines.append(f"Error: {result.error_message}")
-        
-        lines.append("")
-        
-        # Detailed File Breakdown
+        # Detailed File Breakdown (KEEP THIS SECTION)
         if result.processed_files:
             lines.append("=" * 60)
             lines.append("DETAILED FILE BREAKDOWN")
@@ -285,51 +265,14 @@ class ResultsTab:
                     lines.append(f"   ✨ Transitions: None (saved as-is)")
                 
                 lines.append("")
-            
-            # Overall Statistics
-            lines.append("=" * 60)
-            lines.append("OVERALL STATISTICS")
-            lines.append("=" * 60)
-            lines.append("")
-            
-            total_estimated_duration = len(result.processed_files) * 140  # Average duration
-            total_minutes = total_estimated_duration // 60
-            total_seconds = total_estimated_duration % 60
-            total_duration_str = f"{total_minutes}:{total_seconds:02d}"
-            
-            total_estimated_size = sum(145 + (i * 35) for i in range(len(result.processed_files)))
-            
-            lines.append(f"📊 Total Content Duration: ~{total_duration_str}")
-            lines.append(f"📼 Total Files Created: {len(result.processed_files)} videos")
-            lines.append(f"💾 Total Estimated Size: ~{total_estimated_size}MB")
-            lines.append(f"🎬 Average Video Length: ~2:20")
-            lines.append("")
-            
-            # Technical Details
-            lines.append("=" * 60)
-            lines.append("TECHNICAL DETAILS")
-            lines.append("=" * 60)
-            lines.append("")
-            lines.append("🔧 Video Processing Engine: FFmpeg with custom filter complex")
-            lines.append("📐 Output Resolution: 1080x1920 (9:16 aspect ratio)")
-            lines.append("🎞️ Frame Rate: 30fps (standardized)")
-            lines.append("🎵 Audio: 44.1kHz stereo with crossfade transitions")
-            lines.append("✨ Transition Type: Slide right with 0.5s duration")
-            lines.append("🗜️ Compression: H.264 with optimized bitrate")
-            lines.append("")
         
-        # Footer
-        lines.append("=" * 80)
-        lines.append("END OF BREAKDOWN REPORT")
-        lines.append("")
-        lines.append("Generated by AI Automation Suite")
-        lines.append("For questions or support, contact your system administrator")
-        lines.append("=" * 80)
+        # REMOVED: Processing Summary, Overall Statistics, Technical Details, and Footer
+        # Only keep the header and detailed file breakdown
         
         return "\n".join(lines)
     
     def _open_breakdown_file(self):
-        """CORRECTED: Open the breakdown file in the default text editor"""
+        """Open the breakdown file in the default text editor"""
         if not self.breakdown_file_path:
             messagebox.showerror("Error", "Breakdown file path not available!")
             return
