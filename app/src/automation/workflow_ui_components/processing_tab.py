@@ -1,4 +1,4 @@
-# app/src/automation/workflow_ui_components/processing_tab.py - FIXED VERSION
+# app/src/automation/workflow_ui_components/processing_tab.py - UPDATED
 import tkinter as tk
 from tkinter import ttk
 
@@ -15,7 +15,7 @@ class ProcessingTab:
         self.cancel_btn = None
         
     def create_tab(self, estimated_time: str):
-        """Create processing tab content"""
+        """Create processing tab content - REMOVED time estimation display"""
         self.frame = ttk.Frame(self.parent, style='White.TFrame')
         
         # Processing header
@@ -58,9 +58,9 @@ class ProcessingTab:
                                    style='Body.TLabel', font=('Segoe UI', 10))
         self.step_label.pack(pady=(0, 15))
         
-        # REMOVED: Time estimation (unreliable)
-        # Show estimated duration only initially
-        ttk.Label(progress_frame, text=f"Estimated duration: {estimated_time}",
+        # REMOVED: All time estimation components
+        # Simple status message only
+        ttk.Label(progress_frame, text="Processing will complete automatically",
                  style='Body.TLabel', font=('Segoe UI', 9, 'italic'),
                  foreground=self.theme.colors['text_secondary']).pack()
         
@@ -73,5 +73,3 @@ class ProcessingTab:
         
         if step_text:
             self.step_label.config(text=step_text)
-        
-        # REMOVED: Time remaining calculation - too unreliable
