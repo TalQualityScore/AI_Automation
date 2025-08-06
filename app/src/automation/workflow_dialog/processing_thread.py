@@ -1,4 +1,4 @@
-# app/src/automation/workflow_dialog/processing_thread.py - COMPLETE FIX for Results Display
+# app/src/automation/workflow_dialog/processing_thread.py - UPDATED for Tab State
 
 import threading
 import time
@@ -8,7 +8,7 @@ from typing import Callable
 from ..workflow_data_models import ProcessingResult
 
 class ProcessingThreadManager:
-    """Handles background processing threads and UI communication - COMPLETE FIX"""
+    """Handles background processing threads with FIXED tab state integration"""
     
     def __init__(self, dialog_controller):
         self.dialog = dialog_controller
@@ -16,6 +16,7 @@ class ProcessingThreadManager:
         self.is_cancelled = False
         self.start_time = None
         self.processing_thread = None
+        self.processing_complete = False
         
         # Start UI queue checker
         self._start_ui_queue_checker()
@@ -28,17 +29,14 @@ class ProcessingThreadManager:
     def _check_ui_queue(self):
         """Check UI queue for cross-thread updates"""
         try:
-            while True:  # Process all pending items
+            while True:
                 try:
                     task = self.ui_queue.get_nowait()
                     if callable(task):
-                        # It's a function - execute it
                         task()
                     elif isinstance(task, ProcessingResult):
-                        # It's a ProcessingResult - handle completion
                         self._handle_processing_completion_ui_thread(task)
                     else:
-                        # It's some other data - try to call it
                         if hasattr(task, '__call__'):
                             task()
                 except Empty:
@@ -54,6 +52,7 @@ class ProcessingThreadManager:
         """Start processing in background thread"""
         self.start_time = time.time()
         self.is_cancelled = False
+        self.processing_complete = False
         
         def process():
             try:
@@ -123,11 +122,17 @@ class ProcessingThreadManager:
             print(f"Queue error: {queue_error}")
     
     def _handle_processing_completion_ui_thread(self, result: ProcessingResult):
-        """Handle processing completion - RUNS ON UI THREAD"""
+        """FIXED: Handle processing completion with proper tab state updates"""
         try:
             print(f"🎬 Processing completed on UI thread: {result.success if result else 'No result'}")
             
             self.processing_complete = True
+            
+            # FIXED: Update tab manager processing state
+            if self.dialog.tab_manager:
+                self.dialog.tab_manager.processing_active = False  # Clear active state
+                self.dialog.tab_manager.processing_complete = True
+                self.dialog.tab_manager.processing_result = result
             
             if result and result.success:
                 print("✅ PROCESSING SUCCESSFUL - Transitioning to Results")
@@ -150,9 +155,8 @@ class ProcessingThreadManager:
                         except Exception as btn_error:
                             print(f"Button update error: {btn_error}")
                 
-                # Update tab navigation to allow results access
+                # FIXED: Update tab buttons to allow navigation
                 if self.dialog.tab_manager:
-                    self.dialog.tab_manager.processing_complete = True
                     self.dialog.tab_manager._update_tab_buttons(self.dialog.tab_manager.current_tab)
                 
                 # Auto-advance to results after 3 seconds
@@ -166,199 +170,23 @@ class ProcessingThreadManager:
             print(f"Error in completion handler: {completion_error}")
             import traceback
             traceback.print_exc()
-            
-    def _handle_processing_completion_ui_thread(self, result: ProcessingResult):
-        """Handle processing completion - FIXED to properly store results"""
-        try:
-            print(f"🎬 Processing completed on UI thread: {result.success if result else 'No result'}")
-            
-            self.processing_complete = True
-            
-            if result and result.success:
-                print("✅ PROCESSING SUCCESSFUL - Transitioning to Results")
-                
-                # Update processing tab to show completion
-                if self.dialog.tab_manager and self.dialog.tab_manager.processing_tab:
-                    if hasattr(self.dialog.tab_manager.processing_tab, 'update_progress'):
-                        self.dialog.tab_manager.processing_tab.update_progress(100, "✅ Processing completed successfully!")
-                    
-                    # Update cancel button to continue button
-                    if hasattr(self.dialog.tab_manager.processing_tab, 'cancel_btn'):
-                        try:
-                            def go_to_results():
-                                self._show_results_tab(result)
-                            
-                            self.dialog.tab_manager.processing_tab.cancel_btn.config(
-                                text="✅ View Results", 
-                                command=go_to_results
-                            )
-                        except Exception as btn_error:
-                            print(f"Button update error: {btn_error}")
-                
-                # FIXED: Store result in tab manager for proper restoration
-                if self.dialog.tab_manager:
-                    self.dialog.tab_manager.processing_complete = True
-                    self.dialog.tab_manager.processing_result = result
-                    self.dialog.tab_manager._update_tab_buttons(self.dialog.tab_manager.current_tab)
-                
-                # Auto-advance to results after 3 seconds
-                self.dialog.root.after(3000, lambda: self._show_results_tab(result))
-                
-            else:
-                print("❌ Processing failed - showing error")
-                self._show_results_tab(result)
-                
-        except Exception as completion_error:
-            print(f"Error in completion handler: {completion_error}")
-            import traceback
-            traceback.print_exc()
-
+    
     def _show_results_tab(self, result: ProcessingResult):
-        """Show results tab with proper result storage - FIXED"""
+        """Show results tab with proper result storage"""
         try:
-            print("🎬 Showing results tab with proper storage...")
+            print("🎬 Showing results tab...")
             
             if not self.dialog.tab_manager:
                 print("❌ No tab manager available")
                 return
             
-            # FIXED: Use the tab manager's method which properly stores results
+            # Use the tab manager's method which properly stores results
             self.dialog.tab_manager.show_results(result)
             
         except Exception as results_error:
             print(f"❌ Error showing results tab: {results_error}")
             import traceback
             traceback.print_exc()
-            
-            # Fallback to direct results display
-            self._show_results_directly(result)
-
-    def _show_results_directly(self, result: ProcessingResult):
-        """Fallback - show results in a simple popup window"""
-        try:
-            import tkinter as tk
-            from tkinter import messagebox
-            
-            if result.success:
-                # Create success popup
-                success_window = tk.Toplevel(self.dialog.root) if self.dialog.root else tk.Tk()
-                success_window.title("Processing Complete!")
-                success_window.geometry("600x400")
-                success_window.configure(bg='white')
-                
-                # Center window
-                x = (success_window.winfo_screenwidth() // 2) - 300
-                y = (success_window.winfo_screenheight() // 2) - 200
-                success_window.geometry(f"600x400+{x}+{y}")
-                
-                # Header
-                header_frame = tk.Frame(success_window, bg='white')
-                header_frame.pack(fill=tk.X, padx=20, pady=20)
-                
-                tk.Label(header_frame, text="🎉 Success!", font=('Segoe UI', 18, 'bold'), 
-                        bg='white', fg='#107c10').pack()
-                tk.Label(header_frame, text="Your videos have been processed successfully", 
-                        font=('Segoe UI', 11), bg='white', fg='#605e5c').pack()
-                
-                # Results info
-                info_frame = tk.Frame(success_window, bg='white')
-                info_frame.pack(fill=tk.BOTH, expand=True, padx=20)
-                
-                tk.Label(info_frame, text=f"✅ Processing completed in {result.duration}", 
-                        font=('Segoe UI', 12, 'bold'), bg='white', fg='#107c10').pack(anchor=tk.W, pady=5)
-                tk.Label(info_frame, text=f"📊 {len(result.processed_files)} video(s) processed successfully", 
-                        font=('Segoe UI', 10), bg='white').pack(anchor=tk.W, pady=2)
-                tk.Label(info_frame, text=f"📁 Output: {result.output_folder}", 
-                        font=('Segoe UI', 10), bg='white').pack(anchor=tk.W, pady=2)
-                
-                # File list
-                tk.Label(info_frame, text="📋 Processed Files:", 
-                        font=('Segoe UI', 11, 'bold'), bg='white').pack(anchor=tk.W, pady=(10, 5))
-                
-                for i, file_info in enumerate(result.processed_files, 1):
-                    file_text = f"{i}. {file_info.get('output_name', 'Unknown')}.mp4"
-                    tk.Label(info_frame, text=file_text, font=('Segoe UI', 9), 
-                            bg='white', fg='#323130').pack(anchor=tk.W, padx=20, pady=1)
-                
-                # Buttons
-                button_frame = tk.Frame(success_window, bg='white')
-                button_frame.pack(fill=tk.X, padx=20, pady=20)
-                
-                def open_folder():
-                    try:
-                        import os, subprocess, platform
-                        if platform.system() == "Windows":
-                            os.startfile(result.output_folder)
-                        elif platform.system() == "Darwin":
-                            subprocess.run(["open", result.output_folder])
-                        else:
-                            subprocess.run(["xdg-open", result.output_folder])
-                    except Exception as e:
-                        messagebox.showerror("Error", f"Could not open folder:\n{e}")
-                
-                def close_success():
-                    success_window.destroy()
-                    self._on_success_close()
-                
-                tk.Button(button_frame, text="📂 Open Output Folder", font=('Segoe UI', 11, 'bold'),
-                        bg='#0078d4', fg='white', padx=20, pady=10, command=open_folder).pack(side=tk.LEFT, padx=(0, 10))
-                tk.Button(button_frame, text="✅ Done", font=('Segoe UI', 11),
-                        bg='#f3f3f3', fg='#323130', padx=20, pady=10, command=close_success).pack(side=tk.LEFT)
-                
-            else:
-                # Show error popup
-                messagebox.showerror("Processing Failed", 
-                                f"Processing failed:\n{result.error_message}\n\nSolution:\n{result.error_solution}")
-                self._on_error_close()
-                
-        except Exception as popup_error:
-            print(f"❌ Error showing results popup: {popup_error}")
-            # Ultimate fallback - just print and close
-            self._print_results_fallback(result)
-            if result.success:
-                self._on_success_close()
-            else:
-                self._on_error_close()
-    
-    def _print_results_fallback(self, result: ProcessingResult):
-        """Fallback - print results to console if UI fails"""
-        print("\n" + "="*60)
-        if result.success:
-            print("🎉 AUTOMATION COMPLETED SUCCESSFULLY!")
-            print("="*60)
-            print(f"✅ Duration: {result.duration}")
-            print(f"📊 Files processed: {len(result.processed_files)}")
-            print(f"📁 Output folder: {result.output_folder}")
-            
-            # List processed files
-            for i, file_info in enumerate(result.processed_files, 1):
-                print(f"   {i}. {file_info.get('output_name', 'Unknown')}")
-                print(f"      Source: {file_info.get('source_file', 'Unknown')}")
-                print(f"      Description: {file_info.get('description', 'No description')}")
-        else:
-            print("❌ PROCESSING FAILED")
-            print("="*60)
-            print(f"Error: {result.error_message}")
-            if result.error_solution:
-                print(f"Solution: {result.error_solution}")
-        
-        print("="*60)
-    
-    def _on_success_close(self):
-        """Handle successful close from results tab"""
-        print("🎬 Success close from results")
-        if self.dialog:
-            self.dialog.result = True
-            if self.dialog.root:
-                self.dialog.root.destroy()
-    
-    def _on_error_close(self):
-        """Handle error close from results tab"""
-        print("🎬 Error close from results")
-        if self.dialog:
-            self.dialog.result = False
-            if self.dialog.root:
-                self.dialog.root.destroy()
     
     def _simulate_processing(self):
         """Fallback simulation for testing"""
@@ -424,5 +252,11 @@ class ProcessingThreadManager:
 4. Try restarting the application"""
     
     def cancel_processing(self):
-        """Cancel the current processing"""
+        """Cancel the current processing and update tab states"""
+        print("🛑 Canceling processing...")
         self.is_cancelled = True
+        
+        # FIXED: Update tab manager state when cancelling
+        if self.dialog.tab_manager:
+            self.dialog.tab_manager.processing_active = False
+            self.dialog.tab_manager._update_tab_buttons(self.dialog.tab_manager.current_tab)
