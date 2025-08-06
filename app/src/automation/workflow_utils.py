@@ -1,4 +1,4 @@
-# app/src/automation/workflow_utils.py - FIXED VERSION LETTER EXTRACTION
+# app/src/automation/workflow_utils.py - FIXED: Restore original folder structure
 
 import os
 import shutil
@@ -41,75 +41,99 @@ def parse_project_info(folder_name):
             groups = match.groups()
             print(f"Pattern {i+1} matched with {len(groups)} groups: {groups}")
             
-            if i in [0, 1]:  # Standard OO patterns with letter
+            if i < 2:  # Standard OO patterns
                 if len(groups) >= 4:
                     raw_project_name = groups[0]
                     ad_type = groups[1]
                     test_name = groups[2]
-                    version_letter = groups[3] if len(groups) > 3 else ""
+                    version_letter = groups[3]
                 else:
                     raw_project_name = groups[0]
                     ad_type = groups[1]
                     test_name = groups[2]
                     version_letter = ""
+                    
                 project_name = clean_project_name(raw_project_name)
                 
-            elif i in [2, 3]:  # AD-It patterns
+                print(f"Extracted: '{raw_project_name}' -> '{project_name}' (Type: {ad_type}, Test: {test_name}, Letter: {version_letter})")
+                
+                return {
+                    "project_name": project_name,
+                    "ad_type": ad_type,
+                    "test_name": test_name,
+                    "version_letter": version_letter
+                }
+                
+            elif i == 2 or i == 3:  # AD-It patterns
                 raw_project_name = groups[0]
                 ad_type = groups[1]
                 test_name = groups[2]
                 version_letter = groups[3] if len(groups) > 3 else ""
+                
                 project_name = clean_project_name(raw_project_name)
                 
-            elif i == 4:  # Modern format with OPT - FIXED
-                company = groups[0]
-                prefix = groups[1]
-                raw_project_name = groups[2]
-                ad_type = groups[3]
-                test_name = groups[4]
-                # CRITICAL FIX: Don't try to extract version letter from pattern match
-                # We'll extract it from actual filenames later
-                version_letter = ""
-                combined_name = f"{company} {raw_project_name}".replace('_', ' ')
-                project_name = clean_project_name(combined_name)
+                print(f"Extracted: '{raw_project_name}' -> '{project_name}' (Type: {ad_type}, Test: {test_name}, Letter: {version_letter})")
+                
+                return {
+                    "project_name": project_name,
+                    "ad_type": ad_type,
+                    "test_name": test_name,
+                    "version_letter": version_letter
+                }
+                
+            elif i == 4:  # Modern OPT format
+                if len(groups) >= 5:
+                    company = groups[0]
+                    prefix = groups[1]
+                    raw_project_name = groups[2]
+                    ad_type = groups[3]
+                    test_name = groups[4]
                     
-            elif i == 5:  # GH format - FIXED to extract full project name
-                raw_project_name = groups[0]  # This should be the full project name after OO_
-                ad_type = groups[1]
-                test_name = groups[2]
-                version_letter = ""
-                project_name = clean_project_name(raw_project_name)
-            
-            # CRITICAL FIX: Extract version letter from the FULL folder name using better pattern
-            # Look for _250416D pattern specifically
-            if not version_letter:
-                # Try to find version letter from date+letter pattern in the full folder name
-                version_letter_match = re.search(r'_(\d{6})([A-D])(?:\s|$|\))', folder_name)
-                if version_letter_match:
-                    version_letter = version_letter_match.group(2)
-                    print(f"🔍 EXTRACTED VERSION LETTER from date pattern: '{version_letter}'")
-                else:
-                    # Fallback: look for any pattern with test number + letter
-                    version_letter_match = re.search(r'(?:VTD|STOR|ACT)-(\d+)([A-D])(?:\s|$|\))', folder_name) 
+                    # Build combined project name
+                    combined_name = f"{company} {prefix} {raw_project_name}"
+                    project_name = clean_project_name(combined_name)
+                    
+                    # Try to extract version letter from folder name separately
+                    version_letter = ""
+                    version_letter_match = re.search(r'_(\d+)([A-Z])(?:\s|$|\))', folder_name)
                     if version_letter_match:
                         version_letter = version_letter_match.group(2)
-                        print(f"🔍 EXTRACTED VERSION LETTER from test pattern: '{version_letter}'")
-                    else:
-                        version_letter = ""
-                        print(f"🔍 NO VERSION LETTER found in folder name")
-            
-            print(f"Extracted: '{raw_project_name}' -> '{project_name}' (Type: {ad_type}, Test: {test_name}, Letter: {version_letter})")
-            
-            return {
-                "project_name": project_name,
-                "ad_type": ad_type, 
-                "test_name": test_name,
-                "version_letter": version_letter
-            }
+                    
+                    print(f"Extracted: '{combined_name}' -> '{project_name}' (Type: {ad_type}, Test: {test_name}, Letter: {version_letter})")
+                    
+                    return {
+                        "project_name": project_name,
+                        "ad_type": ad_type,
+                        "test_name": test_name,
+                        "version_letter": version_letter
+                    }
+                    
+            elif i == 5:  # GH prefix format
+                raw_project_name = groups[0]
+                ad_type = groups[1]
+                test_name = groups[2]
+                
+                project_name = clean_project_name(raw_project_name)
+                
+                # Try to extract version letter from folder name
+                version_letter = ""
+                version_letter_match = re.search(r'_(\d+)([A-Z])(?:\s|$|\))', folder_name)
+                if version_letter_match:
+                    version_letter = version_letter_match.group(2)
+                
+                print(f"Extracted: '{raw_project_name}' -> '{project_name}' (Type: {ad_type}, Test: {test_name}, Letter: {version_letter})")
+                
+                return {
+                    "project_name": project_name,
+                    "ad_type": ad_type,
+                    "test_name": test_name,
+                    "version_letter": version_letter
+                }
     
-    print(f"No pattern matched. Attempting manual extraction...")
+    # Manual extraction as fallback
+    print(f"🔄 NO PATTERNS MATCHED - Attempting manual extraction...")
     
-    # Manual fallback extraction - ENHANCED for ANY account prefix
+    # Try to extract components manually
     ad_type_match = re.search(r'(VTD|STOR|ACT)', folder_name)
     test_name_match = re.search(r'(?:VTD|STOR|ACT)-(\d+)', folder_name)
     
@@ -129,12 +153,11 @@ def parse_project_info(folder_name):
                 if len(groups) >= 2:
                     raw_project_name = groups[1]
                     if len(raw_project_name) > 3 or not raw_project_name.isupper():
-                        from app.naming_generator import clean_project_name
                         project_name = clean_project_name(raw_project_name)
                         
                         # Try to extract version letter
                         version_letter = ""
-                        version_letter_match = re.search(r'_(\d{6})([A-D])(?:\s|$|\))', folder_name)
+                        version_letter_match = re.search(r'_(\d+)([A-Z])(?:\s|$|\))', folder_name)
                         if version_letter_match:
                             version_letter = version_letter_match.group(2)
                         
@@ -151,7 +174,7 @@ def parse_project_info(folder_name):
     return None
 
 def create_project_structure(project_folder_name):
-    """Creates the standard project folder structure."""
+    """Creates the ORIGINAL project folder structure with _AME, _Audio, _Copy, _Footage, _Thumbnails"""
     
     desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
     project_path = os.path.join(desktop_path, project_folder_name)
@@ -160,19 +183,52 @@ def create_project_structure(project_folder_name):
         # Create main project folder
         os.makedirs(project_path, exist_ok=True)
         
-        # Create subfolders
-        subfolders = ["Source_Videos", "Processed_Videos", "Breakdown_Files"]
-        for subfolder in subfolders:
-            subfolder_path = os.path.join(project_path, subfolder)
-            os.makedirs(subfolder_path, exist_ok=True)
+        # FIXED: Create the ORIGINAL folder structure
+        subfolders = {
+            "audio": "_Audio", 
+            "copy": "_Copy", 
+            "footage": "_Footage", 
+            "thumbs": "_Thumbnails", 
+            "ame": "_AME"
+        }
+        
+        # Create main subfolders
+        for key, folder in subfolders.items():
+            os.makedirs(os.path.join(project_path, folder), exist_ok=True)
+        
+        # Audio subfolders
+        audio_sub = ["Music", "SFX", "Source", "VO"]
+        for sub in audio_sub:
+            os.makedirs(os.path.join(project_path, subfolders["audio"], sub), exist_ok=True)
+        
+        # Footage subfolders  
+        footage_sub = ["Images", "PSD", "Vector", "Video"]
+        for sub in footage_sub:
+            os.makedirs(os.path.join(project_path, subfolders["footage"], sub), exist_ok=True)
+        
+        # Video subfolders
+        video_sub = ["Client", "Quality Score", "Rendered", "Stock"]
+        for sub in video_sub:
+            os.makedirs(os.path.join(project_path, subfolders["footage"], "Video", sub), exist_ok=True)
         
         print(f"📁 PROJECT STRUCTURE CREATED AT: '{project_path}'")
         
+        # FIXED: Return dictionary with correct paths AND aliases for compatibility
         return {
+            # Original structure
             "project_folder": project_path,
-            "source_videos": os.path.join(project_path, "Source_Videos"),
-            "processed_videos": os.path.join(project_path, "Processed_Videos"),
-            "breakdown_files": os.path.join(project_path, "Breakdown_Files")
+            "audio": os.path.join(project_path, "_Audio"),
+            "copy": os.path.join(project_path, "_Copy"),
+            "footage": os.path.join(project_path, "_Footage"),
+            "thumbnails": os.path.join(project_path, "_Thumbnails"),
+            "ame": os.path.join(project_path, "_AME"),
+            "client_videos": os.path.join(project_path, "_Footage", "Video", "Client"),
+            
+            # Aliases for compatibility with existing code
+            "project_root": project_path,
+            "source_videos": os.path.join(project_path, "_Footage", "Video", "Client"),
+            "processed_videos": os.path.join(project_path, "_AME"),
+            "breakdown_files": os.path.join(project_path, "_Copy")
         }
         
     except Exception as e:
@@ -203,7 +259,6 @@ def copy_videos_to_source_folder(downloaded_videos, source_folder):
 
 def cleanup_temp_files(temp_folder):
     """Clean up temporary files and folders."""
-    
     try:
         if os.path.exists(temp_folder):
             shutil.rmtree(temp_folder)
