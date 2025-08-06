@@ -1,4 +1,5 @@
-# app/src/automation/workflow_dialog/dialog_controller.py
+# app/src/automation/workflow_dialog/dialog_controller.py - COMPLETE FIXED VERSION
+
 import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Callable
@@ -12,7 +13,7 @@ from .processing_thread import ProcessingThreadManager
 from .notification_handlers import NotificationManager
 
 class UnifiedWorkflowDialog:
-    """Main workflow dialog controller - coordinates all components"""
+    """Main workflow dialog controller - COMPLETE with project name flow fixes"""
     
     def __init__(self, parent=None):
         self.parent = parent
@@ -29,6 +30,27 @@ class UnifiedWorkflowDialog:
         self.confirmation_data = None
         self.processing_callback = None
         
+        # CRITICAL: Store orchestrator reference for project name flow
+        self.orchestrator = None
+        self.updated_project_name = None  # Direct storage
+        
+    def set_orchestrator(self, orchestrator):
+        """Set orchestrator reference for complete project name flow"""
+        self.orchestrator = orchestrator
+        print(f"🔗 DIALOG CONTROLLER: Orchestrator reference set")
+        
+        # Also pass reference to confirmation tab when it's created
+        if hasattr(self, 'tab_manager') and self.tab_manager:
+            if hasattr(self.tab_manager, 'confirmation_tab') and self.tab_manager.confirmation_tab:
+                self.tab_manager.confirmation_tab.set_orchestrator(orchestrator)
+                self.tab_manager.confirmation_tab.set_dialog_controller(self)
+                print(f"✅ Confirmation tab orchestrator reference updated")
+        
+        # Store reference on orchestrator too
+        if orchestrator:
+            orchestrator.dialog_controller = self
+            print(f"✅ Orchestrator dialog_controller reference set")
+    
     @staticmethod
     def get_trello_card_id(parent=None):
         """Static method to get Trello card ID before starting workflow"""
@@ -48,9 +70,11 @@ class UnifiedWorkflowDialog:
             return None
     
     def show_workflow(self, confirmation_data: ConfirmationData, processing_callback: Callable) -> bool:
-        """Main entry point - show unified workflow"""
+        """Main entry point - show unified workflow with FIXED project name flow"""
         self.confirmation_data = confirmation_data
         self.processing_callback = processing_callback
+        
+        print(f"🎬 SHOW_WORKFLOW: Starting with project name: '{confirmation_data.project_name}'")
         
         self._create_dialog()
         return self.result if self.result is not None else False
@@ -82,6 +106,16 @@ class UnifiedWorkflowDialog:
         self.tab_manager.create_tab_navigation(self.root)
         self.tab_manager.create_content_area(self.root)
         self.tab_manager.initialize_tabs(self.confirmation_data, self.theme)
+        
+        # CRITICAL: Set orchestrator reference on confirmation tab after creation
+        if (hasattr(self.tab_manager, 'confirmation_tab') and 
+            self.tab_manager.confirmation_tab and 
+            self.orchestrator):
+            
+            self.tab_manager.confirmation_tab.set_orchestrator(self.orchestrator)
+            self.tab_manager.confirmation_tab.set_dialog_controller(self)
+            print(f"✅ Confirmation tab references set after creation")
+        
         self.tab_manager.show_tab(0)  # Start with confirmation
         
         self.root.protocol("WM_DELETE_WINDOW", self._on_cancel)
@@ -127,7 +161,33 @@ class UnifiedWorkflowDialog:
         self.notification_manager.create_notification_icons(notification_frame)
     
     def _on_confirm(self):
-        """Handle confirm button - start processing"""
+        """Handle confirm button - start processing with FIXED project name flow"""
+        print(f"\n🎬 CONFIRM CLICKED")
+        
+        # CRITICAL: Capture any project name changes from confirmation tab before processing
+        if hasattr(self.tab_manager, 'confirmation_tab') and self.tab_manager.confirmation_tab:
+            # Get the updated confirmation data
+            updated_data = self.tab_manager.confirmation_tab.get_updated_data()
+            
+            if updated_data and updated_data.project_name != self.confirmation_data.project_name:
+                print(f"🔄 CAPTURING PROJECT NAME CHANGE:")
+                print(f"   Original: '{self.confirmation_data.project_name}'")
+                print(f"   Updated:  '{updated_data.project_name}'")
+                
+                # Store the updated name in multiple locations to ensure it flows through
+                self.updated_project_name = updated_data.project_name
+                
+                if self.orchestrator:
+                    self.orchestrator.updated_project_name = updated_data.project_name
+                    print(f"✅ Updated orchestrator.updated_project_name = '{self.orchestrator.updated_project_name}'")
+                
+                # Update our confirmation_data too
+                self.confirmation_data = updated_data
+                print(f"✅ Updated dialog confirmation_data")
+            else:
+                print(f"ℹ️ No project name change detected")
+        
+        # Proceed with tab management
         self.tab_manager.on_confirm_clicked()
     
     def _on_cancel(self):
@@ -143,15 +203,18 @@ class UnifiedWorkflowDialog:
             if self.processing_manager:
                 self.processing_manager.cancel_processing()
         
+        print(f"🎬 DIALOG CANCELLED")
         self.result = False
         self.root.destroy()
     
     def _on_success_close(self):
         """Handle successful completion"""
+        print(f"🎬 DIALOG SUCCESS - CLOSING")
         self.result = True
         self.root.destroy()
     
     def _on_error_close(self):
         """Handle error close"""
+        print(f"🎬 DIALOG ERROR - CLOSING")
         self.result = False
         self.root.destroy()

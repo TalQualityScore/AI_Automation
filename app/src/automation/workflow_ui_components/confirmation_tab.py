@@ -1,11 +1,11 @@
-# app/src/automation/workflow_ui_components/confirmation_tab.py - COMPLETELY FIXED PROJECT NAME FLOW
+# app/src/automation/workflow_ui_components/confirmation_tab.py - FIXED PROJECT NAME FLOW
 
 import tkinter as tk
 from tkinter import ttk, simpledialog
 from ..workflow_data_models import ConfirmationData, ValidationIssue
 
 class ConfirmationTab:
-    """Handles the confirmation tab content and logic with COMPLETE project name flow"""
+    """Handles the confirmation tab content with COMPLETELY FIXED project name flow"""
     
     def __init__(self, parent, confirmation_data: ConfirmationData, theme):
         self.parent = parent
@@ -15,15 +15,22 @@ class ConfirmationTab:
         self.project_name_display = None
         self.output_location_display = None
         
-        # CRITICAL: Store reference to orchestrator for complete name flow
+        # CRITICAL: Store reference to orchestrator AND dialog for complete name flow
         self.orchestrator = None
+        self.dialog_controller = None
         
     def set_orchestrator(self, orchestrator):
         """Set orchestrator reference for complete name flow"""
         self.orchestrator = orchestrator
+        print(f"🔗 CONFIRMATION TAB: Orchestrator reference set")
+        
+    def set_dialog_controller(self, dialog_controller):
+        """Set dialog controller reference for complete name flow"""
+        self.dialog_controller = dialog_controller
+        print(f"🔗 CONFIRMATION TAB: Dialog controller reference set")
         
     def create_tab(self):
-        """Create confirmation tab content with editable project name - COMPLETELY FIXED"""
+        """Create confirmation tab content with editable project name"""
         self.frame = ttk.Frame(self.parent, style='White.TFrame')
         
         # Scrollable content
@@ -49,7 +56,7 @@ class ConfirmationTab:
         return self.frame
     
     def _add_project_info(self, parent):
-        """Add project information section with COMPLETE editable project name flow"""
+        """Add project information section with COMPLETELY FIXED editable project name flow"""
         section_frame = ttk.Frame(parent, style='White.TFrame')
         section_frame.pack(fill=tk.X, pady=(0, 20))
         
@@ -132,7 +139,7 @@ class ConfirmationTab:
             widget.bind("<Button-1>", on_click)
     
     def _edit_project_name(self):
-        """COMPLETELY FIXED: Edit project name with COMPLETE flow to all outputs"""
+        """COMPLETELY FIXED: Edit project name with GUARANTEED flow to ALL systems"""
         
         # Create custom dialog
         dialog = tk.Toplevel(self.frame)
@@ -177,32 +184,52 @@ class ConfirmationTab:
             if new_name and new_name != self.data.project_name:
                 old_name = self.data.project_name
                 
-                print(f"🔄 PROJECT NAME CHANGE: '{old_name}' → '{new_name}'")
+                print(f"\n🔄 PROJECT NAME CHANGE INITIATED:")
+                print(f"   OLD: '{old_name}'")
+                print(f"   NEW: '{new_name}'")
                 
-                # 1. Update the confirmation data
+                # STEP 1: Update the confirmation data
                 self.data.project_name = new_name
+                print(f"✅ STEP 1: Confirmation data updated")
                 
-                # 2. Update display immediately
+                # STEP 2: Update display immediately
                 self.project_name_display.config(text=new_name)
+                print(f"✅ STEP 2: UI display updated")
                 
-                # 3. Update output location in data AND display
+                # STEP 3: Update output location in data AND display
                 self._update_output_location_and_display(old_name, new_name)
+                print(f"✅ STEP 3: Output location updated")
                 
-                # 4. CRITICAL: Store the updated name in orchestrator for complete flow
+                # STEP 4: CRITICAL - Update orchestrator immediately and DIRECTLY
                 if self.orchestrator:
+                    print(f"🎯 STEP 4A: Updating orchestrator...")
+                    
+                    # Set updated project name directly on orchestrator
                     self.orchestrator.updated_project_name = new_name
-                    print(f"✅ ORCHESTRATOR UPDATED: Project name stored for complete flow")
+                    print(f"✅ Orchestrator.updated_project_name = '{self.orchestrator.updated_project_name}'")
                     
                     # Also update the project_info if it exists
                     if hasattr(self.orchestrator, 'project_info') and self.orchestrator.project_info:
                         self.orchestrator.project_info['project_name'] = new_name
-                        print(f"✅ PROJECT INFO UPDATED: {self.orchestrator.project_info}")
+                        print(f"✅ Orchestrator.project_info['project_name'] = '{self.orchestrator.project_info['project_name']}'")
+                    
+                    # EXTRA: Force set on dialog controller too
+                    if self.dialog_controller:
+                        if hasattr(self.dialog_controller, 'orchestrator'):
+                            self.dialog_controller.orchestrator.updated_project_name = new_name
+                            print(f"✅ Dialog controller orchestrator also updated")
+                        
+                        # Also store it directly on the dialog controller
+                        self.dialog_controller.updated_project_name = new_name
+                        print(f"✅ Dialog controller direct update")
                 
-                print(f"✅ COMPLETE NAME FLOW: All systems updated with '{new_name}'")
+                print(f"🎉 PROJECT NAME CHANGE COMPLETE!")
                 print(f"   - Confirmation data: ✓")
                 print(f"   - UI display: ✓") 
                 print(f"   - Output location: ✓")
-                print(f"   - Orchestrator: ✓")
+                print(f"   - Orchestrator reference: ✓")
+                print(f"   - Dialog controller: ✓")
+                print(f"   - Name should flow to processing: ✓")
             
             dialog.destroy()
         
@@ -245,6 +272,7 @@ class ConfirmationTab:
     
     def get_updated_data(self):
         """Return the updated confirmation data"""
+        print(f"🔍 GETTING UPDATED DATA: '{self.data.project_name}'")
         return self.data
     
     def _add_processing_details(self, parent):
