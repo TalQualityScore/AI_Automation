@@ -1,4 +1,4 @@
-# app/src/automation/video_processor.py - COMPLETE WITH ALL FUNCTIONS
+# app/src/automation/video_processor.py - REVERTED TO WORKING VERSION
 
 import os
 import subprocess
@@ -40,9 +40,9 @@ def get_video_dimensions(video_path):
         return None, None, f"Error getting video dimensions: {e}"
 
 def process_video_sequence(client_video, output_path, target_width, target_height, processing_mode="connector_quiz"):
-    """SIMPLIFIED: Process videos with basic working concatenation (transitions removed for reliability)"""
+    """REVERTED: Back to the WORKING version that was tested and reliable"""
     
-    print(f"🎬 Starting video processing in {processing_mode} mode...")
+    print(f"🎬 Starting RELIABLE video processing in {processing_mode} mode...")
     
     try:
         # Build video list based on processing mode
@@ -70,7 +70,7 @@ def process_video_sequence(client_video, output_path, target_width, target_heigh
             print(f"✅ Found quiz outro: {outro}")
             
             video_list.extend([connector, outro])
-            print(f"🎬 Will process: Client → Connector → Quiz (simple concatenation)")
+            print(f"🎬 Will process: Client → Connector → Quiz")
             
         elif processing_mode == "quiz_only":
             if not os.path.exists(QUIZ_OUTRO_PATH):
@@ -84,7 +84,7 @@ def process_video_sequence(client_video, output_path, target_width, target_heigh
             print(f"✅ Found quiz outro: {outro}")
             
             video_list.append(outro)
-            print(f"🎬 Will process: Client → Quiz (simple concatenation)")
+            print(f"🎬 Will process: Client → Quiz")
             
     except Exception as e:
         return f"Error setting up video files: {e}"
@@ -98,7 +98,7 @@ def process_video_sequence(client_video, output_path, target_width, target_heigh
         except Exception as copy_error:
             return f"Error copying file: {copy_error}"
 
-    print(f"🎬 Processing {len(video_list)} videos with SIMPLE concatenation...")
+    print(f"🎬 Processing {len(video_list)} videos with WORKING method...")
 
     # Verify all input files exist
     for i, video_path in enumerate(video_list):
@@ -106,41 +106,51 @@ def process_video_sequence(client_video, output_path, target_width, target_heigh
             return f"Input file not found: {video_path}"
         print(f"✅ Video {i+1}: {os.path.basename(video_path)} ({os.path.getsize(video_path)} bytes)")
 
-    # SIMPLIFIED: Use basic concatenation that works reliably
-    return _process_simple_concatenation_reliable(video_list, output_path, target_width, target_height)
+    # REVERTED: Use the method that was ACTUALLY WORKING before
+    return _process_with_working_method(video_list, output_path, target_width, target_height)
 
 
-def _process_simple_concatenation_reliable(video_list, output_path, target_width, target_height):
-    """RELIABLE: Simple concatenation that works every time"""
+def _process_with_working_method(video_list, output_path, target_width, target_height):
+    """REVERTED: The method that was working before the refactor"""
     
-    print(f"🔄 Using RELIABLE simple concatenation for {len(video_list)} videos")
+    print(f"🔄 Using TESTED working method for {len(video_list)} videos")
     
-    concat_file = None
     try:
-        # Create temporary file list
-        concat_file = tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False)
+        # Build FFmpeg command using the WORKING approach
+        command = ['ffmpeg', '-y']
+        filter_complex_parts = []
+        concat_inputs = ""
         
-        for video_path in video_list:
-            # Use absolute paths and escape them properly
-            abs_path = os.path.abspath(video_path)
-            concat_file.write(f"file '{abs_path}'\n")
+        # Define a universal standard for all clips (this was working)
+        target_fps = 30
+        target_audio_rate = 44100
         
-        concat_file.close()
+        for j, video_path in enumerate(video_list):
+            command.extend(['-i', video_path])
+            # Standardize each video and audio stream (the WORKING way)
+            filter_complex_parts.append(
+                f"[{j}:v]scale={target_width}:{target_height}:force_original_aspect_ratio=decrease,"
+                f"pad={target_width}:{target_height}:(ow-iw)/2:(oh-ih)/2,"
+                f"setsar=1,fps={target_fps},setpts=PTS-STARTPTS[v{j}];"
+            )
+            filter_complex_parts.append(
+                f"[{j}:a]aformat=sample_rates={target_audio_rate}:channel_layouts=stereo,"
+                f"asetpts=PTS-STARTPTS[a{j}];"
+            )
+            concat_inputs += f"[v{j}][a{j}]"
+
+        filter_complex = "".join(filter_complex_parts) + \
+                         f"{concat_inputs}concat=n={len(video_list)}:v=1:a=1[outv][outa]"
         
-        print(f"📝 Created concat file: {concat_file.name}")
+        command.extend([
+            '-filter_complex', filter_complex,
+            '-map', '[outv]', '-map', '[outa]',
+            '-c:v', 'libx264', '-c:a', 'aac',
+            '-preset', 'medium'  # Good balance of speed and quality
+        ])
+        command.append(output_path)
         
-        # Simple FFmpeg concat command that works
-        command = [
-            'ffmpeg', '-y',
-            '-f', 'concat',
-            '-safe', '0',
-            '-i', concat_file.name,
-            '-c', 'copy',  # Copy streams without re-encoding for speed/reliability
-            output_path
-        ]
-        
-        print(f"🎬 Running FFmpeg command...")
-        print(f"Command: {' '.join(command)}")
+        print(f"🎬 Running WORKING FFmpeg command...")
         
         startupinfo = None
         if sys.platform == "win32":
@@ -151,90 +161,22 @@ def _process_simple_concatenation_reliable(video_list, output_path, target_width
             command,
             capture_output=True,
             text=True,
-            timeout=600,  # 10 minutes
+            timeout=1800,  # 30 minutes
             startupinfo=startupinfo
         )
         
         if result.returncode == 0:
-            print(f"✅ Simple concatenation completed successfully")
+            print(f"✅ WORKING method completed successfully")
             print(f"✅ Output: {os.path.basename(output_path)}")
             return None
         else:
             print(f"❌ FFmpeg failed:")
             print(f"❌ Error: {result.stderr}")
-            
-            # Fallback: Try with re-encoding if copy failed
-            return _process_with_reencoding_fallback(video_list, output_path, target_width, target_height)
+            return f"FFmpeg processing failed: {result.stderr}"
         
     except subprocess.TimeoutExpired:
-        print(f"❌ Simple concatenation timed out")
-        return "Simple concatenation timed out after 10 minutes"
+        print(f"❌ Processing timed out")
+        return "Processing timed out after 30 minutes"
     except Exception as e:
-        print(f"❌ Simple concatenation error: {e}")
-        return f"Simple concatenation error: {e}"
-    finally:
-        # Clean up temporary file
-        if concat_file and os.path.exists(concat_file.name):
-            try:
-                os.unlink(concat_file.name)
-            except:
-                pass
-
-
-def _process_with_reencoding_fallback(video_list, output_path, target_width, target_height):
-    """FALLBACK: Re-encode if simple copy failed"""
-    
-    print(f"🔄 FALLBACK: Using re-encoding for {len(video_list)} videos")
-    
-    command = ['ffmpeg', '-y']
-    filter_complex_parts = []
-    concat_inputs = ""
-    target_fps, target_audio_rate = 30, 44100
-    
-    for j, video_path in enumerate(video_list):
-        command.extend(['-i', video_path])
-        
-        # Normalize video stream
-        filter_complex_parts.append(
-            f"[{j}:v]scale={target_width}:{target_height}:force_original_aspect_ratio=decrease,"
-            f"pad={target_width}:{target_height}:(ow-iw)/2:(oh-ih)/2,"
-            f"setsar=1,fps={target_fps}[v{j}];"
-        )
-        
-        # Normalize audio stream
-        filter_complex_parts.append(
-            f"[{j}:a]aformat=sample_rates={target_audio_rate}:channel_layouts=stereo[a{j}];"
-        )
-        
-        concat_inputs += f"[v{j}][a{j}]"
-
-    filter_complex = "".join(filter_complex_parts) + \
-                     f"{concat_inputs}concat=n={len(video_list)}:v=1:a=1[outv][outa]"
-    
-    command.extend([
-        '-filter_complex', filter_complex,
-        '-map', '[outv]', '-map', '[outa]',
-        '-c:v', 'libx264', '-c:a', 'aac',
-        '-preset', 'fast'  # Faster encoding
-    ])
-    command.append(output_path)
-    
-    try:
-        startupinfo = None
-        if sys.platform == "win32":
-            startupinfo = subprocess.STARTUPINFO()
-            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-
-        subprocess.run(command, check=True, capture_output=True, text=True, 
-                      startupinfo=startupinfo, timeout=900)  # 15 minutes
-        
-        print(f"✅ Fallback re-encoding complete: {os.path.basename(output_path)}")
-        return None
-        
-    except subprocess.TimeoutExpired:
-        return "Re-encoding fallback timed out"
-    except subprocess.CalledProcessError as e:
-        print(f"❌ Re-encoding fallback failed: {e.stderr}")
-        return f"Re-encoding fallback failed: {e.stderr}"
-    except Exception as e:
-        return f"Re-encoding fallback error: {e}"
+        print(f"❌ Processing error: {e}")
+        return f"Processing error: {e}"

@@ -1,9 +1,4 @@
-# app/src/automation/api_clients/google_sheets_client.py
-"""
-Google Sheets API Client
-Handles project tracking and data logging
-FIXES: BC3 FB routing with exact worksheet matching
-"""
+# app/src/automation/api_clients/google_sheets_client.py - FIXED SILENT FAILURES
 
 import gspread
 from typing import List, Optional, Tuple
@@ -11,7 +6,7 @@ from .config import GOOGLE_SHEET_ID
 from .account_mapper import AccountMapper
 
 class GoogleSheetsClient:
-    """Handles Google Sheets API operations"""
+    """Handles Google Sheets API operations - FIXED to handle errors properly"""
     
     def __init__(self, credentials):
         """
@@ -34,7 +29,7 @@ class GoogleSheetsClient:
     
     def write_to_sheet(self, concept_name: str, data_rows: List[List], credentials) -> Tuple[Optional[str], int]:
         """
-        CORRECTED: Write project data to correct worksheet with smart insertion
+        FIXED: Write project data to correct worksheet - NO MORE SILENT FAILURES
         
         Args:
             concept_name: Project name from card title
@@ -59,13 +54,20 @@ class GoogleSheetsClient:
             print(f"📋 Selected worksheet: '{worksheet.title}'")
             
             if not data_rows:
+                print("⚠️ No data rows provided - returning version 1")
                 return None, 1  # Return version 1 if no data to write
             
-            # Find insertion point and write data
-            start_version = self._insert_project_data(worksheet, concept_name, data_rows)
-            
-            print(f"✅ Successfully wrote {len(data_rows)} rows to worksheet '{worksheet.title}'")
-            return None, start_version
+            # FIXED: Actually handle the insertion properly and catch ALL errors
+            try:
+                start_version = self._insert_project_data_safe(worksheet, concept_name, data_rows)
+                print(f"✅ Successfully wrote {len(data_rows)} rows to worksheet '{worksheet.title}' starting at version {start_version}")
+                return None, start_version
+                
+            except Exception as insert_error:
+                # FIXED: Don't hide insertion errors - report them properly
+                error_msg = f"Failed to insert data into Google Sheets: {insert_error}"
+                print(f"❌ {error_msg}")
+                return error_msg, 1
             
         except Exception as e:
             error_msg = f"Google Sheets write error: {e}"
@@ -113,9 +115,9 @@ class GoogleSheetsClient:
         except Exception as e:
             return None, f"Error finding worksheet: {e}"
     
-    def _insert_project_data(self, worksheet, concept_name: str, data_rows: List[List]) -> int:
+    def _insert_project_data_safe(self, worksheet, concept_name: str, data_rows: List[List]) -> int:
         """
-        ENHANCED: Insert project data with smart positioning and formatting
+        FIXED: Insert project data with proper error handling - NO SILENT FAILURES
         
         Args:
             worksheet: Google Sheets worksheet object
@@ -124,6 +126,9 @@ class GoogleSheetsClient:
             
         Returns:
             Starting version number
+            
+        Raises:
+            Exception: If insertion fails (no more silent failures)
         """
         
         try:
@@ -153,21 +158,51 @@ class GoogleSheetsClient:
             
             print(f"📝 Inserting {len(rows_to_insert)} rows starting at row {insert_row_index}")
             
-            # Write data using individual cell updates (more reliable)
-            for row_offset, row_data in enumerate(rows_to_insert):
-                current_row = insert_row_index + row_offset
-                for col_offset, cell_value in enumerate(row_data):
-                    if cell_value:  # Only write non-empty cells
-                        worksheet.update_cell(current_row, col_offset + 1, str(cell_value))
+            # FIXED: Use batch update which is more reliable and provides better error reporting
+            try:
+                # Prepare the range for batch update
+                end_col_letter = chr(ord('A') + len(rows_to_insert[0]) - 1)  # A, B, C, D etc.
+                end_row = insert_row_index + len(rows_to_insert) - 1
+                range_name = f"A{insert_row_index}:{end_col_letter}{end_row}"
+                
+                print(f"📝 Batch updating range: {range_name}")
+                
+                # Perform batch update
+                worksheet.update(range_name, rows_to_insert)
+                
+                print(f"✅ Batch update successful for {len(rows_to_insert)} rows")
+                
+            except Exception as batch_error:
+                print(f"❌ Batch update failed: {batch_error}")
+                print(f"🔄 Falling back to individual cell updates...")
+                
+                # Fallback: individual cell updates with detailed error reporting
+                for row_offset, row_data in enumerate(rows_to_insert):
+                    current_row = insert_row_index + row_offset
+                    for col_offset, cell_value in enumerate(row_data):
+                        if cell_value:  # Only write non-empty cells
+                            try:
+                                worksheet.update_cell(current_row, col_offset + 1, str(cell_value))
+                            except Exception as cell_error:
+                                error_msg = f"Failed to update cell ({current_row}, {col_offset + 1}): {cell_error}"
+                                print(f"❌ {error_msg}")
+                                raise Exception(error_msg)
+                
+                print(f"✅ Individual cell updates completed for {len(rows_to_insert)} rows")
             
-            # Apply formatting
-            self._apply_project_formatting(worksheet, insert_row_index, len(rows_to_insert))
+            # Apply formatting (don't fail if formatting fails)
+            try:
+                self._apply_project_formatting(worksheet, insert_row_index, len(rows_to_insert))
+            except Exception as format_error:
+                print(f"⚠️ Warning: Could not apply formatting: {format_error}")
             
             return start_version
             
         except Exception as e:
-            print(f"❌ Error inserting project data: {e}")
-            return 1
+            # FIXED: Don't catch and hide errors - let them bubble up
+            error_msg = f"Error inserting project data: {e}"
+            print(f"❌ {error_msg}")
+            raise Exception(error_msg)
     
     def _apply_project_formatting(self, worksheet, start_row: int, num_rows: int):
         """
