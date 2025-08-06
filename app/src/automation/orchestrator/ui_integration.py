@@ -1,6 +1,8 @@
-# app/src/automation/orchestrator/ui_integration.py - FIXED SHEETS COLUMN 1
+# app/src/automation/orchestrator/ui_integration.py - FIXED PROJECT NAME FLOW ISSUE
 
 import time
+import os
+
 from ..workflow_dialog.helpers import (
     create_confirmation_data_from_orchestrator,
     create_processing_result_from_orchestrator
@@ -58,39 +60,62 @@ class UIIntegration:
         return project_info
     
     def ui_processing_callback(self, progress_callback):
-        """Processing callback that provides UI updates - FIXED SHEETS COLUMN 1"""
+        """Processing callback - COMPLETELY FIXED PROJECT NAME FLOW"""
         try:
             # Step 1: Already done in preparation
             progress_callback(15, "🔍 Fetching Data from Trello...")
             time.sleep(0.5)
             
-            # FIXED: Get the updated project name from confirmation data and store it
-            if hasattr(self.orchestrator, 'updated_project_name') and self.orchestrator.updated_project_name:
-                # User edited the project name in confirmation tab
-                final_project_name = self.orchestrator.updated_project_name
-                print(f"🔄 Using UPDATED project name: '{final_project_name}'")
+            # CRITICAL DEBUG: Show what we're checking for
+            print(f"🔍 CHECKING FOR UPDATED NAME:")
+            print(f"   - hasattr(orchestrator, 'updated_project_name'): {hasattr(self.orchestrator, 'updated_project_name')}")
+            if hasattr(self.orchestrator, 'updated_project_name'):
+                print(f"   - orchestrator.updated_project_name: '{self.orchestrator.updated_project_name}'")
+            print(f"   - Current project_info name: '{self.orchestrator.project_info['project_name']}'")
+            
+            # COMPLETELY FIXED: Check for updated project name from confirmation tab
+            final_project_name = None
+            
+            if (hasattr(self.orchestrator, 'updated_project_name') and 
+                self.orchestrator.updated_project_name and 
+                self.orchestrator.updated_project_name.strip() != ''):
                 
-                # Update project_info with new name
+                # User edited the project name in confirmation tab
+                final_project_name = self.orchestrator.updated_project_name.strip()
+                print(f"🔄 USING UPDATED PROJECT NAME: '{final_project_name}'")
+                
+                # CRITICAL: Update project_info IMMEDIATELY
                 self.orchestrator.project_info['project_name'] = final_project_name
+                print(f"✅ PROJECT_INFO UPDATED TO: '{self.orchestrator.project_info['project_name']}'")
+                
             else:
                 # Use original parsed project name
                 final_project_name = self.orchestrator.project_info['project_name']
-                print(f"📝 Using ORIGINAL project name: '{final_project_name}'")
+                print(f"📝 USING ORIGINAL PROJECT NAME: '{final_project_name}'")
+            
+            print(f"🎯 FINAL PROJECT NAME FOR ALL PROCESSING: '{final_project_name}'")
+            print(f"🎯 PROJECT_INFO NOW CONTAINS: '{self.orchestrator.project_info['project_name']}'")
             
             # Step 2: Downloading Assets from Google Drive
             progress_callback(25, "📥 Downloading Assets from Google Drive...")
+            
+            # CRITICAL: Pass the UPDATED project_info (with new name) to setup_project
+            print(f"🔍 PASSING PROJECT_INFO TO SETUP: '{self.orchestrator.project_info['project_name']}'")
             self.orchestrator.creds, self.orchestrator.downloaded_videos, self.orchestrator.project_paths = self._setup_project_with_progress(
-                self.orchestrator.card_data, self.orchestrator.project_info, progress_callback
+                self.orchestrator.card_data, self.orchestrator.project_info, progress_callback  # Uses updated project_info
             )
             
             # CRITICAL: Store the generated folder name for sheets column 1
             self.orchestrator.generated_folder_name = os.path.basename(self.orchestrator.project_paths['project_root'])
-            print(f"📁 Generated folder name for sheets: '{self.orchestrator.generated_folder_name}'")
+            print(f"📁 GENERATED FOLDER NAME: '{self.orchestrator.generated_folder_name}'")
             
             # Step 3: Processing Videos 
             progress_callback(60, "🎬 Processing videos...")
+            
+            # CRITICAL: Pass the UPDATED project_info (with new name) to process_videos  
+            print(f"🔍 PASSING PROJECT_INFO TO PROCESSING: '{self.orchestrator.project_info['project_name']}'")
             self.orchestrator.processed_files = self._process_videos_with_progress(
-                self.orchestrator.downloaded_videos, self.orchestrator.project_paths, self.orchestrator.project_info,
+                self.orchestrator.downloaded_videos, self.orchestrator.project_paths, self.orchestrator.project_info,  # Uses updated project_info
                 self.orchestrator.processing_mode, self.orchestrator.creds, progress_callback
             )
             
@@ -136,6 +161,7 @@ class UIIntegration:
     def _setup_project_with_progress(self, card_data, project_info, progress_callback):
         """Setup project with progress updates"""
         progress_callback(30, "🔑 Setting up credentials...")
+        print(f"🔍 SETUP_PROJECT RECEIVED PROJECT_INFO: '{project_info['project_name']}'")
         creds, downloaded_videos, project_paths = self.orchestrator.processing_steps.setup_project(
             card_data, project_info
         )
@@ -145,6 +171,7 @@ class UIIntegration:
     def _process_videos_with_progress(self, downloaded_videos, project_paths, project_info, processing_mode, creds, progress_callback):
         """Process videos with progress updates"""
         progress_callback(70, "🎬 Starting video processing...")
+        print(f"🔍 PROCESS_VIDEOS RECEIVED PROJECT_INFO: '{project_info['project_name']}'")
         processed_files = self.orchestrator.processing_steps.process_videos(
             downloaded_videos, project_paths, project_info, processing_mode, creds
         )
