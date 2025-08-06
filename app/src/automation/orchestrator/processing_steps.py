@@ -1,11 +1,15 @@
-# app/src/automation/orchestrator/processing_steps.py
+# app/src/automation/orchestrator/processing_steps.py - FIXED IMPORTS
+
 import os
 import shutil
 import time
 
 from ..api_clients import (get_trello_card_data, download_files_from_gdrive, 
                          write_to_google_sheets, get_google_creds)
+
+# FIXED: Import the correct functions from video_processor
 from ..video_processor import get_video_dimensions, process_video_sequence
+
 from ..workflow_utils import parse_project_info, create_project_structure
 from ...naming_generator import generate_project_folder_name, generate_output_name, get_image_description
 
@@ -89,7 +93,11 @@ class ProcessingSteps:
         
         # Download videos
         def download_videos():
-            gdrive_link = self.orchestrator.validator.extract_gdrive_link(card_data.get('desc', ''))
+            # FIXED: Use the new API clients approach
+            from ..api_clients import TrelloClient
+            trello_client = TrelloClient()
+            gdrive_link = trello_client.extract_gdrive_link(card_data.get('desc', ''))
+            
             downloaded_videos, error = download_files_from_gdrive(gdrive_link, creds, self.orchestrator.monitor)
             if error:
                 raise Exception(f"Failed to download videos: {error}")
