@@ -4,13 +4,14 @@ import os
 import shutil
 import time
 import tempfile
+import re   
 
 def parse_project_info(folder_name):
     """Parse project information from folder name - FIXED TO EXTRACT CORRECT VERSION LETTERS"""
     print(f"Parsing folder name: {folder_name}")
     
     # Import here to avoid circular imports
-    from ...naming_generator import clean_project_name
+    from app.naming_generator import clean_project_name
     
     # FIXED: Better patterns with priority order - focusing on extracting from actual filenames
     patterns = [
@@ -109,7 +110,6 @@ def parse_project_info(folder_name):
     print(f"No pattern matched. Attempting manual extraction...")
     
     # Manual fallback extraction - ENHANCED for ANY account prefix
-    import re
     ad_type_match = re.search(r'(VTD|STOR|ACT)', folder_name)
     test_name_match = re.search(r'(?:VTD|STOR|ACT)-(\d+)', folder_name)
     
@@ -129,7 +129,7 @@ def parse_project_info(folder_name):
                 if len(groups) >= 2:
                     raw_project_name = groups[1]
                     if len(raw_project_name) > 3 or not raw_project_name.isupper():
-                        from ...naming_generator import clean_project_name
+                        from app.naming_generator import clean_project_name
                         project_name = clean_project_name(raw_project_name)
                         
                         # Try to extract version letter

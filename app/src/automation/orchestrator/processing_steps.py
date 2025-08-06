@@ -123,7 +123,8 @@ class ProcessingSteps:
         # Move files to project structure
         client_video_final_paths = []
         for video_path in downloaded_videos:
-            final_path = os.path.join(project_paths['client_footage'], os.path.basename(video_path))
+            print(f"🔍 Available project_paths keys: {list(project_paths.keys())}")
+            final_path = os.path.join(project_paths['client_videos'], os.path.basename(video_path))
             shutil.move(video_path, final_path)
             client_video_final_paths.append(final_path)
         
