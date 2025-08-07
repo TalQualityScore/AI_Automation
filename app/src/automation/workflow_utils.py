@@ -93,6 +93,45 @@ def parse_project_info(folder_name):
                     combined_name = f"{company} {prefix} {raw_project_name}"
                     project_name = clean_project_name(combined_name)
                     
+                    # CRITICAL FIX: Remove account prefixes immediately after cleaning
+                    # Import the function directly to avoid path issues
+                    def remove_account_prefix(project_name):
+                        """Remove account prefixes like 'AGMD', 'BC3', etc. from project name"""
+                        account_prefixes = [
+                            'AGMD', 'BC3', 'TR', 'OO', 'MCT', 'DS', 'NB', 'MK', 
+                            'DRC', 'PC', 'GD', 'MC', 'PP', 'SPC', 'MA', 'KA', 'BLR',
+                            'GMD', 'TOTAL', 'RESTORE', 'BIO', 'COMPLETE', 'OLIVE', 'OIL'
+                        ]
+                        
+                        words = project_name.split()
+                        
+                        # Remove account prefixes from the beginning
+                        while words:
+                            first_word = words[0].upper()
+                            if first_word in account_prefixes:
+                                print(f"🧹 REMOVING ACCOUNT PREFIX: '{words[0]}'")
+                                words = words[1:]
+                            else:
+                                break
+                        
+                        # Also check for combined prefixes like "AGMD BC3"
+                        if len(words) >= 2:
+                            combined = f"{words[0]} {words[1]}".upper()
+                            if any(prefix in combined for prefix in account_prefixes):
+                                while words and len(words[0]) <= 4 and words[0].upper() in account_prefixes:
+                                    print(f"🧹 REMOVING ADDITIONAL PREFIX: '{words[0]}'")
+                                    words = words[1:]
+                        
+                        cleaned_name = ' '.join(words) if words else project_name
+                        
+                        if cleaned_name != project_name:
+                            print(f"🧹 ACCOUNT PREFIX REMOVAL: '{project_name}' → '{cleaned_name}'")
+                        
+                        return cleaned_name if cleaned_name.strip() else project_name
+
+                    # Apply the account prefix removal
+                    project_name = remove_account_prefix(project_name)
+                    
                     # Try to extract version letter from folder name separately
                     version_letter = ""
                     version_letter_match = re.search(r'_(\d+)([A-Z])(?:\s|$|\))', folder_name)

@@ -1,7 +1,8 @@
-# app/src/automation/workflow_dialog/helpers.py - CRITICAL FIX
+# app/src/automation/workflow_dialog/helpers.py - FIXED WITH FALLBACK DIALOG
 
 import os
 import time
+import threading
 
 from ..workflow_data_models import ConfirmationData, ValidationIssue, ProcessingResult
 
@@ -10,7 +11,7 @@ def create_confirmation_data_from_orchestrator(card_data: dict,
                                              project_info: dict,
                                              downloaded_videos: list,
                                              validation_issues: list = None):
-    """Convert orchestrator data to ConfirmationData format - FIXED TO NOT OVERRIDE ACCOUNT DETECTION"""
+    """Convert orchestrator data to ConfirmationData format - FIXED WITH PROPER DATA RETRIEVAL"""
     
     project_name = project_info.get('project_name', 'Unknown Project')
     
@@ -18,27 +19,109 @@ def create_confirmation_data_from_orchestrator(card_data: dict,
     card_title = card_data.get('name', '')
     print(f"🔍 HELPERS DEBUG - Card Title: '{card_title}'")
     print(f"🔍 HELPERS DEBUG - Project Name: '{project_name}'")
+    print(f"🔍 HELPERS DEBUG - Available project_info keys: {list(project_info.keys())}")
     
-    # CRITICAL FIX: Use the ORIGINAL account/platform detection from account_mapper.py
-    # DO NOT OVERRIDE - these should have been set by ui_integration.py already
-    detected_account_code = project_info.get('account_code', 'UNKNOWN')
-    detected_platform_code = project_info.get('platform_code', 'UNKNOWN')
+    # FIXED: Try multiple sources for account/platform data
+    detected_account_code = None
+    detected_platform_code = None
     
-    print(f"🎯 HELPERS DEBUG - Using ORIGINAL detection from account_mapper: Account='{detected_account_code}', Platform='{detected_platform_code}'")
+    # Source 1: Check if already stored in project_info with various possible keys
+    possible_account_keys = ['account_code', 'account', 'detected_account', 'detected_account_code']
+    possible_platform_keys = ['platform_code', 'platform', 'detected_platform', 'detected_platform_code']
     
-    # Only if the original detection truly failed, show a warning but don't override
-    if detected_account_code == 'UNKNOWN' or detected_platform_code == 'UNKNOWN':
-        print(f"⚠️  WARNING: Original account/platform detection failed!")
-        print(f"   Account: {detected_account_code}, Platform: {detected_platform_code}")
-        print(f"   This may cause Google Sheets routing issues.")
+    for key in possible_account_keys:
+        if key in project_info and project_info[key] and project_info[key] != 'UNKNOWN':
+            detected_account_code = project_info[key]
+            print(f"🎯 FOUND ACCOUNT in project_info['{key}']: '{detected_account_code}'")
+            break
+    
+    for key in possible_platform_keys:
+        if key in project_info and project_info[key] and project_info[key] != 'UNKNOWN':
+            detected_platform_code = project_info[key]
+            print(f"🎯 FOUND PLATFORM in project_info['{key}']: '{detected_platform_code}'")
+            break
+    
+    # Source 2: Try to get from card_data if available
+    if not detected_account_code or not detected_platform_code:
+        if 'detected_account_code' in card_data:
+            detected_account_code = card_data['detected_account_code']
+            print(f"🎯 FOUND ACCOUNT in card_data: '{detected_account_code}'")
+        if 'detected_platform_code' in card_data:
+            detected_platform_code = card_data['detected_platform_code']
+            print(f"🎯 FOUND PLATFORM in card_data: '{detected_platform_code}'")
+    
+    # Source 3: Try to re-detect from card title if still missing
+    if (not detected_account_code or not detected_platform_code or 
+        detected_account_code == 'UNKNOWN' or detected_platform_code == 'UNKNOWN'):
         
-        # Use fallback values but don't try to re-detect
-        if detected_account_code == 'UNKNOWN':
-            detected_account_code = 'TR'  # Default based on your card
-        if detected_platform_code == 'UNKNOWN':
-            detected_platform_code = 'FB'  # Default based on your card
+        print(f"🔍 ATTEMPTING FRESH DETECTION from card title...")
+        
+        try:
+            # Import and use account mapper to re-detect
+            from ..api_clients.account_mapper import AccountMapper
+            mapper = AccountMapper()
             
-        print(f"🔄 Using fallback values: Account='{detected_account_code}', Platform='{detected_platform_code}'")
+            # Try detection without dialogs first
+            fresh_account, fresh_platform = mapper.extract_account_and_platform(card_title, allow_fallback=False)
+            
+            if fresh_account != 'UNKNOWN' and fresh_platform != 'UNKNOWN':
+                detected_account_code = fresh_account
+                detected_platform_code = fresh_platform
+                print(f"✅ FRESH DETECTION SUCCESS: Account='{detected_account_code}', Platform='{detected_platform_code}'")
+            else:
+                print(f"⚠️ FRESH DETECTION FAILED - will need user fallback")
+                
+        except Exception as e:
+            print(f"❌ ERROR during fresh detection: {e}")
+    
+    print(f"🎯 CURRENT STATUS: Account='{detected_account_code}', Platform='{detected_platform_code}'")
+    
+    # Source 4: FALLBACK DIALOG - Show user selection if still unknown
+    if (not detected_account_code or not detected_platform_code or 
+        detected_account_code == 'UNKNOWN' or detected_platform_code == 'UNKNOWN'):
+        
+        print(f"⚠️ ACCOUNT/PLATFORM DETECTION FAILED - Showing user fallback dialog")
+        
+        # Check if we're in main thread (required for dialogs)
+        if threading.current_thread() is threading.main_thread():
+            try:
+                # Import and show fallback dialog
+                from ..api_clients.account_mapper.fallback_dialog import FallbackSelectionDialog
+                fallback_dialog = FallbackSelectionDialog()
+                
+                # Show dialog with current detection state
+                detected_account_code, detected_platform_code = fallback_dialog.show_fallback_selection(
+                    card_title, 
+                    detected_account_code, 
+                    detected_platform_code
+                )
+                
+                print(f"✅ USER FALLBACK SELECTION: Account='{detected_account_code}', Platform='{detected_platform_code}'")
+                
+            except Exception as dialog_error:
+                print(f"❌ FALLBACK DIALOG ERROR: {dialog_error}")
+                # Emergency defaults
+                detected_account_code = 'TR'
+                detected_platform_code = 'FB'
+                print(f"🔄 Using emergency defaults: Account='{detected_account_code}', Platform='{detected_platform_code}'")
+        else:
+            print(f"❌ BACKGROUND THREAD - Cannot show dialog, using defaults")
+            detected_account_code = 'TR'
+            detected_platform_code = 'FB'
+    
+    # Ensure we have valid values
+    if not detected_account_code or detected_account_code == 'UNKNOWN':
+        detected_account_code = 'TR'
+    if not detected_platform_code or detected_platform_code == 'UNKNOWN':
+        detected_platform_code = 'FB'
+    
+    # CRITICAL: Store the correct values back in project_info for other components
+    project_info['account_code'] = detected_account_code
+    project_info['platform_code'] = detected_platform_code
+    project_info['detected_account_code'] = detected_account_code
+    project_info['detected_platform_code'] = detected_platform_code
+    
+    print(f"✅ FINAL RESULT: Account='{detected_account_code}', Platform='{detected_platform_code}'")
     
     # Get display names for UI
     account_mapping = {
