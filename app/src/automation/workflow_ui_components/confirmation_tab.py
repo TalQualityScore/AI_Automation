@@ -1,45 +1,67 @@
-# app/src/automation/workflow_ui_components/confirmation_tab.py - FIXED PROJECT NAME FLOW
+# app/src/automation/workflow_ui_components/confirmation_tab.py
 
 import tkinter as tk
-from tkinter import ttk, simpledialog
-from ..workflow_data_models import ConfirmationData, ValidationIssue
+from tkinter import ttk
+from dataclasses import dataclass
+from typing import List, Optional
+
+@dataclass
+class ValidationIssue:
+    severity: str  # 'error', 'warning', 'info'
+    message: str
+
+@dataclass 
+class ConfirmationData:
+    """Data structure for confirmation display"""
+    project_name: str
+    account: str
+    ad_type: str
+    test_name: str
+    client_videos: List[str]
+    templates_to_add: List[str]
+    output_location: str
+    estimated_time: str
+    issues: List[ValidationIssue]
+    file_sizes: List[tuple]  # List of (filename, size_mb) tuples
 
 class ConfirmationTab:
-    """Handles the confirmation tab content with COMPLETELY FIXED project name flow"""
+    """Handles the confirmation tab UI"""
     
-    def __init__(self, parent, confirmation_data: ConfirmationData, theme):
+    def __init__(self, parent, data: ConfirmationData, theme):
         self.parent = parent
-        self.data = confirmation_data
+        self.data = data
         self.theme = theme
         self.frame = None
         self.project_name_display = None
+        self.edit_icon = None
         self.output_location_display = None
         
-        # CRITICAL: Store reference to orchestrator AND dialog for complete name flow
-        self.orchestrator = None
-        self.dialog_controller = None
-        
-    def set_orchestrator(self, orchestrator):
-        """Set orchestrator reference for complete name flow"""
-        self.orchestrator = orchestrator
-        print(f"🔗 CONFIRMATION TAB: Orchestrator reference set")
-        
-    def set_dialog_controller(self, dialog_controller):
-        """Set dialog controller reference for complete name flow"""
-        self.dialog_controller = dialog_controller
-        print(f"🔗 CONFIRMATION TAB: Dialog controller reference set")
-        
+        # Add transition option variable
+        self.use_transitions = tk.BooleanVar(value=True)
+        self.transition_details_label = None
+    
     def create_tab(self):
-        """Create confirmation tab content with editable project name"""
+        """Create and return the confirmation tab"""
         self.frame = ttk.Frame(self.parent, style='White.TFrame')
         
-        # Scrollable content
-        canvas = tk.Canvas(self.frame, bg=self.theme.colors['bg'], highlightthickness=0, height=400)
+        # Title
+        title_frame = ttk.Frame(self.frame, style='White.TFrame')
+        title_frame.pack(fill=tk.X, pady=(0, 20))
+        
+        ttk.Label(title_frame, text="📋 Review & Confirm", 
+                 style='Header.TLabel').pack(anchor=tk.W)
+        ttk.Label(title_frame, text="Please review the information below before processing", 
+                 style='Subheader.TLabel').pack(anchor=tk.W)
+        
+        # Create scrollable content area
+        canvas = tk.Canvas(self.frame, bg=self.theme.colors['bg'], highlightthickness=0)
         scrollbar = ttk.Scrollbar(self.frame, orient="vertical", command=canvas.yview)
         scrollable_frame = ttk.Frame(canvas, style='White.TFrame')
         
-        scrollable_frame.bind("<Configure>", 
-                             lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
         
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
@@ -50,13 +72,14 @@ class ConfirmationTab:
         # Add content sections
         self._add_project_info(scrollable_frame)
         self._add_processing_details(scrollable_frame)
+        self._add_processing_options(scrollable_frame)  # NEW SECTION
         self._add_issues_section(scrollable_frame)
         self._add_output_info(scrollable_frame)
         
         return self.frame
     
     def _add_project_info(self, parent):
-        """Add project information section with COMPLETELY FIXED editable project name flow"""
+        """Add project information section with editable project name"""
         section_frame = ttk.Frame(parent, style='White.TFrame')
         section_frame.pack(fill=tk.X, pady=(0, 20))
         
@@ -67,7 +90,6 @@ class ConfirmationTab:
         ttk.Label(project_frame, text="Project:", style='Body.TLabel',
                  font=('Segoe UI', 10)).pack(side=tk.LEFT)
         
-        # Project name display with hover effect
         self.project_name_display = tk.Label(project_frame, 
                                            text=self.data.project_name,
                                            font=('Segoe UI', 10, 'bold'),
@@ -77,7 +99,6 @@ class ConfirmationTab:
                                            borderwidth=1)
         self.project_name_display.pack(side=tk.LEFT, padx=(10, 5))
         
-        # Edit icon
         self.edit_icon = tk.Label(project_frame, text="✏️", 
                                 font=('Segoe UI', 10),
                                 bg=self.theme.colors['bg'],
@@ -85,195 +106,22 @@ class ConfirmationTab:
         self.edit_icon.pack(side=tk.LEFT, padx=(0, 5))
         self.edit_icon.pack_forget()
         
-        # Setup hover events
         self._setup_hover_events()
         
         # Other project details
         other_details = [
             ("Account:", self.data.account),
-            ("Platform:", self.data.platform),
-            ("Mode Detected:", self._format_processing_mode(self.data.processing_mode))
+            ("Ad Type:", self.data.ad_type),
+            ("Test Name:", self.data.test_name)
         ]
         
         for label, value in other_details:
-            row_frame = ttk.Frame(section_frame, style='White.TFrame')
-            row_frame.pack(fill=tk.X, pady=3)
-            
-            ttk.Label(row_frame, text=label, style='Body.TLabel',
+            detail_frame = ttk.Frame(section_frame, style='White.TFrame')
+            detail_frame.pack(fill=tk.X, pady=3)
+            ttk.Label(detail_frame, text=label, style='Body.TLabel',
                      font=('Segoe UI', 10)).pack(side=tk.LEFT)
-            ttk.Label(row_frame, text=value, style='Body.TLabel',
+            ttk.Label(detail_frame, text=value, style='Body.TLabel',
                      font=('Segoe UI', 10, 'bold')).pack(side=tk.LEFT, padx=(10, 0))
-    
-    def _format_processing_mode(self, processing_mode):
-        """Format processing mode with 'Add' prefix where appropriate"""
-        mode_upper = processing_mode.replace('_', ' ').upper()
-        
-        if "SAVE" in mode_upper:
-            return mode_upper  # No "Add" for save operations
-        elif "QUIZ ONLY" in mode_upper:
-            return "Add QUIZ ONLY"
-        elif "CONNECTOR" in mode_upper and "QUIZ" in mode_upper:
-            return "Add CONNECTORS AND QUIZ"
-        elif "SVSL" in mode_upper:
-            return "Add SVSL"
-        else:
-            return f"Add {mode_upper}"
-    
-    def _setup_hover_events(self):
-        """Setup hover events for project name editing"""
-        
-        def on_enter(event):
-            self.project_name_display.config(relief='solid', borderwidth=1)
-            self.edit_icon.pack(side=tk.LEFT, padx=(0, 5))
-            
-        def on_leave(event):
-            self.project_name_display.config(relief='flat', borderwidth=0)
-            self.edit_icon.pack_forget()
-            
-        def on_click(event):
-            self._edit_project_name()
-        
-        for widget in [self.project_name_display, self.edit_icon]:
-            widget.bind("<Enter>", on_enter)
-            widget.bind("<Leave>", on_leave) 
-            widget.bind("<Button-1>", on_click)
-    
-    def _edit_project_name(self):
-        """COMPLETELY FIXED: Edit project name with GUARANTEED flow to ALL systems"""
-        
-        # Create custom dialog
-        dialog = tk.Toplevel(self.frame)
-        dialog.title("Edit Project Name")
-        dialog.geometry("450x200")
-        dialog.resizable(False, False)
-        dialog.configure(bg=self.theme.colors['bg'])
-        
-        # Center dialog
-        dialog.transient(self.frame)
-        dialog.grab_set()
-        
-        x = self.frame.winfo_rootx() + 100
-        y = self.frame.winfo_rooty() + 100
-        dialog.geometry(f"450x200+{x}+{y}")
-        
-        # Dialog content
-        main_frame = tk.Frame(dialog, bg=self.theme.colors['bg'], padx=25, pady=20)
-        main_frame.pack(fill=tk.BOTH, expand=True)
-        
-        # Title
-        title_label = tk.Label(main_frame, text="Edit Project Name:", 
-                              font=('Segoe UI', 12, 'bold'),
-                              bg=self.theme.colors['bg'], 
-                              fg=self.theme.colors['text_primary'])
-        title_label.pack(pady=(0, 15))
-        
-        # Entry field
-        name_var = tk.StringVar(value=self.data.project_name)
-        name_entry = tk.Entry(main_frame, textvariable=name_var, width=50, 
-                             font=('Segoe UI', 11), relief='solid', bd=1)
-        name_entry.pack(fill=tk.X, pady=(0, 20))
-        name_entry.focus_set()
-        name_entry.select_range(0, tk.END)
-        
-        # Button frame
-        button_frame = tk.Frame(main_frame, bg=self.theme.colors['bg'])
-        button_frame.pack(fill=tk.X)
-        
-        def save_changes():
-            new_name = name_var.get().strip()
-            if new_name and new_name != self.data.project_name:
-                old_name = self.data.project_name
-                
-                print(f"\n🔄 PROJECT NAME CHANGE INITIATED:")
-                print(f"   OLD: '{old_name}'")
-                print(f"   NEW: '{new_name}'")
-                
-                # STEP 1: Update the confirmation data
-                self.data.project_name = new_name
-                print(f"✅ STEP 1: Confirmation data updated")
-                
-                # STEP 2: Update display immediately
-                self.project_name_display.config(text=new_name)
-                print(f"✅ STEP 2: UI display updated")
-                
-                # STEP 3: Update output location in data AND display
-                self._update_output_location_and_display(old_name, new_name)
-                print(f"✅ STEP 3: Output location updated")
-                
-                # STEP 4: CRITICAL - Update orchestrator immediately and DIRECTLY
-                if self.orchestrator:
-                    print(f"🎯 STEP 4A: Updating orchestrator...")
-                    
-                    # Set updated project name directly on orchestrator
-                    self.orchestrator.updated_project_name = new_name
-                    print(f"✅ Orchestrator.updated_project_name = '{self.orchestrator.updated_project_name}'")
-                    
-                    # Also update the project_info if it exists
-                    if hasattr(self.orchestrator, 'project_info') and self.orchestrator.project_info:
-                        self.orchestrator.project_info['project_name'] = new_name
-                        print(f"✅ Orchestrator.project_info['project_name'] = '{self.orchestrator.project_info['project_name']}'")
-                    
-                    # EXTRA: Force set on dialog controller too
-                    if self.dialog_controller:
-                        if hasattr(self.dialog_controller, 'orchestrator'):
-                            self.dialog_controller.orchestrator.updated_project_name = new_name
-                            print(f"✅ Dialog controller orchestrator also updated")
-                        
-                        # Also store it directly on the dialog controller
-                        self.dialog_controller.updated_project_name = new_name
-                        print(f"✅ Dialog controller direct update")
-                
-                print(f"🎉 PROJECT NAME CHANGE COMPLETE!")
-                print(f"   - Confirmation data: ✓")
-                print(f"   - UI display: ✓") 
-                print(f"   - Output location: ✓")
-                print(f"   - Orchestrator reference: ✓")
-                print(f"   - Dialog controller: ✓")
-                print(f"   - Name should flow to processing: ✓")
-            
-            dialog.destroy()
-        
-        def cancel_changes():
-            dialog.destroy()
-        
-        # Button styling
-        button_container = tk.Frame(button_frame, bg=self.theme.colors['bg'])
-        button_container.pack()
-        
-        # Cancel button
-        cancel_btn = tk.Button(button_container, text="Cancel", 
-                              font=('Segoe UI', 10), bg='#f3f3f3', fg='#323130',
-                              relief='flat', borderwidth=1, padx=20, pady=8,
-                              command=cancel_changes, cursor='hand2')
-        cancel_btn.pack(side=tk.RIGHT, padx=(10, 0))
-        
-        # Approve button
-        approve_btn = tk.Button(button_container, text="✅ Apply Changes", 
-                               font=('Segoe UI', 10, 'bold'), bg='#0078d4', fg='white',
-                               relief='flat', borderwidth=0, padx=25, pady=8,
-                               command=save_changes, cursor='hand2')
-        approve_btn.pack(side=tk.RIGHT)
-        
-        # Bind Enter/Escape keys
-        name_entry.bind("<Return>", lambda e: save_changes())
-        name_entry.bind("<Escape>", lambda e: cancel_changes())
-    
-    def _update_output_location_and_display(self, old_name, new_name):
-        """Update output location in data AND refresh display"""
-        # Update the output location string in the data
-        if old_name in self.data.output_location:
-            self.data.output_location = self.data.output_location.replace(old_name, new_name)
-            print(f"✅ Output location updated: {self.data.output_location}")
-            
-            # Update the display immediately
-            if hasattr(self, 'output_location_display') and self.output_location_display:
-                self.output_location_display.config(text=f"📁 {self.data.output_location}")
-                print(f"✅ Output location display refreshed")
-    
-    def get_updated_data(self):
-        """Return the updated confirmation data"""
-        print(f"🔍 GETTING UPDATED DATA: '{self.data.project_name}'")
-        return self.data
     
     def _add_processing_details(self, parent):
         """Add processing details section"""
@@ -291,6 +139,69 @@ class ConfirmationTab:
         for template in self.data.templates_to_add:
             ttk.Label(section_frame, text=f"✓ {template}", style='Body.TLabel',
                      foreground=self.theme.colors['success']).pack(anchor=tk.W, padx=20)
+    
+    def _add_processing_options(self, parent):
+        """Add processing options section with transition toggle"""
+        section_frame = ttk.Frame(parent, style='White.TFrame')
+        section_frame.pack(fill=tk.X, pady=(0, 20))
+        
+        ttk.Label(section_frame, text="Processing Options:", style='Body.TLabel',
+                 font=('Segoe UI', 11, 'bold')).pack(anchor=tk.W, pady=(0, 8))
+        
+        # Transition checkbox container
+        transition_frame = ttk.Frame(section_frame, style='White.TFrame')
+        transition_frame.pack(fill=tk.X, padx=20, pady=5)
+        
+        # Checkbox for transitions
+        transition_cb = ttk.Checkbutton(
+            transition_frame,
+            text="Add smooth transitions between videos",
+            variable=self.use_transitions,
+            command=self._update_transition_details
+        )
+        transition_cb.pack(side=tk.LEFT)
+        
+        # Warning text
+        warning_label = ttk.Label(
+            transition_frame, 
+            text="(may increase processing time by ~30%)",
+            style='Body.TLabel',
+            font=('Segoe UI', 9, 'italic'),
+            foreground='#666666'
+        )
+        warning_label.pack(side=tk.LEFT, padx=(10, 0))
+        
+        # Details about transitions (shown/hidden based on checkbox)
+        self.transition_details_label = ttk.Label(
+            section_frame,
+            text="",
+            style='Body.TLabel',
+            font=('Segoe UI', 9),
+            foreground=self.theme.colors['success']
+        )
+        self.transition_details_label.pack(anchor=tk.W, padx=40, pady=(5, 0))
+        
+        # Initialize the details display
+        self._update_transition_details()
+    
+    def _update_transition_details(self):
+        """Update the transition details text based on checkbox state"""
+        if self.use_transitions.get():
+            # Calculate number of transitions based on templates
+            num_transitions = 0
+            for template in self.data.templates_to_add:
+                if "connector" in template.lower() and "quiz" in template.lower():
+                    num_transitions = 2  # Client→Connector + Connector→Quiz
+                elif "quiz" in template.lower():
+                    num_transitions = 1  # Client→Quiz
+            
+            if num_transitions > 0:
+                transition_text = f"✓ Will add {num_transitions} fade transition{'s' if num_transitions > 1 else ''} (0.25s each)"
+                self.transition_details_label.config(text=transition_text)
+            else:
+                self.transition_details_label.config(text="")
+        else:
+            self.transition_details_label.config(text="✗ No transitions will be added")
     
     def _add_issues_section(self, parent):
         """Add issues section if there are any"""
@@ -321,17 +232,108 @@ class ConfirmationTab:
                      foreground=color).pack(anchor=tk.W, padx=20)
     
     def _add_output_info(self, parent):
-        """Add output information section with display reference"""
+        """Add output information section"""
         section_frame = ttk.Frame(parent, style='White.TFrame')
         section_frame.pack(fill=tk.X, pady=(0, 20))
         
         ttk.Label(section_frame, text="Output Location:", style='Body.TLabel',
                  font=('Segoe UI', 11, 'bold')).pack(anchor=tk.W)
         
-        # Store reference for updates
         self.output_location_display = ttk.Label(section_frame, text=f"📁 {self.data.output_location}", 
                                                 style='Body.TLabel')
         self.output_location_display.pack(anchor=tk.W, padx=20, pady=(5, 10))
         
         ttk.Label(section_frame, text=f"Processing will complete automatically",
                  style='Body.TLabel', font=('Segoe UI', 9, 'italic')).pack(anchor=tk.W)
+    
+    def _setup_hover_events(self):
+        """Setup hover events for project name editing"""
+        def on_enter(event):
+            self.project_name_display.config(relief='solid', bg='#f0f0f0')
+            self.edit_icon.pack(side=tk.LEFT, padx=(0, 5))
+        
+        def on_leave(event):
+            self.project_name_display.config(relief='flat', bg=self.theme.colors['bg'])
+            self.edit_icon.pack_forget()
+        
+        self.project_name_display.bind("<Enter>", on_enter)
+        self.project_name_display.bind("<Leave>", on_leave)
+        self.project_name_display.bind("<Button-1>", lambda e: self._show_edit_dialog())
+        self.edit_icon.bind("<Button-1>", lambda e: self._show_edit_dialog())
+    
+    def _show_edit_dialog(self):
+        """Show dialog to edit project name"""
+        dialog = tk.Toplevel(self.parent)
+        dialog.title("Edit Project Name")
+        dialog.geometry("400x180")
+        dialog.resizable(False, False)
+        
+        # Center the dialog
+        dialog.transient(self.parent)
+        dialog.grab_set()
+        
+        # Main frame
+        main_frame = tk.Frame(dialog, bg='white', padx=20, pady=20)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Label
+        tk.Label(main_frame, text="Edit Project Name:", font=('Segoe UI', 10, 'bold'),
+                bg='white').pack(anchor=tk.W, pady=(0, 10))
+        
+        # Entry field
+        name_entry = tk.Entry(main_frame, font=('Segoe UI', 10), width=40)
+        name_entry.pack(fill=tk.X, pady=(0, 10))
+        name_entry.insert(0, self.data.project_name)
+        name_entry.select_range(0, tk.END)
+        name_entry.focus()
+        
+        # Button frame
+        button_frame = tk.Frame(dialog, bg='white', padx=20, pady=10)
+        button_frame.pack(side=tk.BOTTOM, fill=tk.X)
+        
+        def save_changes():
+            new_name = name_entry.get().strip()
+            if new_name and new_name != self.data.project_name:
+                old_name = self.data.project_name
+                self.data.project_name = new_name
+                self.project_name_display.config(text=new_name)
+                self._update_output_location_and_display(old_name, new_name)
+            dialog.destroy()
+        
+        def cancel_changes():
+            dialog.destroy()
+        
+        # Buttons
+        button_container = tk.Frame(button_frame, bg='white')
+        button_container.pack()
+        
+        cancel_btn = tk.Button(button_container, text="Cancel", 
+                              font=('Segoe UI', 10), bg='#f3f3f3', fg='#323130',
+                              relief='flat', borderwidth=1, padx=20, pady=8,
+                              command=cancel_changes, cursor='hand2')
+        cancel_btn.pack(side=tk.RIGHT, padx=(10, 0))
+        
+        approve_btn = tk.Button(button_container, text="✅ Apply Changes", 
+                               font=('Segoe UI', 10, 'bold'), bg='#0078d4', fg='white',
+                               relief='flat', borderwidth=0, padx=25, pady=8,
+                               command=save_changes, cursor='hand2')
+        approve_btn.pack(side=tk.RIGHT)
+        
+        # Bind keys
+        name_entry.bind("<Return>", lambda e: save_changes())
+        name_entry.bind("<Escape>", lambda e: cancel_changes())
+    
+    def _update_output_location_and_display(self, old_name, new_name):
+        """Update output location in data AND refresh display"""
+        if old_name in self.data.output_location:
+            self.data.output_location = self.data.output_location.replace(old_name, new_name)
+            if self.output_location_display:
+                self.output_location_display.config(text=f"📁 {self.data.output_location}")
+    
+    def get_updated_data(self):
+        """Return the updated confirmation data"""
+        return self.data
+    
+    def get_transition_setting(self):
+        """Return the transition toggle setting"""
+        return self.use_transitions.get()
