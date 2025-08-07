@@ -3,207 +3,253 @@
 import tkinter as tk
 from tkinter import ttk
 from typing import Tuple
-from .config import ACCOUNT_MAPPING, PLATFORM_MAPPING
+import time
 
 class FallbackSelectionDialog:
-    """Shows fallback dialog when helpers receive UNKNOWN account/platform"""
+    """Shows verification dialog when account/platform detection needs confirmation"""
     
     def __init__(self):
-        self.account_mapping = ACCOUNT_MAPPING
-        self.platform_mapping = PLATFORM_MAPPING
+        self.account_mapping = {
+            'TR': 'Total Restore',
+            'BC3': 'Bio Complete 3',
+            'OO': 'Olive Oil',
+            'MCT': 'MCT',
+            'DS': 'Dark Spot',
+            'NB': 'Nature\'s Blend',
+            'MK': 'Morning Kick',
+            'DRC': 'Dermal Repair Complex',
+            'PC': 'Phyto Collagen',
+            'GD': 'Glucose Defense',
+            'MC': 'Morning Complete',
+            'PP': 'Pro Plant',
+            'SPC': 'Superfood Complete',
+            'MA': 'Metabolic Advanced',
+            'KA': 'Keto Active',
+            'BLR': 'BadLand Ranch',
+            'Bio X4': 'Bio X4',
+            'Upwellness': 'Upwellness'
+        }
+        
+        self.platform_mapping = {
+            'FB': 'Facebook',
+            'YT': 'YouTube',
+            'IG': 'Instagram',
+            'TT': 'TikTok',
+            'SNAP': 'Snapchat'  # Fixed: SNAP -> Snapchat
+        }
     
-    def show_fallback_selection(self, card_title: str, detected_account: str = None, detected_platform: str = None) -> Tuple[str, str]:
+    def show_fallback_selection(self, card_title: str, detected_account: str = None, detected_platform: str = None, card_url: str = None) -> Tuple[str, str]:
         """
-        Show fallback selection dialog when helpers get UNKNOWN values
+        Show verification dialog for account/platform confirmation
         
         Args:
             card_title: The Trello card title for context
             detected_account: Previously detected account (if any)
             detected_platform: Previously detected platform (if any)
+            card_url: The Trello card URL to display (optional)
             
         Returns:
             Tuple of (selected_account, selected_platform)
         """
         
+        print(f"🎬 VERIFICATION DIALOG: Showing for '{card_title}'")
+        print(f"🎬 VERIFICATION DIALOG: Detected account='{detected_account}', platform='{detected_platform}'")
+        
         root = tk.Tk()
-        root.withdraw()
+        root.withdraw()  # Hide main window
         
         dialog = tk.Toplevel(root)
-        dialog.title("⚠️ Account/Platform Selection Required")
-        dialog.geometry("650x550")
+        dialog.title("⚠️ Verification Required")
+        dialog.geometry("500x500")  # INCREASED HEIGHT
         dialog.resizable(False, False)
         dialog.configure(bg='white')
         
         # Center dialog
-        dialog.transient(root)
-        dialog.grab_set()
-        
-        x = (dialog.winfo_screenwidth() // 2) - 325
-        y = (dialog.winfo_screenheight() // 2) - 275
-        dialog.geometry(f"650x550+{x}+{y}")
+        x = (dialog.winfo_screenwidth() // 2) - 250
+        y = (dialog.winfo_screenheight() // 2) - 250  # Adjusted for new height
+        dialog.geometry(f"500x500+{x}+{y}")
         
         # Make dialog modal and on top
         dialog.attributes('-topmost', True)
         dialog.focus_force()
         
-        result = {"account": None, "platform": None, "confirmed": False}
+        result = {"account": None, "platform": None, "action": None, "done": False}
         
-        # Main content
+        # Main frame
         main_frame = tk.Frame(dialog, bg='white', padx=30, pady=25)
         main_frame.pack(fill=tk.BOTH, expand=True)
         
-        # Header with warning
-        header_frame = tk.Frame(main_frame, bg='#fff3cd', relief='solid', borderwidth=2)
-        header_frame.pack(fill=tk.X, pady=(0, 20))
+        # Header
+        header_label = tk.Label(main_frame, text="⚠️ Verification Required", 
+                               font=('Segoe UI', 16, 'bold'), bg='white', fg='#d9534f')
+        header_label.pack(pady=(0, 15))
         
-        warning_label = tk.Label(header_frame, text="⚠️ MANUAL SELECTION REQUIRED", 
-                               font=('Segoe UI', 14, 'bold'), bg='#fff3cd', fg='#856404')
-        warning_label.pack(pady=15)
-        
-        # Problem description
-        problem_label = tk.Label(main_frame, 
-                                text="The system couldn't determine the correct account and platform automatically.", 
-                                font=('Segoe UI', 11), bg='white', fg='#d73527', wraplength=580)
-        problem_label.pack(pady=(0, 10))
-        
-        # Card info
-        card_frame = tk.LabelFrame(main_frame, text="Trello Card", font=('Segoe UI', 10, 'bold'), 
-                                  bg='white', fg='#323130', padx=15, pady=10)
-        card_frame.pack(fill=tk.X, pady=(0, 20))
-        
-        card_text = tk.Text(card_frame, height=3, wrap=tk.WORD, font=('Segoe UI', 9), 
-                           bg='#f8f9fa', relief='flat', borderwidth=0)
-        card_text.pack(fill=tk.X)
-        card_text.insert('1.0', card_title)
-        card_text.config(state='disabled')
-        
-        # Detection status (if any)
-        if detected_account or detected_platform:
-            status_frame = tk.LabelFrame(main_frame, text="Previous Detection", font=('Segoe UI', 10, 'bold'), 
-                                       bg='white', fg='#323130', padx=15, pady=10)
-            status_frame.pack(fill=tk.X, pady=(0, 20))
-            
-            status_text = f"Account: {detected_account or 'UNKNOWN'} | Platform: {detected_platform or 'UNKNOWN'}"
-            status_label = tk.Label(status_frame, text=status_text, font=('Segoe UI', 10), 
-                                  bg='white', fg='#6c757d')
-            status_label.pack()
-        
-        # Selection area
-        selection_frame = tk.Frame(main_frame, bg='white')
-        selection_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 20))
-        
-        # Account selection
-        account_frame = tk.LabelFrame(selection_frame, text="📋 Select Account", font=('Segoe UI', 11, 'bold'), 
-                                     bg='white', fg='#323130', padx=15, pady=15)
-        account_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
-        
-        account_var = tk.StringVar()
-        
-        # Create scrollable frame for accounts
-        account_canvas = tk.Canvas(account_frame, bg='white', height=200)
-        account_scrollbar = ttk.Scrollbar(account_frame, orient=tk.VERTICAL, command=account_canvas.yview)
-        account_scroll_frame = tk.Frame(account_canvas, bg='white')
-        
-        account_scroll_frame.bind(
-            "<Configure>",
-            lambda e: account_canvas.configure(scrollregion=account_canvas.bbox("all"))
-        )
-        
-        account_canvas.create_window((0, 0), window=account_scroll_frame, anchor="nw")
-        account_canvas.configure(yscrollcommand=account_scrollbar.set)
-        
-        account_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        account_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        # Add account options
-        account_options = list(self.account_mapping.keys())
-        for i, account in enumerate(account_options):
-            display_name = f"{account} ({self.account_mapping[account]})"
-            rb = tk.Radiobutton(account_scroll_frame, text=display_name, variable=account_var, value=account,
-                               font=('Segoe UI', 10), bg='white', fg='#323130', wraplength=200)
-            rb.pack(anchor=tk.W, pady=3, padx=5)
-            
-            # Set default selection
-            if i == 0 or (detected_account and account == detected_account):
-                account_var.set(account)
-        
-        # Platform selection
-        platform_frame = tk.LabelFrame(selection_frame, text="🌐 Select Platform", font=('Segoe UI', 11, 'bold'), 
-                                      bg='white', fg='#323130', padx=15, pady=15)
-        platform_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(10, 0))
-        
-        platform_var = tk.StringVar()
-        platform_options = [
-            ("FB", "Facebook"),
-            ("YT", "YouTube"), 
-            ("IG", "Instagram"),
-            ("TT", "TikTok"),
-            ("SNAP", "Snapchat")
-        ]
-        
-        # Add platform options
-        for code, name in platform_options:
-            rb = tk.Radiobutton(platform_frame, text=f"{code} ({name})", variable=platform_var, value=code,
-                               font=('Segoe UI', 10), bg='white', fg='#323130')
-            rb.pack(anchor=tk.W, pady=5, padx=5)
-            
-            # Set default selection
-            if code == "FB" or (detected_platform and code == detected_platform):
-                platform_var.set(code)
-        
-        # Bottom instruction
+        # Instruction
         instruction_label = tk.Label(main_frame, 
-                                   text="Please select the correct account and platform, then click 'Confirm Selection' to continue.", 
-                                   font=('Segoe UI', 10), bg='white', fg='#6c757d', wraplength=580)
+                                   text="Please verify the account and platform detection:", 
+                                   font=('Segoe UI', 11), bg='white', fg='#333')
         instruction_label.pack(pady=(0, 20))
         
-        # Buttons
+        # Card context - show URL instead of title
+        if card_url:
+            context_text = card_url
+            context_prefix = "Card URL: "
+        else:
+            # Fallback to truncated title if no URL provided
+            context_text = card_title[:50] + "..." if len(card_title) > 50 else card_title
+            context_prefix = "Card: "
+            
+        context_label = tk.Label(main_frame, 
+                                text=f"{context_prefix}{context_text}", 
+                                font=('Segoe UI', 9), bg='white', fg='#666',
+                                wraplength=440)
+        context_label.pack(pady=(0, 25))
+        
+        # Selection frame
+        selection_frame = tk.Frame(main_frame, bg='white')
+        selection_frame.pack(fill=tk.X, pady=(0, 25))
+        
+        # Account selection
+        account_frame = tk.Frame(selection_frame, bg='white')
+        account_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        tk.Label(account_frame, text="Account:", font=('Segoe UI', 11, 'bold'), 
+                bg='white', fg='#333').pack(anchor=tk.W)
+        
+        account_var = tk.StringVar()
+        account_combo = ttk.Combobox(account_frame, textvariable=account_var, 
+                                   font=('Segoe UI', 10), width=40, state='readonly')
+        
+        # Populate account options
+        account_options = []
+        for code, name in self.account_mapping.items():
+            account_options.append(f"{code} - {name}")
+        
+        account_combo['values'] = account_options
+        account_combo.pack(fill=tk.X, pady=(5, 0))
+        
+        # Set default account selection
+        if detected_account and detected_account in self.account_mapping:
+            default_account = f"{detected_account} - {self.account_mapping[detected_account]}"
+            account_combo.set(default_account)
+        else:
+            account_combo.set("TR - Total Restore")  # Default fallback
+        
+        # Platform selection
+        platform_frame = tk.Frame(selection_frame, bg='white')
+        platform_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        tk.Label(platform_frame, text="Platform:", font=('Segoe UI', 11, 'bold'), 
+                bg='white', fg='#333').pack(anchor=tk.W)
+        
+        platform_var = tk.StringVar()
+        platform_combo = ttk.Combobox(platform_frame, textvariable=platform_var, 
+                                     font=('Segoe UI', 10), width=40, state='readonly')
+        
+        # Populate platform options
+        platform_options = []
+        for code, name in self.platform_mapping.items():
+            platform_options.append(f"{code} - {name}")
+        
+        platform_combo['values'] = platform_options
+        platform_combo.pack(fill=tk.X, pady=(5, 0))
+        
+        # Set default platform selection
+        if detected_platform and detected_platform in self.platform_mapping:
+            default_platform = f"{detected_platform} - {self.platform_mapping[detected_platform]}"
+            platform_combo.set(default_platform)
+        else:
+            platform_combo.set("FB - Facebook")  # Default fallback
+        
+        # Separator
+        separator = tk.Frame(main_frame, height=1, bg='#ddd')
+        separator.pack(fill=tk.X, pady=(15, 20))
+        
+        # Button frame - SINGLE APPLY BUTTON ONLY
         button_frame = tk.Frame(main_frame, bg='white')
-        button_frame.pack(fill=tk.X)
+        button_frame.pack(fill=tk.X, side=tk.BOTTOM, pady=(30, 0))
         
-        def on_confirm():
-            if account_var.get() and platform_var.get():
-                result["account"] = account_var.get()
-                result["platform"] = platform_var.get()
-                result["confirmed"] = True
-                dialog.destroy()
-                root.destroy()
+        def on_apply():
+            """User wants to apply the selected values"""
+            account_selection = account_var.get()
+            platform_selection = platform_var.get()
+            
+            if account_selection and platform_selection:
+                # Extract codes from "CODE - Name" format
+                account_code = account_selection.split(' - ')[0]
+                platform_code = platform_selection.split(' - ')[0]
+                
+                result["account"] = account_code
+                result["platform"] = platform_code
+                result["action"] = "apply"
+                result["done"] = True
+                print(f"✅ User applied: {account_code}, {platform_code}")
+        
+        print("🔍 DEBUG - Creating Apply button...")
+        
+        # Single Apply button - centered
+        apply_btn = tk.Button(button_frame, text="Apply", 
+                             bg='#28a745', fg='white', font=('Segoe UI', 12, 'bold'),
+                             padx=40, pady=15, command=on_apply, cursor='hand2',
+                             relief='flat', borderwidth=0)
+        apply_btn.pack(anchor=tk.CENTER)
+        
+        print("🔍 DEBUG - Apply button created successfully")
+        
+        # Handle window close (X button) - FORCE USER TO MAKE SELECTION
+        def on_window_close():
+            # Show warning that they must make a selection
+            response = tk.messagebox.askyesno(
+                "Selection Required", 
+                "You must verify the account and platform to continue.\n\n"
+                "Close anyway? This will exit the entire program.",
+                default='no'
+            )
+            
+            if response:  # User confirmed they want to exit
+                result["account"] = None
+                result["platform"] = None
+                result["action"] = "exit_program"
+                result["done"] = True
+                print(f"❌ User chose to exit program instead of selecting")
             else:
-                tk.messagebox.showerror("Selection Required", 
-                                      "Please select both account and platform before confirming.")
+                # User cancelled the close - do nothing, keep dialog open
+                print(f"🔄 User cancelled close - dialog remains open")
+                pass
         
-        def on_cancel():
-            # Use safe defaults if user cancels
-            result["account"] = "TR"
-            result["platform"] = "FB"
-            result["confirmed"] = False
+        dialog.protocol("WM_DELETE_WINDOW", on_window_close)
+        
+        # POLLING APPROACH - works reliably in your environment
+        print("🔍 Starting verification dialog polling...")
+        start_time = time.time()
+        max_wait = 120  # 2 minute timeout
+        
+        while not result["done"] and (time.time() - start_time) < max_wait:
+            try:
+                root.update()  # Process events
+                time.sleep(0.1)  # Wait 100ms
+            except tk.TclError:
+                # Dialog was closed
+                break
+                
+        if not result["done"]:
+            print("⏰ Verification dialog timed out, using defaults")
+            result = {"account": "TR", "platform": "FB", "action": "timeout", "done": True}
+            
+        # Cleanup
+        try:
             dialog.destroy()
+        except:
+            pass
+        try:
             root.destroy()
-        
-        button_container = tk.Frame(button_frame, bg='white')
-        button_container.pack()
-        
-        cancel_btn = tk.Button(button_container, text="❌ Use Defaults (TR-FB)", font=('Segoe UI', 10), 
-                              bg='#6c757d', fg='white', relief='flat', borderwidth=0, 
-                              padx=25, pady=12, command=on_cancel, cursor='hand2')
-        cancel_btn.pack(side=tk.RIGHT, padx=(15, 0))
-        
-        confirm_btn = tk.Button(button_container, text="✅ Confirm Selection", font=('Segoe UI', 11, 'bold'), 
-                               bg='#28a745', fg='white', relief='flat', borderwidth=0, 
-                               padx=30, pady=12, command=on_confirm, cursor='hand2')
-        confirm_btn.pack(side=tk.RIGHT)
-        
-        # Bind mouse wheel to canvas
-        def _on_mousewheel(event):
-            account_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        account_canvas.bind("<MouseWheel>", _on_mousewheel)
-        
-        # Wait for user selection
-        dialog.wait_window()
+        except:
+            pass
         
         selected_account = result.get("account", "TR")
         selected_platform = result.get("platform", "FB")
+        action = result.get("action", "timeout")
         
-        print(f"🎯 FALLBACK SELECTION: Account='{selected_account}', Platform='{selected_platform}', Confirmed={result['confirmed']}")
+        print(f"🎯 VERIFICATION RESULT: Account='{selected_account}', Platform='{selected_platform}', Action='{action}'")
         
         return selected_account, selected_platform

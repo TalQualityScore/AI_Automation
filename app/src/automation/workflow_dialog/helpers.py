@@ -1,8 +1,9 @@
-# app/src/automation/workflow_dialog/helpers.py - FIXED WITH FALLBACK DIALOG
+# app/src/automation/workflow_dialog/helpers.py - FIXED WITH ENHANCED DEBUG LOGGING
 
 import os
 import time
 import threading
+import sys
 
 from ..workflow_data_models import ConfirmationData, ValidationIssue, ProcessingResult
 
@@ -64,12 +65,21 @@ def create_confirmation_data_from_orchestrator(card_data: dict,
             # Try detection without dialogs first
             fresh_account, fresh_platform = mapper.extract_account_and_platform(card_title, allow_fallback=False)
             
-            if fresh_account != 'UNKNOWN' and fresh_platform != 'UNKNOWN':
+            if fresh_account and fresh_account != 'UNKNOWN':
                 detected_account_code = fresh_account
+                print(f"✅ FRESH ACCOUNT DETECTION: Account='{detected_account_code}'")
+            
+            if fresh_platform and fresh_platform != 'UNKNOWN':
                 detected_platform_code = fresh_platform
-                print(f"✅ FRESH DETECTION SUCCESS: Account='{detected_account_code}', Platform='{detected_platform_code}'")
+                print(f"✅ FRESH PLATFORM DETECTION: Platform='{detected_platform_code}'")
+            
+            # Check if we got a complete detection
+            if (detected_account_code and detected_account_code != 'UNKNOWN' and 
+                detected_platform_code and detected_platform_code != 'UNKNOWN'):
+                print(f"✅ FRESH DETECTION COMPLETE: Account='{detected_account_code}', Platform='{detected_platform_code}'")
             else:
-                print(f"⚠️ FRESH DETECTION FAILED - will need user fallback")
+                print(f"⚠️ PARTIAL DETECTION - will need user fallback: Account='{detected_account_code}', Platform='{detected_platform_code}'")
+
                 
         except Exception as e:
             print(f"❌ ERROR during fresh detection: {e}")
@@ -82,24 +92,70 @@ def create_confirmation_data_from_orchestrator(card_data: dict,
         
         print(f"⚠️ ACCOUNT/PLATFORM DETECTION FAILED - Showing user fallback dialog")
         
+        # ENHANCED DEBUG: Check environment before attempting dialog
+        print(f"🔍 DEBUG - Threading info:")
+        print(f"   Current thread: {threading.current_thread()}")
+        print(f"   Main thread: {threading.main_thread()}")
+        print(f"   Is main thread: {threading.current_thread() is threading.main_thread()}")
+        
         # Check if we're in main thread (required for dialogs)
         if threading.current_thread() is threading.main_thread():
+            print(f"✅ CONFIRMED - Running in main thread")
+            
+            # ENHANCED DEBUG: Check tkinter state
             try:
+                import tkinter as tk
+                if hasattr(tk, '_default_root') and tk._default_root:
+                    print(f"🔍 DEBUG - Existing tkinter root found: {tk._default_root}")
+                else:
+                    print(f"🔍 DEBUG - No existing tkinter root")
+            except Exception as tk_check_error:
+                print(f"⚠️ DEBUG - Tkinter state check failed: {tk_check_error}")
+            
+            try:
+                print(f"🔍 DEBUG - About to import FallbackSelectionDialog...")
+                
                 # Import and show fallback dialog
                 from ..api_clients.account_mapper.fallback_dialog import FallbackSelectionDialog
+                print(f"✅ DEBUG - FallbackSelectionDialog import successful")
+                
+                print(f"🔍 DEBUG - About to create FallbackSelectionDialog instance...")
                 fallback_dialog = FallbackSelectionDialog()
+                print(f"✅ DEBUG - FallbackSelectionDialog instance created")
+                
+                print(f"🔍 DEBUG - About to call show_fallback_selection with:")
+                print(f"   card_title: '{card_title}'")
+                print(f"   detected_account_code: '{detected_account_code}'")
+                print(f"   detected_platform_code: '{detected_platform_code}'")
                 
                 # Show dialog with current detection state
+                print(f"🚀 DEBUG - Calling show_fallback_selection NOW...")
+                
                 detected_account_code, detected_platform_code = fallback_dialog.show_fallback_selection(
                     card_title, 
                     detected_account_code, 
-                    detected_platform_code
+                    detected_platform_code,
+                    card_url=f"https://trello.com/c/{card_data.get('id', 'unknown')}"  # Add card URL
                 )
-                
+
+                # CRITICAL: Check if user chose to exit program
+                if detected_account_code is None and detected_platform_code is None:
+                    print("❌ USER CHOSE TO EXIT PROGRAM - Terminating application")
+                    print("🔴 Program terminated by user choice in verification dialog")
+                    sys.exit(0)  # Exit the entire program
+
                 print(f"✅ USER FALLBACK SELECTION: Account='{detected_account_code}', Platform='{detected_platform_code}'")
                 
             except Exception as dialog_error:
                 print(f"❌ FALLBACK DIALOG ERROR: {dialog_error}")
+                print(f"❌ ERROR TYPE: {type(dialog_error).__name__}")
+                print(f"❌ ERROR ARGS: {dialog_error.args}")
+                
+                # Get detailed traceback
+                import traceback
+                print(f"❌ FULL TRACEBACK:")
+                traceback.print_exc()
+                
                 # Emergency defaults
                 detected_account_code = 'TR'
                 detected_platform_code = 'FB'

@@ -177,31 +177,46 @@ class TrelloCardPopup:
         return None
     
     def _on_ok(self):
-        """Handle OK button"""
+        """Handle OK button - FIXED to prevent getting stuck"""
         print("OK button clicked")
         url_text = self.url_entry.get().strip()
         
         # Check if empty or placeholder
         if not url_text or url_text == "Paste your Trello card URL here...":
-            messagebox.showerror("Error", "Please enter a Trello card URL or ID")
+            self._show_error_and_reset("Error", "Please enter a Trello card URL or ID")
             return
         
         # Extract card ID
         card_id = self._extract_card_id(url_text)
         
         if not card_id:
-            messagebox.showerror("Invalid Input", 
-                               "Could not extract card ID from input.\n\n"
-                               "Please provide either:\n"
-                               "• A full Trello URL (https://trello.com/c/abc123xyz/...)\n"
-                               "• Just the card ID (abc123xyz)")
+            self._show_error_and_reset("Invalid Input", 
+                            "Could not extract card ID from input.\n\n"
+                            "Please provide either:\n"
+                            "• A full Trello URL (https://trello.com/c/abc123xyz/...)\n"
+                            "• Just the card ID (abc123xyz)")
             return
         
         # Success
         print(f"Card ID extracted: {card_id}")
         self.card_id = card_id
         self.popup.destroy()
-    
+
+    def _show_error_and_reset(self, title, message):
+        """Show error message and reset input field to prevent getting stuck"""
+        # Show error message
+        messagebox.showerror(title, message)
+        
+        # CRITICAL FIX: Reset the input field and refocus
+        self.url_entry.delete(0, tk.END)
+        self.url_entry.insert(0, "Paste your Trello card URL here...")
+        
+        # Refocus the entry field for user to try again
+        self.url_entry.focus_set()
+        self.url_entry.select_range(0, tk.END)
+        
+        print("🔄 Input field reset after error - ready for new input")
+
     def _on_cancel(self):
         """Handle Cancel button"""
         print("Cancel button clicked")

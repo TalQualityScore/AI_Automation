@@ -47,7 +47,6 @@ class AccountMapper:
         
         if account_code != "UNKNOWN" and platform_code != "UNKNOWN":
             print(f"✅ DIRECT PREFIX SUCCESS: Account='{account_code}', Platform='{platform_code}'")
-            # SKIP DIALOG - return directly
             return account_code, platform_code
         
         # STEP 2: Try smart detection for common patterns
@@ -58,12 +57,21 @@ class AccountMapper:
         
         if is_valid:
             print(f"✅ SMART DETECTION SUCCESS: Account='{account_code}', Platform='{platform_code}'")
-            # SKIP DIALOG - return directly  
             return account_code, platform_code
         
-        # FALLBACK: Return safe defaults
-        print(f"⚠️ Using safe defaults: TR, FB")
-        return "TR", "FB" 
+        # CRITICAL FIX: Don't fall back to emergency defaults here!
+        # Instead, return the partial detection so helpers.py can handle the user dialog
+        print(f"⚠️ PARTIAL DETECTION: Account='{account_code}', Platform='{platform_code}' (validation failed: {validation_msg})")
+        
+        # If allow_fallback=False (testing mode), return what we found
+        if not allow_fallback:
+            print(f"🔍 TESTING MODE - Returning partial results: {account_code}, {platform_code}")
+            return account_code, platform_code
+        
+        # IMPORTANT: Return partial results so helpers.py can trigger user dialog
+        # helpers.py will see UNKNOWN and show the fallback dialog
+        print(f"🔄 RETURNING PARTIAL DETECTION for user fallback: Account='{account_code}', Platform='{platform_code}'")
+        return account_code, platform_code
        
     def find_exact_worksheet_match(self, worksheet_titles: List[str], account_code: str, platform_code: str) -> Optional[str]:
         """
