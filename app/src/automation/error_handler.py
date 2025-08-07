@@ -1,105 +1,224 @@
-# Add this to app/src/automation/error_handler.py
+# app/src/automation/error_handler.py
+"""
+Unified error handling system for the entire application
+Single source of truth for error handling and solution generation
+"""
 
-import tkinter as tk
-from tkinter import messagebox, scrolledtext
-import traceback
 import sys
+import traceback
+import tkinter as tk
+from tkinter import messagebox
+from datetime import datetime
+from typing import Optional, Dict, Any
 
 class ErrorHandler:
+    """Unified error handler for the entire application"""
+    
     def __init__(self):
-        self.last_error = None
+        self.last_error: Optional[Exception] = None
+        self.error_count: int = 0
         
-    def handle_error(self, error, context=""):
-        """Handle errors with pop-up notification."""
-        self.last_error = {
-            'error': str(error),
-            'traceback': traceback.format_exc(),
-            'context': context
-        }
+    def handle_error(self, error: Exception, context: str = "Unknown", 
+                    show_dialog: bool = True) -> str:
+        """
+        Handle an error with appropriate logging and user feedback
         
-        # Create error pop-up
-        self.show_error_popup()
+        Args:
+            error: The exception that occurred
+            context: Context where the error occurred
+            show_dialog: Whether to show a dialog to the user
+            
+        Returns:
+            Solution text for the error
+        """
+        self.last_error = error
+        self.error_count += 1
         
-    def show_error_popup(self):
-        """Show error pop-up with options."""
-        root = tk.Tk()
-        root.withdraw()  # Hide main window
+        error_message = str(error)
+        solution = self.generate_error_solution(error_message)
         
-        # Custom dialog
-        dialog = tk.Toplevel(root)
-        dialog.title("Process Stopped")
-        dialog.geometry("400x150")
-        dialog.resizable(False, False)
+        # Log the error
+        print(f"\n❌ ERROR in {context}:")
+        print(f"   {error_message}")
+        if solution:
+            print(f"\n💡 Suggested solution:")
+            print(f"   {solution}")
         
-        # Center the dialog
-        dialog.transient(root)
-        dialog.grab_set()
+        # Show dialog if requested
+        if show_dialog:
+            self.show_error_dialog(error, context, solution)
         
-        # Error message
-        tk.Label(dialog, text="❌ Process has stopped due to an error", 
-                font=("Arial", 12, "bold"), fg="red").pack(pady=20)
+        return solution
+    
+    def generate_error_solution(self, error_message: str) -> str:
+        """
+        Generate helpful error solutions based on error message content
         
-        # Buttons frame
-        button_frame = tk.Frame(dialog)
-        button_frame.pack(pady=20)
+        Args:
+            error_message: The error message to analyze
+            
+        Returns:
+            Suggested solution for the error
+        """
+        error_lower = error_message.lower()
         
-        # OK button
-        tk.Button(button_frame, text="OK", width=10, 
-                 command=lambda: self.close_dialog(dialog, root)).pack(side=tk.LEFT, padx=10)
+        # Google Drive errors
+        if "google drive" in error_lower and "404" in error_lower:
+            return """1. Check if the Google Drive folder link is correct and accessible
+2. Verify the folder is shared with your service account email  
+3. Ensure the folder contains video files (.mp4 or .mov)
+4. Try opening the Google Drive link in your browser to confirm access"""
         
-        # View Error button
-        tk.Button(button_frame, text="View Error", width=10,
-                 command=lambda: self.show_error_details()).pack(side=tk.LEFT, padx=10)
+        elif "google drive" in error_lower and "403" in error_lower:
+            return """1. Check if your service account has permission to access the folder
+2. Re-share the Google Drive folder with your service account email
+3. Verify the service account credentials are correct
+4. Make sure the folder is not restricted by organization policies"""
         
-        # X button (close)
-        dialog.protocol("WM_DELETE_WINDOW", lambda: self.close_dialog(dialog, root))
+        # Trello errors
+        elif "trello" in error_lower:
+            if "401" in error_lower or "unauthorized" in error_lower:
+                return """1. Verify your Trello API key is correct
+2. Check that your Trello token hasn't expired
+3. Regenerate your Trello credentials at https://trello.com/app-key
+4. Update the .env file with new credentials"""
+            else:
+                return """1. Verify your Trello API key and token are correct
+2. Check if the Trello card ID exists and is accessible
+3. Ensure the Trello card has a proper description with Google Drive link
+4. Try refreshing your Trello API credentials"""
         
-        # Wait for dialog to close
-        dialog.wait_window()
+        # FFmpeg errors
+        elif "ffmpeg" in error_lower:
+            if "not found" in error_lower or "not recognized" in error_lower:
+                return """1. Install FFmpeg from https://ffmpeg.org/download.html
+2. Add FFmpeg to your system PATH
+3. Restart your terminal/IDE after installation
+4. Verify installation with 'ffmpeg -version' command"""
+            else:
+                return """1. Ensure FFmpeg is installed and available in your system PATH
+2. Check if input video files are not corrupted
+3. Verify you have enough disk space for processing
+4. Try processing with smaller video files first"""
         
-    def show_error_details(self):
-        """Show detailed error information in a new window."""
-        error_window = tk.Toplevel()
-        error_window.title("Error Details")
-        error_window.geometry("800x600")
+        # Timeout errors
+        elif "timeout" in error_lower or "stuck" in error_lower:
+            return """1. Check your internet connection stability
+2. Try with smaller video files to test connectivity
+3. Ensure Google Drive links are accessible
+4. Increase timeout values in configuration
+5. Restart the application and try again"""
         
-        # Scrolled text widget for error details
-        text_widget = scrolledtext.ScrolledText(error_window, wrap=tk.WORD)
-        text_widget.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        # Permission errors
+        elif "permission" in error_lower or "access" in error_lower:
+            return """1. Run the application as administrator if needed
+2. Check file and folder permissions
+3. Ensure output directory is writable
+4. Verify service account credentials have proper access"""
         
-        # Insert error details
-        error_text = f"Context: {self.last_error['context']}\n\n"
-        error_text += f"Error: {self.last_error['error']}\n\n"
-        error_text += f"Traceback:\n{self.last_error['traceback']}"
+        # Network errors
+        elif "connection" in error_lower or "network" in error_lower:
+            return """1. Check your internet connection
+2. Verify firewall settings aren't blocking the app
+3. Check if VPN is interfering with connections
+4. Try again after a few moments"""
         
-        text_widget.insert(tk.END, error_text)
-        text_widget.configure(state=tk.DISABLED)  # Read-only
+        # File not found
+        elif "file not found" in error_lower or "no such file" in error_lower:
+            return """1. Verify the file path is correct
+2. Check if the file was moved or deleted
+3. Ensure you have read permissions for the file
+4. Check if the path contains special characters"""
         
-        # Copy button
-        tk.Button(error_window, text="Copy to Clipboard", 
-                 command=lambda: self.copy_to_clipboard(error_text)).pack(pady=10)
+        # Memory errors
+        elif "memory" in error_lower or "ram" in error_lower:
+            return """1. Close unnecessary applications
+2. Process smaller video files
+3. Reduce video quality settings
+4. Restart your computer to free up memory"""
         
-    def copy_to_clipboard(self, text):
-        """Copy error text to clipboard."""
+        # Generic fallback
+        else:
+            return """1. Check your internet connection
+2. Verify all API credentials are correct
+3. Ensure input files and links are accessible
+4. Check available disk space
+5. Try restarting the application
+6. Check the logs for more details"""
+    
+    def show_error_dialog(self, error: Exception, context: str, solution: str):
+        """Show error dialog with copy-to-clipboard functionality"""
         try:
-            import pyperclip
-            pyperclip.copy(text)
-            messagebox.showinfo("Copied", "Error details copied to clipboard!")
-        except ImportError:
-            # Fallback if pyperclip not available
             root = tk.Tk()
             root.withdraw()
-            root.clipboard_clear()
-            root.clipboard_append(text)
-            root.update()
-            messagebox.showinfo("Copied", "Error details copied to clipboard!")
-            root.destroy()
-        
-    def close_dialog(self, dialog, root):
-        """Close dialog and exit."""
-        dialog.destroy()
-        root.destroy()
-        sys.exit(1)  # Exit the program
+            
+            # Create error details
+            error_details = f"""Error Context: {context}
+Error Type: {type(error).__name__}
+Error Message: {str(error)}
+Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
-# Global error handler instance
+Suggested Solution:
+{solution}
+
+Full Traceback:
+{traceback.format_exc()}"""
+            
+            # Show message box
+            result = messagebox.showerror(
+                f"Error in {context}",
+                f"{str(error)}\n\nClick OK to copy error details to clipboard.",
+                parent=root
+            )
+            
+            # Copy to clipboard
+            self.copy_to_clipboard(error_details)
+            
+            root.destroy()
+            
+        except Exception as e:
+            print(f"Could not show error dialog: {e}")
+    
+    def copy_to_clipboard(self, text: str):
+        """Copy text to clipboard"""
+        try:
+            # Try using pyperclip if available
+            import pyperclip
+            pyperclip.copy(text)
+            print("✅ Error details copied to clipboard")
+        except ImportError:
+            # Fallback to tkinter clipboard
+            try:
+                root = tk.Tk()
+                root.withdraw()
+                root.clipboard_clear()
+                root.clipboard_append(text)
+                root.update()
+                root.destroy()
+                print("✅ Error details copied to clipboard")
+            except Exception as e:
+                print(f"Could not copy to clipboard: {e}")
+    
+    def get_error_stats(self) -> Dict[str, Any]:
+        """Get error statistics"""
+        return {
+            "error_count": self.error_count,
+            "last_error": str(self.last_error) if self.last_error else None
+        }
+    
+    def reset_stats(self):
+        """Reset error statistics"""
+        self.error_count = 0
+        self.last_error = None
+
+# Global error handler instance - single source of truth
 error_handler = ErrorHandler()
+
+# Convenience functions for backward compatibility
+def handle_error(error: Exception, context: str = "Unknown", show_dialog: bool = True) -> str:
+    """Handle an error using the global error handler"""
+    return error_handler.handle_error(error, context, show_dialog)
+
+def generate_error_solution(error_message: str) -> str:
+    """Generate error solution using the global error handler"""
+    return error_handler.generate_error_solution(error_message)

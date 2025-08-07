@@ -1,11 +1,17 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-
 a = Analysis(
     ['app\\src\\__main__.py'],
     pathex=[],
     binaries=[],
-    datas=[('Assets', 'Assets'), ('azure.tcl', '.'), ('.env', '.')],
+    # FIXED: Removed ('.env', '.') to stop bundling secrets
+    # Only bundle non-sensitive assets
+    datas=[
+        ('Assets', 'Assets'),
+        ('azure.tcl', '.'),
+        # Add example env file for reference (no secrets)
+        ('.env.example', '.')
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -26,7 +32,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=True,  # Optional - will work without UPX if not installed
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,

@@ -61,14 +61,7 @@ class TransitionProcessor:
         return self._run_ffmpeg(command)
     
     def _apply_transitions(self, video_list, durations, output_path, width, height):
-        """Apply transitions between videos with SFX"""
-        
-        import os
-        import shutil
-        
-        # Check for SFX file
-        sfx_path = self._get_sfx_path()
-        has_sfx = sfx_path and os.path.exists(sfx_path)
+        """Apply transitions between videos"""
         
         # Build FFmpeg command
         command = ['ffmpeg', '-y']
@@ -76,12 +69,6 @@ class TransitionProcessor:
         # Add input files
         for video in video_list:
             command.extend(['-i', video])
-        
-        # Add SFX for each transition if available
-        if has_sfx:
-            num_transitions = len(video_list) - 1
-            for _ in range(num_transitions):
-                command.extend(['-i', sfx_path])
         
         # Build filter complex
         filters = []
@@ -91,16 +78,12 @@ class TransitionProcessor:
             self.builder.build_normalization_filters(len(video_list), width, height)
         )
         
-        # Add transitions (video only) and handle audio
+        # Add transitions
         if len(video_list) == 2:
             offset = durations[0] - self.builder.duration
-            filters.extend(self.builder.build_video_only_transition_with_sfx(
-                offset, has_sfx, len(video_list)
-            ))
+            filters.extend(self.builder.build_two_video_transition(offset))
         else:
-            filters.extend(self.builder.build_multi_video_transitions_with_sfx(
-                durations, has_sfx, len(video_list)
-            ))
+            filters.extend(self.builder.build_multi_video_transitions(durations))
         
         # Combine filters
         filter_complex = "".join(filters)
@@ -124,47 +107,7 @@ class TransitionProcessor:
             print(f"⚠️ Transition failed, falling back to simple concat")
             return self._fallback_concat(video_list, output_path, width, height)
         
-        # Copy SFX to project folder if successful
-        if not error and has_sfx:
-            self._copy_sfx_to_project(sfx_path, output_path)
-        
         return None
-    
-    def _get_sfx_path(self):
-        """Get the path to fadeout SFX"""
-        import os
-        script_dir = os.path.dirname(os.path.dirname(os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        )))
-        sfx_dir = os.path.join(script_dir, "Assets", "Audio", "SFX")
-        
-        # Look for fadeout_sfx file (with any extension)
-        if os.path.exists(sfx_dir):
-            for file in os.listdir(sfx_dir):
-                if file.lower().startswith('fadeout_sfx'):
-                    sfx_path = os.path.join(sfx_dir, file)
-                    print(f"✅ Found SFX: {file}")
-                    return sfx_path
-        
-        print(f"⚠️ No fadeout_sfx found in {sfx_dir}")
-        return None
-    
-    def _copy_sfx_to_project(self, sfx_path, output_path):
-        """Copy SFX to project's Audio/SFX folder"""
-        import os
-        import shutil
-        
-        # Get project folder from output path
-        project_folder = os.path.dirname(os.path.dirname(output_path))
-        audio_sfx_folder = os.path.join(project_folder, "_Audio", "SFX")
-        
-        if os.path.exists(audio_sfx_folder):
-            try:
-                dest_path = os.path.join(audio_sfx_folder, os.path.basename(sfx_path))
-                shutil.copy2(sfx_path, dest_path)
-                print(f"✅ Copied SFX to project: {dest_path}")
-            except Exception as e:
-                print(f"⚠️ Could not copy SFX to project: {e}")
     
     def _fallback_concat(self, video_list, output_path, width, height):
         """Fallback to simple concatenation without transitions"""

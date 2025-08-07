@@ -10,9 +10,12 @@ CONNECTORS_PATH = os.path.join(SCRIPT_DIR, "Assets", "Videos", "connectors")
 QUIZ_OUTRO_PATH = os.path.join(SCRIPT_DIR, "Assets", "Videos", "quiz_outro")
 
 # Transition settings (can be configured)
-USE_TRANSITIONS = True
+USE_TRANSITIONS = True  # Set to False to disable transitions
 TRANSITION_TYPE = "fade"  # Options: fade, slide, wipe, dissolve, fadeblack, etc.
-TRANSITION_DURATION = 0.5  # Duration in seconds
+TRANSITION_DURATION = 0.25  # Reduced to 0.25 from 0.5 (50% shorter)
+
+# Performance settings (optional - for faster processing)
+FFMPEG_PRESET = "faster"  # Changed from default "medium" for speed
 
 def process_video_sequence(client_video, output_path, target_width, target_height, 
                           processing_mode="connector_quiz"):
@@ -31,6 +34,8 @@ def process_video_sequence(client_video, output_path, target_width, target_heigh
     """
     
     print(f"🎬 Starting video processing in {processing_mode} mode...")
+    if USE_TRANSITIONS:
+        print(f"   ✨ Transitions: {TRANSITION_TYPE} ({TRANSITION_DURATION}s)")
     
     # Handle save_only mode (just copy)
     if processing_mode == "save_only":
@@ -112,7 +117,7 @@ def _get_quiz_video():
     print(f"⚠️ No quiz outro videos found")
     return None
 
-def configure_transitions(enabled=True, transition_type="fade", duration=0.5):
+def configure_transitions(enabled=True, transition_type="fade", duration=0.25):
     """
     Configure transition settings
     
@@ -125,12 +130,13 @@ def configure_transitions(enabled=True, transition_type="fade", duration=0.5):
     
     USE_TRANSITIONS = enabled
     TRANSITION_TYPE = transition_type
-    TRANSITION_DURATION = max(0.25, min(2.0, duration))
+    TRANSITION_DURATION = max(0.1, min(2.0, duration))
     
     print(f"✅ Transitions configured:")
     print(f"   Enabled: {USE_TRANSITIONS}")
-    print(f"   Type: {TRANSITION_TYPE}")
-    print(f"   Duration: {TRANSITION_DURATION}s")
+    if USE_TRANSITIONS:
+        print(f"   Type: {TRANSITION_TYPE}")
+        print(f"   Duration: {TRANSITION_DURATION}s")
 
 # For backward compatibility
 def get_video_dimensions(video_path):
