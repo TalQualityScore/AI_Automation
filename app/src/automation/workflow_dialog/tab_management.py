@@ -27,7 +27,7 @@ class TabManager:
         self.processing_tab = None
         self.results_tab = None
         self.content_container = None
-        self.confirmation_buttons = None
+        self.confirmation_buttons = None  # Explicitly initialize as None
     
     def create_tab_navigation(self, parent):
         """Create tab navigation bar"""
@@ -78,8 +78,11 @@ class TabManager:
             return  # Block navigation away from processing tab while active
         
         # Clean up any existing confirmation buttons first
-        if hasattr(self, 'confirmation_buttons'):
-            self.confirmation_buttons.destroy()
+        if hasattr(self, 'confirmation_buttons') and self.confirmation_buttons:
+            try:
+                self.confirmation_buttons.destroy()
+            except:
+                pass
             delattr(self, 'confirmation_buttons')
         
         # Hide all existing frames
@@ -276,8 +279,11 @@ class TabManager:
         use_transitions = getattr(self.dialog, 'use_transitions', True)
         
         # Clean up confirmation buttons
-        if hasattr(self, 'confirmation_buttons'):
-            self.confirmation_buttons.destroy()
+        if hasattr(self, 'confirmation_buttons') and self.confirmation_buttons:
+            try:
+                self.confirmation_buttons.destroy()
+            except:
+                pass
             delattr(self, 'confirmation_buttons')
         
         # Switch to processing tab and lock navigation
@@ -285,23 +291,20 @@ class TabManager:
         
         # Start processing via the processing manager with transition setting
         if hasattr(self.dialog, 'processing_manager') and self.dialog.processing_manager:
-            # Pass transition setting to processing callback
-            original_callback = self.dialog.processing_callback
-            
-            # Wrap the callback to include transition setting
-            def enhanced_callback(confirmation_data, progress_callback):
-                # Add use_transitions to the callback if the function accepts it
-                try:
-                    return original_callback(confirmation_data, progress_callback, use_transitions=use_transitions)
-                except TypeError:
-                    # Fallback if the callback doesn't accept use_transitions yet
-                    print(f"⚠️ Processing callback doesn't accept use_transitions parameter yet")
-                    return original_callback(confirmation_data, progress_callback)
-            
+            # The processing manager will handle calling the callback with proper arguments
             self.dialog.processing_manager.start_processing(
-                enhanced_callback,
+                lambda progress_callback: self.dialog.processing_callback(
+                    self.dialog.confirmation_data, 
+                    progress_callback,
+                    use_transitions=use_transitions
+                ),
                 self.dialog.confirmation_data.estimated_time
             )
+    
+    def show_results(self, result):
+        """Show results in the results tab"""
+        self.on_processing_complete(result)
+        self.show_tab(2)
     
     def on_processing_complete(self, result):
         """Handle processing completion with proper state updates"""

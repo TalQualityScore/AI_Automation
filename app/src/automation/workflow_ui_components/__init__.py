@@ -12,7 +12,7 @@ This module contains all the UI components for the automation workflow:
 """
 
 from .theme import WorkflowTheme
-from .confirmation_tab import ConfirmationTab
+from .confirmation_tab import ConfirmationTab, ConfirmationData, ValidationIssue
 from .processing_tab import ProcessingTab
 from .results_tab import ResultsTab
 from .notification_popup import NotificationPopup
@@ -20,7 +20,9 @@ from .helpers import open_folder, copy_to_clipboard, generate_error_solution
 
 __all__ = [
     'WorkflowTheme',
-    'ConfirmationTab', 
+    'ConfirmationTab',
+    'ConfirmationData',  # Added this
+    'ValidationIssue',   # Added this
     'ProcessingTab',
     'ResultsTab',
     'NotificationPopup',

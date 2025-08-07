@@ -1,11 +1,11 @@
-# app/src/automation/orchestrator/ui_integration.py - COMPLETE FIXED VERSION
+# app/src/automation/orchestrator/ui_integration.py - COMPLETE FIXED VERSION WITH TRANSITIONS
 
 import time
 import os
 
 from ..workflow_dialog.helpers import (
     create_confirmation_data_from_orchestrator,
-    create_processing_result_from_orchestrator
+    create_processing_result_from_orchestrator  
 )
 
 class UIIntegration:
@@ -93,8 +93,14 @@ class UIIntegration:
         print(f"🔍 PARSED PROJECT INFO: {project_info}")
         return project_info
     
-    def ui_processing_callback(self, progress_callback):
-        """Processing callback - COMPLETELY FIXED PROJECT NAME FLOW"""
+    def ui_processing_callback(self, confirmation_data, progress_callback, use_transitions=True):
+        """Processing callback - UPDATED WITH TRANSITION SUPPORT"""
+        
+        # ========== NEW: Configure transitions at the start ==========
+        from ..video_processor import configure_transitions
+        configure_transitions(use_transitions)
+        print(f"🎬 Processing with transitions: {'ENABLED' if use_transitions else 'DISABLED'}")
+        
         try:
             # Step 1: Already done in preparation
             progress_callback(15, "🔍 Fetching Data from Trello...")
@@ -209,6 +215,9 @@ class UIIntegration:
             # Step 3: Processing Videos 
             progress_callback(60, "🎬 Processing videos...")
             
+            # ========== NEW: Track video paths for breakdown report ==========
+            self.orchestrator.video_paths_tracking = []
+            
             # CRITICAL: Pass the UPDATED project_info (with new name) to process_videos  
             print(f"🔍 PASSING UPDATED PROJECT_INFO TO PROCESSING: '{self.orchestrator.project_info['project_name']}'")
             self.orchestrator.processed_files = self._process_videos_with_progress(
@@ -236,6 +245,50 @@ class UIIntegration:
                 self.orchestrator.creds, self.orchestrator.project_paths, 
                 sheets_routing_name, sheets_column1_name
             )
+            
+            # ========== NEW: Generate enhanced breakdown report ==========
+            progress_callback(95, "📝 Generating breakdown report...")
+            
+            # Calculate duration
+            duration_seconds = time.time() - self.orchestrator.start_time
+            if duration_seconds < 60:
+                duration_display = f"{duration_seconds:.1f} seconds"
+            else:
+                minutes = int(duration_seconds // 60)
+                seconds = int(duration_seconds % 60)
+                duration_display = f"{minutes}m {seconds}s"
+            
+            try:
+                from ..reports.breakdown_report import generate_breakdown_report
+                
+                # Enhance processed files with video paths
+                enhanced_files = []
+                for file_info in self.orchestrator.processed_files:
+                    enhanced_info = file_info.copy()
+                    
+                    # Add paths if tracked during processing
+                    # These should be set by your video processor
+                    enhanced_info['client_video_path'] = file_info.get('client_video_path', '')
+                    enhanced_info['connector_path'] = file_info.get('connector_path', '')
+                    enhanced_info['quiz_path'] = file_info.get('quiz_path', '')
+                    
+                    enhanced_files.append(enhanced_info)
+                
+                # Generate the report in the main output folder
+                report_path = generate_breakdown_report(
+                    enhanced_files,
+                    self.orchestrator.project_paths['project_root'],
+                    duration_display,
+                    use_transitions
+                )
+                
+                if report_path:
+                    print(f"✅ Breakdown report generated: {report_path}")
+            
+            except ImportError:
+                print(f"⚠️ Breakdown report module not found - skipping report generation")
+            except Exception as e:
+                print(f"⚠️ Could not generate breakdown report: {e}")
             
             # Step 5: Finalizing
             progress_callback(100, "🎉 Processing complete!")
@@ -278,7 +331,7 @@ class UIIntegration:
         return creds, downloaded_videos, project_paths
     
     def _process_videos_with_progress(self, downloaded_videos, project_paths, project_info, processing_mode, creds, progress_callback):
-        """Process videos with progress updates"""
+        """Process videos with progress updates - ENHANCED to track paths"""
         progress_callback(70, "🎬 Starting video processing...")
         print(f"🔍 PROCESS_VIDEOS RECEIVED PROJECT_INFO: '{project_info['project_name']}'")
         
@@ -286,6 +339,10 @@ class UIIntegration:
         processed_files = self.orchestrator.processing_steps.process_videos(
             downloaded_videos, project_paths, project_info, processing_mode, creds
         )
+        
+        # ========== NEW: Try to enhance with video paths ==========
+        # If your processing_steps.process_videos doesn't track paths,
+        # you may need to update it to include them in the returned data
         
         progress_callback(85, "✅ Video processing complete...")
         print(f"✅ PROCESSED {len(processed_files)} FILES")

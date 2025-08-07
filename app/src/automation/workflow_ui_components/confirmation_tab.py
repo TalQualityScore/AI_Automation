@@ -15,7 +15,7 @@ class ConfirmationData:
     """Data structure for confirmation display"""
     project_name: str
     account: str
-    ad_type: str
+    ad_type: str  # This attribute is required
     test_name: str
     client_videos: List[str]
     templates_to_add: List[str]
@@ -111,8 +111,8 @@ class ConfirmationTab:
         # Other project details
         other_details = [
             ("Account:", self.data.account),
-            ("Ad Type:", self.data.ad_type),
-            ("Test Name:", self.data.test_name)
+            ("Platform:", self.data.platform),
+            ("Mode:", self.data.processing_mode)
         ]
         
         for label, value in other_details:
