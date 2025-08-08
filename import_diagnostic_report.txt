@@ -1,0 +1,4 @@
+IMPORT DIAGNOSTIC REPORT
+============================================================
+
+FILES EXISTENCE CHECK:

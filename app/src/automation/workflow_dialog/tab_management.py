@@ -320,9 +320,61 @@ class TabManager:
                 self.processing_tab.update_progress(100, "❌ Processing failed!")
     
     def _restore_results(self):
-        """Restore results in the results tab"""
-        if self.processing_result:
-            if self.processing_result.success:
-                self.results_tab.show_success_results(self.processing_result)
-            else:
-                self.results_tab.show_error_results(self.processing_result)
+        """Restore results tab with saved data - FIXED with proper callbacks"""
+        if not self.processing_result:
+            print("⚠️ No processing result to restore")
+            return
+        
+        print(f"📊 Restoring results tab with saved result: success={self.processing_result.success}")
+        
+        # Define the callback functions for results tab
+        def on_open_folder():
+            """Open the output folder"""
+            try:
+                import os
+                import subprocess
+                if self.processing_result and self.processing_result.output_folder:
+                    if os.path.exists(self.processing_result.output_folder):
+                        subprocess.Popen(f'explorer "{self.processing_result.output_folder}"')
+                        print(f"📁 Opened folder: {self.processing_result.output_folder}")
+            except Exception as e:
+                print(f"❌ Error opening folder: {e}")
+        
+        def on_done():
+            """Handle done button - close dialog successfully"""
+            print("✅ Done clicked - closing workflow")
+            if self.dialog:
+                self.dialog._on_success_close()
+        
+        def on_copy_error():
+            """Copy error details to clipboard"""
+            try:
+                import pyperclip
+                if self.processing_result and self.processing_result.error_message:
+                    error_text = f"Error: {self.processing_result.error_message}\n"
+                    if self.processing_result.error_solution:
+                        error_text += f"Solution: {self.processing_result.error_solution}"
+                    pyperclip.copy(error_text)
+                    print("📋 Error details copied to clipboard")
+            except Exception as e:
+                print(f"❌ Error copying to clipboard: {e}")
+        
+        def on_close():
+            """Handle close button on error - close dialog"""
+            print("❌ Close clicked after error")
+            if self.dialog:
+                self.dialog._on_error_close()
+        
+        # Show results with proper callbacks based on success/failure
+        if self.processing_result.success:
+            self.results_tab.show_success_results(
+                self.processing_result,
+                on_open_folder,  # ADDED: Required callback
+                on_done          # ADDED: Required callback
+            )
+        else:
+            self.results_tab.show_error_results(
+                self.processing_result,
+                on_copy_error,   # ADDED: Required callback
+                on_close         # ADDED: Required callback
+            )

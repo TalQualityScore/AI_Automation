@@ -1,9 +1,11 @@
-# app/src/automation/workflow_ui_components/processing_tab.py - UPDATED
+# app/src/automation/workflow_ui_components/processing_tab.py - WITH VIDEO COUNTER
+
 import tkinter as tk
 from tkinter import ttk
+import re
 
 class ProcessingTab:
-    """Handles the processing tab content and logic - FIXED without time estimation"""
+    """Handles the processing tab content and logic - WITH VIDEO COUNTER"""
     
     def __init__(self, parent, theme):
         self.parent = parent
@@ -13,9 +15,11 @@ class ProcessingTab:
         self.progress_label = None
         self.step_label = None
         self.cancel_btn = None
+        self.video_counter_label = None  # NEW: For showing "Processing video 2/3"
+        self.total_videos = 0  # Track total number of videos
         
     def create_tab(self, estimated_time: str):
-        """Create processing tab content - REMOVED time estimation display"""
+        """Create processing tab content - WITH VIDEO COUNTER"""
         self.frame = ttk.Frame(self.parent, style='White.TFrame')
         
         # Processing header
@@ -49,16 +53,21 @@ class ProcessingTab:
         self.progress_bar.pack(pady=(0, 15))
         
         # Progress percentage
-        self.progress_label = ttk.Label(progress_frame, text="Initializing...",
+        self.progress_label = ttk.Label(progress_frame, text="0%",
                                        style='Body.TLabel', font=('Segoe UI', 11, 'bold'))
         self.progress_label.pack(pady=(0, 8))
         
+        # NEW: Video counter label (e.g., "Processing video 2 of 3")
+        self.video_counter_label = ttk.Label(progress_frame, text="",
+                                            style='Body.TLabel', font=('Segoe UI', 10, 'bold'),
+                                            foreground=self.theme.colors['accent'])
+        self.video_counter_label.pack(pady=(0, 5))
+        
         # Current step
-        self.step_label = ttk.Label(progress_frame, text="Starting validation process...",
+        self.step_label = ttk.Label(progress_frame, text="Starting video processing...",
                                    style='Body.TLabel', font=('Segoe UI', 10))
         self.step_label.pack(pady=(0, 15))
         
-        # REMOVED: All time estimation components
         # Simple status message only
         ttk.Label(progress_frame, text="Processing will complete automatically",
                  style='Body.TLabel', font=('Segoe UI', 9, 'italic'),
@@ -67,9 +76,70 @@ class ProcessingTab:
         return self.frame
     
     def update_progress(self, progress: float, step_text: str = "", elapsed_time: float = 0):
-        """Update progress bar and labels - SIMPLIFIED without time calculation"""
-        self.progress_var.set(progress)
-        self.progress_label.config(text=f"{int(progress)}%")
+        """Update progress bar and labels - WITH VIDEO COUNTER LOGIC"""
+        if self.progress_var:
+            self.progress_var.set(progress)
+        if self.progress_label:
+            self.progress_label.config(text=f"{int(progress)}%")
         
         if step_text:
+            # Check for video processing messages
+            if any(phrase in step_text for phrase in ["Processing Version", "Processing video", "--- Processing Version"]):
+                # Extract video number from messages like:
+                # "--- Processing Version 01 (quiz_only) ---"
+                # "Processing Version 02"
+                # "🎬 Starting video processing..."
+                try:
+                    # Look for version numbers like 01, 02, 03
+                    version_match = re.search(r'Version (\d+)', step_text)
+                    if version_match:
+                        current_video = int(version_match.group(1))
+                        # Try to extract total from the step text or use stored value
+                        if "(" in step_text and ")" in step_text:
+                            # Extract total if it's in format like (1/3)
+                            total_match = re.search(r'\((\d+)/(\d+)\)', step_text)
+                            if total_match:
+                                self.total_videos = int(total_match.group(2))
+                        
+                        # If we don't have total yet, try to find it from "Processing 3 files"
+                        if self.total_videos == 0:
+                            files_match = re.search(r'Processing (\d+) files', step_text)
+                            if files_match:
+                                self.total_videos = int(files_match.group(1))
+                        
+                        # Update the counter if we have both values
+                        if self.total_videos > 0:
+                            self.update_video_counter(current_video, self.total_videos)
+                except Exception as e:
+                    print(f"Could not extract video number: {e}")
+            
+            # Also check for initial file count
+            elif "PROCESSED" in step_text and "FILES" in step_text:
+                # Extract from "✅ PROCESSED 3 FILES"
+                try:
+                    files_match = re.search(r'PROCESSED (\d+) FILES', step_text)
+                    if files_match:
+                        self.total_videos = int(files_match.group(1))
+                except:
+                    pass
+            
             self.step_label.config(text=step_text)
+    
+    def update_video_counter(self, current: int, total: int):
+        """Update the video counter display"""
+        if self.video_counter_label:
+            self.video_counter_label.config(text=f"📹 Processing video {current} of {total}")
+    
+    def set_total_videos(self, total: int):
+        """Set the total number of videos to process"""
+        self.total_videos = total
+    
+    def start_processing(self):
+        """Called when processing starts"""
+        if self.progress_label:
+            self.progress_label.config(text="0%")
+        if self.step_label:
+            self.step_label.config(text="Initializing processing...")
+        if self.video_counter_label:
+            self.video_counter_label.config(text="")
+        self.total_videos = 0

@@ -121,3 +121,34 @@ class AutomationOrchestrator:
             
         except Exception as e:
             self.error_handler.handle_automation_error(e, trello_card_id)
+            
+    class ActivityMonitor:
+        """Simple activity monitor for long-running operations"""
+        
+        def __init__(self):
+            self.active = False
+            
+        def execute_with_activity_monitoring(self, func, operation_name, no_activity_timeout=300):
+            """
+            Execute a function with activity monitoring
+            
+            Args:
+                func: Function to execute
+                operation_name: Name for logging
+                no_activity_timeout: Timeout in seconds (not enforced in simple version)
+            
+            Returns:
+                Result from the function
+            """
+            print(f"⏱️ Starting: {operation_name}")
+            self.active = True
+            
+            try:
+                result = func()
+                print(f"✅ Completed: {operation_name}")
+                return result
+            except Exception as e:
+                print(f"❌ Failed: {operation_name} - {str(e)}")
+                raise
+            finally:
+                self.active = False

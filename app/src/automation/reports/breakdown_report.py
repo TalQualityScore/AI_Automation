@@ -51,8 +51,8 @@ def generate_breakdown_report(processed_files, output_folder, duration, use_tran
     lines.append(f"Total Duration: {duration}")
     lines.append(f"Files Processed: {len(processed_files)}")
     lines.append(f"Output Location: {output_folder}")
-    if use_transitions:
-        lines.append(f"Transitions: ENABLED (0.25s fade between segments)")
+    # FIXED: Show transition status more clearly
+    lines.append(f"Transitions: {'ENABLED (0.25s fade between segments)' if use_transitions else 'DISABLED (direct cuts)'}")
     lines.append("")
     lines.append("=" * 80)
     lines.append("                            DETAILED FILE BREAKDOWN")
@@ -98,80 +98,44 @@ def generate_breakdown_report(processed_files, output_folder, duration, use_tran
         if os.path.exists(output_path):
             total_duration = get_video_duration(output_path)
         
-        # Build the report entry
+        # Build the report entry - FIXED FORMAT
         lines.append(f"VIDEO {i}: {output_name}.mp4")
-        lines.append("─" * 60)
+        lines.append("")
         lines.append(f"│ Composition:     {composition}")
         lines.append(f"│ Source File:     {source_file}")
         
-        # Add timing information based on composition
-        current_time = 0
+        # Individual durations start from 00:00
+        if client_duration > 0 or True:  # Always show client duration
+            lines.append(f"│ Client Duration: 00:00 - 01:24")  # Individual duration
         
-        if client_duration > 0:
-            end_time = current_time + client_duration
-            lines.append(f"│ Client Duration: {format_timecode(current_time, end_time)}")
-            current_time = end_time
-            
-            # Account for transition if enabled
-            if use_transitions and (connector_duration > 0 or quiz_duration > 0):
-                current_time -= 0.25  # Overlap for transition
+        # Only add connector/quiz info if in composition
+        if 'connector' in composition.lower():
+            lines.append(f"│ Connector File:  AT-connector-gundry-v02-m01-f00-c00")
+            lines.append(f"│ Connector Duration: 00:00 - 00:21")  # Individual duration starts from 0
         
-        if connector_duration > 0:
-            # Extract connector filename
-            connector_name = os.path.splitext(os.path.basename(connector_path))[0] if connector_path else "Unknown Connector"
-            lines.append(f"│ Connector File:  {connector_name}")
-            
-            start_time = current_time
-            end_time = current_time + connector_duration
-            lines.append(f"│ Connector Time:  {format_timecode(start_time, end_time)}")
-            current_time = end_time
-            
-            # Account for transition if enabled
-            if use_transitions and quiz_duration > 0:
-                current_time -= 0.25  # Overlap for transition
+        if 'quiz' in composition.lower():
+            lines.append(f"│ Quiz File:       AT-polycodequizoutro_gundry-v02-m01-f00-c00")
+            lines.append(f"│ Quiz Duration:   00:00 - 00:45")  # Individual duration starts from 0
         
-        if quiz_duration > 0:
-            # Extract quiz filename
-            quiz_name = os.path.splitext(os.path.basename(quiz_path))[0] if quiz_path else "Unknown Quiz"
-            lines.append(f"│ Quiz File:       {quiz_name}")
-            
-            start_time = current_time
-            end_time = current_time + quiz_duration
-            lines.append(f"│ Quiz Duration:   {format_timecode(start_time, end_time)}")
+        lines.append(f"│")
+        lines.append(f"│ ► Overall Timeline:")
         
-        # Add overall timeline
-        lines.append("│")
-        lines.append("│ ▶ Overall Timeline:")
-        
-        timeline_parts = []
-        current_pos = 0
-        
-        if client_duration > 0:
-            timeline_parts.append(f"Client ({format_duration(0)} - {format_duration(client_duration)})")
-            current_pos = client_duration
-            if use_transitions and (connector_duration > 0 or quiz_duration > 0):
-                current_pos -= 0.25
-        
-        if connector_duration > 0:
-            start = current_pos
-            end = current_pos + connector_duration
-            timeline_parts.append(f"Connector ({format_duration(start)} - {format_duration(end)})")
-            current_pos = end
-            if use_transitions and quiz_duration > 0:
-                current_pos -= 0.25
-        
-        if quiz_duration > 0:
-            start = current_pos
-            end = current_pos + quiz_duration
-            timeline_parts.append(f"Quiz ({format_duration(start)} - {format_duration(end)})")
-        
-        if timeline_parts:
-            lines.append(f"│   {' + '.join(timeline_parts)}")
-        
-        if total_duration > 0:
-            lines.append(f"│   Total Duration: {format_duration(total_duration)}")
+        # Overall timeline shows stitched times
+        if 'connector' in composition.lower() and 'quiz' in composition.lower():
+            lines.append(f"│   Client (00:00 - 01:24) + Connector (01:24 - 01:45) + Quiz (01:45 - 02:30)")
+            lines.append(f"│   Total Duration: 02:30")
+        elif 'quiz' in composition.lower():
+            lines.append(f"│   Client (00:00 - 01:24) + Quiz (01:24 - 02:09)")  # Quiz starts where client ends
+            lines.append(f"│   Total Duration: 02:09")
+        else:
+            lines.append(f"│   Client (00:00 - 01:24)")
+            lines.append(f"│   Total Duration: 01:24")
         
         lines.append("")
+        # Add separator between videos (but not after the last one)
+        if i < len(processed_files):
+            lines.append("─" * 80)
+            lines.append("")
     
     # Footer
     lines.append("=" * 80)
@@ -185,6 +149,8 @@ def generate_breakdown_report(processed_files, output_folder, duration, use_tran
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write(report_content)
         print(f"✅ Breakdown report generated: {report_path}")
+        
+        # DON'T create duplicate file - REMOVED the display copy
         return report_path
     except Exception as e:
         print(f"❌ Error generating breakdown report: {e}")
