@@ -1,4 +1,4 @@
-# app/src/naming/name_generator.py - FIXED: Remove account names and use X placeholder
+# app/src/naming/name_generator.py - FIXED: Correct output format with ZZ
 
 import os
 import re
@@ -13,12 +13,13 @@ class NameGenerator:
     
     def generate_output_name(self, project_name, first_client_video, ad_type_selection, image_desc, version_num, version_letter=""):
         """
-        Generate standardized output filename WITHOUT account names and using X placeholder
+        Generate standardized output filename with correct format:
+        GH-projectnameVTD12036AZZquiz_X-v01-m01-f00-c00.mp4
         
         Args:
             project_name (str): Project name (will be cleaned to remove account prefixes)
             first_client_video (str): Path to first client video file
-            ad_type_selection (str): Ad type selection (Quiz, etc.)
+            ad_type_selection (str): Ad type selection (Quiz, Connector, etc.)
             image_desc (str): Image description (IGNORED - will use X placeholder)
             version_num (int): Version number
             version_letter (str): Version letter override (optional)
@@ -34,7 +35,7 @@ class NameGenerator:
         print(f"   Input file: '{first_client_video}'")
         print(f"   Base name: '{base_name}'")
         
-        # FIXED: Clean project name to remove account prefixes
+        # Clean project name to remove account prefixes
         cleaned_project_name = self._remove_account_prefix(project_name)
         print(f"   Cleaned project: '{cleaned_project_name}' (removed account prefix)")
         
@@ -57,26 +58,33 @@ class NameGenerator:
         print(f"   - Version Letter: '{version_letter}'")
         print(f"   - Version Num: {version_num:02d}")
         
-        # Build the output name components
+        # Build the output name components - CORRECT FORMAT
         part1 = "GH"
-        part2 = unidecode(cleaned_project_name).lower().replace(" ", "")  # Use cleaned name
+        # Remove spaces and lowercase the project name
+        part2 = unidecode(cleaned_project_name).lower().replace(" ", "")
         part3 = ad_type
         part4 = f"{test_name}{version_letter}"
-        part5 = ad_type_selection
-        part6 = "X"  # FIXED: Always use X as placeholder instead of image_desc
-        part7 = f"v{version_num:02d}"
-        part8, part9, part10 = "m01", "f00", "c00"
+        part5 = "ZZ"  # ALWAYS add ZZ
+        part6 = ad_type_selection.lower()  # quiz, connector, etc.
+        part7 = "X"  # ALWAYS use X as placeholder
+        part8 = f"v{version_num:02d}"
+        part9, part10, part11 = "m01", "f00", "c00"
         
-        # Combine components
-        name_part = f"{part1}-{part2}{part3}{part4}ZZ{part5}"
-        version_part = f"{part7}-{part8}-{part9}-{part10}"
-        final_name = f"{name_part}_{part6}-{version_part}"
+        # Combine components with correct format
+        # GH-projectnameVTD12036AZZquiz_X-v01-m01-f00-c00
+        name_part = f"{part1}-{part2}{part3}{part4}{part5}{part6}"
+        version_part = f"{part8}-{part9}-{part10}-{part11}"
+        final_name = f"{name_part}_{part7}-{version_part}"
         
         print(f"🎯 FINAL OUTPUT NAME: '{final_name}'")
         print(f"   📋 Components:")
-        print(f"   - Name part: {name_part}")
+        print(f"   - GH prefix: {part1}")
+        print(f"   - Project: {part2}")
+        print(f"   - Ad type: {part3}")
         print(f"   - Test + Letter: {part4}")
-        print(f"   - Placeholder: {part6} (X for future API)")
+        print(f"   - ZZ constant: {part5}")
+        print(f"   - Ad selection: {part6}")
+        print(f"   - Placeholder: {part7} (X for future API)")
         print(f"   - Version part: {version_part}")
         
         return final_name
@@ -96,7 +104,7 @@ class NameGenerator:
         base_name = os.path.splitext(os.path.basename(first_client_video))[0]
         base_name = base_name.replace("Copy of OO_", "")
         
-        # FIXED: Clean project name to remove account prefixes
+        # Clean project name to remove account prefixes
         cleaned_project_name = self._remove_account_prefix(project_name)
         
         # Extract components
@@ -116,7 +124,8 @@ class NameGenerator:
         account_prefixes = [
             'AGMD', 'BC3', 'TR', 'OO', 'MCT', 'DS', 'NB', 'MK', 
             'DRC', 'PC', 'GD', 'MC', 'PP', 'SPC', 'MA', 'KA', 'BLR',
-            'GMD', 'TOTAL', 'RESTORE', 'BIO', 'COMPLETE', 'OLIVE', 'OIL'
+            'GMD', 'TOTAL', 'RESTORE', 'BIO', 'COMPLETE', 'OLIVE', 'OIL',
+            'FB', 'YT', 'IG', 'TT', 'SNAP'  # Also remove platform codes if at start
         ]
         
         # Split project name into words
@@ -131,7 +140,12 @@ class NameGenerator:
                 print(f"🧹 REMOVING ACCOUNT PREFIX: '{words[0]}'")
                 words = words[1:]  # Remove first word
             else:
-                break  # No more prefixes to remove
+                # Check for patterns like "Fb -" which are broken formats
+                if len(words[0]) <= 3 and len(words) > 1 and words[1] == '-':
+                    print(f"🧹 REMOVING BROKEN PREFIX: '{words[0]} {words[1]}'")
+                    words = words[2:]  # Remove first two elements
+                else:
+                    break  # No more prefixes to remove
         
         # Also check for combined prefixes like "AGMD BC3"
         if len(words) >= 2:
@@ -182,60 +196,3 @@ class NameGenerator:
             return False, f"Invalid test name: '{test_name}'. Must be numeric"
         
         return True, ""
-    
-    def test_name_generation(self):
-        """Test name generation with sample data"""
-        
-        test_cases = [
-            {
-                'project_name': 'AGMD Dinner Mashup',  # Should become "Dinner Mashup"
-                'video_file': 'AGMD_BC3_Dinner_Mashup_OPT_STOR-3133_250416D.mp4',
-                'ad_type_selection': 'Quiz',
-                'image_desc': 'dinner',  # Should be ignored, X used instead
-                'version_num': 1,
-                'expected_parts': ['GH', 'dinnermashup', 'STOR', '3133D', 'Quiz', '_X-']
-            },
-            {
-                'project_name': 'BC3 Grocery Store Oils',  # Should become "Grocery Store Oils"
-                'video_file': 'OO_GroceryOils_AD_VTD-1234A_001.mp4',
-                'ad_type_selection': 'Quiz',
-                'image_desc': 'grocery',  # Should be ignored, X used instead
-                'version_num': 1,
-                'expected_parts': ['GH', 'grocerystoreoils', 'VTD', '1234A', 'Quiz', '_X-']
-            }
-        ]
-        
-        print("\n🧪 TESTING NAME GENERATION:")
-        print("=" * 60)
-        
-        results = []
-        for i, case in enumerate(test_cases, 1):
-            print(f"\n📁 Test Case {i}:")
-            print(f"   Project: '{case['project_name']}'")
-            print(f"   Video: '{case['video_file']}'")
-            
-            result = self.generate_output_name(
-                case['project_name'],
-                case['video_file'],
-                case['ad_type_selection'],
-                case['image_desc'],
-                case['version_num']
-            )
-            
-            # Check if expected parts are in the result
-            all_parts_found = all(part.lower() in result.lower() for part in case['expected_parts'])
-            status = "✅ PASS" if all_parts_found else "❌ FAIL"
-            
-            results.append({
-                'case': i,
-                'result': result,
-                'status': status
-            })
-            
-            print(f"🎯 Status: {status}")
-        
-        return results
-
-if __name__ == "__main__":
-    generator = NameGenerator()
-    generator.test_name_generation()

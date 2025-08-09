@@ -10,14 +10,25 @@ from urllib.parse import unquote
 
 def extract_folder_name_from_drive_link(gdrive_link: str) -> Optional[str]:
     """
-    Extract folder name from various Google Drive link formats.
+    Extract folder name from various Google Drive link formats OR Trello card titles.
+    FIXED: Handle "from GH" pattern in card titles
     
     Args:
-        gdrive_link: Google Drive URL or folder name
+        gdrive_link: Google Drive URL, folder name, or Trello card title
         
     Returns:
         Extracted folder name or original string if not a link
     """
+    # CRITICAL FIX: Check if this is a Trello card title with "from GH" pattern
+    if "from GH" in gdrive_link and not gdrive_link.startswith('http'):
+        # This is a card title like "OO FB - New Ads from GH OO_Grocery Store..."
+        parts = gdrive_link.split("from GH", 1)
+        if len(parts) > 1:
+            folder_part = parts[1].strip()
+            # Remove the (VTD XXXX) suffix if present
+            folder_part = re.sub(r'\s*\([^)]*\)\s*$', '', folder_part)
+            return folder_part.strip()
+    
     # If it's already just a folder name, return it
     if not gdrive_link.startswith('http'):
         return gdrive_link.strip()

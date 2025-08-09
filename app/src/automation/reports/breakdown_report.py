@@ -1,5 +1,5 @@
 # app/src/automation/reports/breakdown_report.py
-# COMPLETE FILE - Uses ffprobe for accurate video duration calculation
+# COMPLETE FILE - Shows all video components with accurate durations
 
 import os
 import subprocess
@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 def get_video_duration(video_path):
-    """Get actual duration of a video file using ffprobe - FIXED"""
+    """Get actual duration of a video file using ffprobe"""
     try:
         # Use ffprobe to get the actual duration
         cmd = [
@@ -67,7 +67,7 @@ def format_timecode(start_seconds, end_seconds):
     return f"{format_duration(start_seconds)} - {format_duration(end_seconds)}"
 
 def generate_breakdown_report(processed_files, output_folder, duration, use_transitions=False):
-    """Generate an enhanced breakdown report with accurate durations - FIXED"""
+    """Generate an enhanced breakdown report with all component durations"""
     
     # Ensure the report is saved in the main output folder, not a subfolder
     report_path = os.path.join(output_folder, "processing_breakdown.txt")
@@ -84,7 +84,6 @@ def generate_breakdown_report(processed_files, output_folder, duration, use_tran
     lines.append(f"Total Duration: {duration}")
     lines.append(f"Files Processed: {len(processed_files)}")
     lines.append(f"Output Location: {output_folder}")
-    # FIXED: Show transition status more clearly
     lines.append(f"Transitions: {'ENABLED (0.25s fade between segments)' if use_transitions else 'DISABLED (direct cuts)'}")
     lines.append("")
     lines.append("=" * 80)
@@ -121,7 +120,7 @@ def generate_breakdown_report(processed_files, output_folder, duration, use_tran
             # Try without _AME folder
             output_path = os.path.join(output_folder, f"{output_name}.mp4")
         
-        # FIXED: Get actual durations using ffprobe with caching
+        # Get actual durations using ffprobe with caching
         client_duration = 0
         connector_duration = 0
         quiz_duration = 0
@@ -160,55 +159,59 @@ def generate_breakdown_report(processed_files, output_folder, duration, use_tran
                     num_transitions += 1
                 total_duration += num_transitions * 0.25  # 0.25s per transition
         
-        # Format the report entry with proper structure
+        # Build the separator line
+        separator = "─" * 80
+        
+        # Format the report entry with complete information
+        lines.append(separator)
         lines.append(f"VIDEO {i}: {output_name}.mp4")
-        lines.append("")
         lines.append(f"│ Composition:     {composition}")
         lines.append(f"│ Source File:     {source_file}")
         
-        # Show individual segment durations (each starts from 00:00)
-        if client_duration > 0:
-            lines.append(f"│ Client Duration: {format_timecode(0, client_duration)}")
+        # Show client video duration
+        lines.append(f"│ Client Duration: {format_timecode(0, client_duration)}")
         
-        # Only add connector/quiz info if in composition
-        if 'connector' in composition.lower() and connector_duration > 0:
-            connector_name = os.path.basename(connector_path) if connector_path else "connector"
+        # Add connector info if used
+        if 'connector' in composition.lower() and connector_path:
+            connector_name = os.path.basename(connector_path)
             lines.append(f"│ Connector File:  {connector_name}")
             lines.append(f"│ Connector Duration: {format_timecode(0, connector_duration)}")
         
-        if 'quiz' in composition.lower() and quiz_duration > 0:
-            quiz_name = os.path.basename(quiz_path) if quiz_path else "quiz_outro"
+        # Add quiz info if used
+        if 'quiz' in composition.lower() and quiz_path:
+            quiz_name = os.path.basename(quiz_path)
             lines.append(f"│ Quiz File:       {quiz_name}")
             lines.append(f"│ Quiz Duration:   {format_timecode(0, quiz_duration)}")
         
         lines.append(f"│")
         lines.append(f"│ ► Overall Timeline:")
         
-        # Overall timeline shows stitched times with accurate calculations
+        # Build the timeline showing when each component appears
         current_time = 0
-        timeline_parts = []
         
+        # Client video timeline
         if client_duration > 0:
-            timeline_parts.append(f"Client ({format_timecode(0, client_duration)})")
-            current_time = client_duration
+            client_end = current_time + client_duration
+            lines.append(f"│   Client ({format_timecode(current_time, client_end)})")
+            current_time = client_end
         
+        # Connector timeline (if present)
         if 'connector' in composition.lower() and connector_duration > 0:
             if use_transitions:
                 current_time += 0.25  # Add transition time
             connector_end = current_time + connector_duration
-            timeline_parts.append(f"Connector ({format_timecode(current_time, connector_end)})")
+            lines.append(f"│   Connector ({format_timecode(current_time, connector_end)})")
             current_time = connector_end
         
+        # Quiz timeline (if present)
         if 'quiz' in composition.lower() and quiz_duration > 0:
             if use_transitions:
                 current_time += 0.25  # Add transition time
             quiz_end = current_time + quiz_duration
-            timeline_parts.append(f"Quiz ({format_timecode(current_time, quiz_end)})")
+            lines.append(f"│   Quiz Outro ({format_timecode(current_time, quiz_end)})")
             current_time = quiz_end
         
-        if timeline_parts:
-            lines.append(f"│   {' + '.join(timeline_parts)}")
-        
+        # Total duration and file size
         lines.append(f"│   Total Duration: {format_duration(total_duration)}")
         
         # Add file size if available
@@ -220,11 +223,6 @@ def generate_breakdown_report(processed_files, output_folder, duration, use_tran
                 pass
         
         lines.append("")
-        
-        # Add separator between videos (but not after the last one)
-        if i < len(processed_files):
-            lines.append("─" * 80)
-            lines.append("")
     
     # Footer
     lines.append("=" * 80)
@@ -242,7 +240,6 @@ def generate_breakdown_report(processed_files, output_folder, duration, use_tran
             f.write(report_content)
         print(f"✅ Breakdown report generated: {report_path}")
         
-        # DON'T create duplicate file - REMOVED the display copy
         return report_path
     except Exception as e:
         print(f"❌ Error generating breakdown report: {e}")
@@ -251,14 +248,8 @@ def generate_breakdown_report(processed_files, output_folder, duration, use_tran
 def integrate_with_processing(video_processor, processed_files, output_folder, duration):
     """Integration helper to be called after video processing"""
     
-    # Enhance processed_files with actual video paths
-    for file_info in processed_files:
-        # These paths should be set during processing
-        # The video_processor should store these paths
-        pass
-    
     # Check if transitions were used
-    use_transitions = getattr(video_processor, 'USE_TRANSITIONS', False)
+    use_transitions = getattr(video_processor, 'use_transitions', False)
     
     # Generate the report
     return generate_breakdown_report(

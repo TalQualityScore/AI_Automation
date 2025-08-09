@@ -62,6 +62,7 @@ def validate_project_info(info: Dict[str, str], original_folder_name: str) -> Di
 def clean_project_name(project_name: str) -> str:
     """
     Clean project name by removing prefixes, suffixes, and normalizing.
+    FIXED: Don't destroy the structure with aggressive title case
     
     Args:
         project_name: Raw project name
@@ -74,22 +75,37 @@ def clean_project_name(project_name: str) -> str:
     
     cleaned = project_name
     
+    # CRITICAL FIX: Handle the broken title case format first
+    # If it looks like "Fb - New Ads From Gh..." it's already broken
+    if re.match(r'^[A-Z][a-z]+\s*-\s*New Ads From', cleaned):
+        # Try to extract just the meaningful part
+        parts = cleaned.split("From Gh", 1)
+        if len(parts) > 1:
+            cleaned = parts[1].strip()
+    
     # Remove common prefixes
     prefixes_to_remove = [
         'Copy of ', 'GH ', 'AGMD ', 'BC3 ', 'OO ', 'TR ', 'MCT ',
         'DS ', 'NB ', 'MK ', 'DRC ', 'PC ', 'GD ', 'MC ', 'PP ',
-        'SPC ', 'MA ', 'KA ', 'BLR '
+        'SPC ', 'MA ', 'KA ', 'BLR ', 'OO_', 'Copy of OO_'
     ]
     
     for prefix in prefixes_to_remove:
         if cleaned.startswith(prefix):
             cleaned = cleaned[len(prefix):]
     
+    # Remove "Ad" suffix if present
+    if cleaned.endswith(' Ad'):
+        cleaned = cleaned[:-3]
+    
     # Remove common suffixes
-    suffixes_to_remove = [' Quiz', ' Ad', ' Test', ' Final', ' Draft']
+    suffixes_to_remove = [' Quiz', ' Test', ' Final', ' Draft']
     for suffix in suffixes_to_remove:
         if cleaned.endswith(suffix):
             cleaned = cleaned[:-len(suffix)]
+    
+    # Replace underscores with spaces
+    cleaned = cleaned.replace('_', ' ')
     
     # Remove multiple spaces
     cleaned = re.sub(r'\s+', ' ', cleaned)
@@ -97,9 +113,25 @@ def clean_project_name(project_name: str) -> str:
     # Remove leading/trailing underscores and spaces
     cleaned = cleaned.strip('_ ')
     
-    # Capitalize properly
-    words = cleaned.split()
-    cleaned = ' '.join(word.capitalize() for word in words)
+    # CRITICAL: DON'T apply aggressive title case!
+    # Just ensure proper spacing and preserve important acronyms
+    if cleaned:
+        words = cleaned.split()
+        result_words = []
+        
+        # List of words that should stay uppercase
+        preserve_upper = {'VTD', 'STOR', 'ACT', 'AD', 'GH', 'FB', 'YT', 'IG', 'TT'}
+        
+        for word in words:
+            if word.upper() in preserve_upper:
+                result_words.append(word.upper())
+            elif word[0].islower():
+                # Capitalize first letter only
+                result_words.append(word[0].upper() + word[1:])
+            else:
+                result_words.append(word)
+        
+        cleaned = ' '.join(result_words)
     
     return cleaned if cleaned else "Unknown Project"
 

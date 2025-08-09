@@ -1,8 +1,9 @@
-# app/src/automation/orchestrator/processing_steps.py - FIXED IMPORTS
+# app/src/automation/orchestrator/processing_steps.py - FIXED IMPORTS AND ALPHABETICAL ORDER
 
 import os
 import shutil
 import time
+import re
 
 from ..api_clients import (get_trello_card_data, download_files_from_gdrive, 
                          write_to_google_sheets, get_google_creds)
@@ -130,14 +131,74 @@ class ProcessingSteps:
         
         return creds, client_video_final_paths, project_paths
     
+    def extract_version_letter(self, filename):
+        """Extract version letter (A, B, C, etc.) from filename"""
+        # Pattern 1: Date followed by letter (250721A)
+        pattern1 = r'(\d{6})([A-Z])(?:[_\.]|$)'
+        match = re.search(pattern1, filename)
+        if match:
+            return match.group(2)
+        
+        # Pattern 2: Test number followed by letter (12036A)
+        pattern2 = r'(\d{4,5})([A-Z])(?:[_\.]|$)'
+        match = re.search(pattern2, filename)
+        if match:
+            return match.group(2)
+        
+        # Pattern 3: Underscore followed by single letter before extension
+        pattern3 = r'_([A-Z])_?\d*\.\w+$'
+        match = re.search(pattern3, filename)
+        if match:
+            return match.group(1)
+        
+        return None
+    
+    def sort_videos_by_version_letter(self, video_paths):
+        """Sort videos by their version letters (A, B, C, etc.)"""
+        videos_with_letters = []
+        videos_without_letters = []
+        
+        for video_path in video_paths:
+            filename = os.path.basename(video_path)
+            letter = self.extract_version_letter(filename)
+            
+            if letter:
+                videos_with_letters.append((video_path, letter))
+                print(f"📝 Found version letter '{letter}' in: {filename}")
+            else:
+                videos_without_letters.append(video_path)
+                print(f"⚠️ No version letter found in: {filename}")
+        
+        # Sort videos with letters alphabetically
+        videos_with_letters.sort(key=lambda x: x[1])
+        
+        # Combine sorted videos with letters first, then videos without letters
+        sorted_videos = [video for video, letter in videos_with_letters] + videos_without_letters
+        
+        # Print the final order
+        print("\n📊 Final video processing order:")
+        for i, video in enumerate(sorted_videos, 1):
+            filename = os.path.basename(video)
+            letter = self.extract_version_letter(filename)
+            if letter:
+                print(f"   {i}. {filename} (Version {letter})")
+            else:
+                print(f"   {i}. {filename} (No version)")
+        
+        return sorted_videos
+    
     def process_videos(self, client_videos, project_paths, project_info, processing_mode, creds):
         """Step 4: Process all videos based on mode"""
         print(f"\n--- Step 4: Processing Videos ---")
         
+        # CRITICAL FIX: Sort videos alphabetically by version letter
+        print("\n🔤 Sorting videos by version letter (A → Z)...")
+        sorted_client_videos = self.sort_videos_by_version_letter(client_videos)
+        
         # Get video dimensions if needed
         if processing_mode != "save_only":
             def get_dimensions():
-                target_width, target_height, error = get_video_dimensions(client_videos[0])
+                target_width, target_height, error = get_video_dimensions(sorted_client_videos[0])
                 if error:
                     raise Exception(f"Failed to get video dimensions: {error}")
                 return target_width, target_height
@@ -164,17 +225,26 @@ class ProcessingSteps:
             no_activity_timeout=120
         )
         
-        # Process each video
+        # Process each video in sorted order
         processed_files = []
-        for i, client_video in enumerate(client_videos):
+        for i, client_video in enumerate(sorted_client_videos):
             version_num = start_version + i
-            print(f"\n--- Processing Version {version_num:02d} ({processing_mode}) ---")
+            
+            # Show which letter is being processed
+            letter = self.extract_version_letter(os.path.basename(client_video))
+            if letter:
+                print(f"\n--- Processing Version {version_num:02d} (Letter {letter}) ({processing_mode}) ---")
+            else:
+                print(f"\n--- Processing Version {version_num:02d} ({processing_mode}) ---")
             
             processed_file = self.process_single_video(
                 client_video, project_paths, project_info, processing_mode,
                 version_num, target_width if processing_mode != "save_only" else None,
                 target_height if processing_mode != "save_only" else None
             )
+            
+            # Store the actual letter that was processed with this version
+            processed_file['version_letter'] = letter if letter else ''
             processed_files.append(processed_file)
         
         return processed_files
@@ -183,15 +253,28 @@ class ProcessingSteps:
         """Process a single video file"""
         
         image_desc = get_image_description(client_video)
+        
+        # Extract the actual version letter from this specific video file
+        actual_letter = self.extract_version_letter(os.path.basename(client_video))
+        
         output_name = generate_output_name(
             project_name=project_info['project_name'], 
             first_client_video=client_video,
             ad_type_selection="quiz", 
             image_desc=image_desc, 
             version_num=version_num,
-            version_letter=project_info.get('version_letter', '')
+            version_letter=actual_letter or project_info.get('version_letter', '')  # Use actual letter from file
         )
         output_path = os.path.join(project_paths['ame'], f"{output_name}.mp4")
+        
+        # Store paths for breakdown report
+        processed_file_info = {
+            "version": f"v{version_num:02d}",
+            "source_file": os.path.basename(client_video),
+            "output_name": output_name,
+            "client_video_path": client_video,  # Store full path for duration calculation
+            "output_path": output_path  # Store output path
+        }
         
         if processing_mode == "save_only":
             def save_video():
@@ -206,6 +289,21 @@ class ProcessingSteps:
             
             description = f"Saved as is from {os.path.basename(client_video)}"
         else:
+            # Store the paths of additional videos for the breakdown report
+            if processing_mode == "connector_quiz":
+                # Get connector and quiz paths
+                from ..video_processor import _get_connector_video, _get_quiz_video
+                processed_file_info['connector_path'] = _get_connector_video()
+                processed_file_info['quiz_path'] = _get_quiz_video()
+                description = f"New Ad from {os.path.basename(client_video)} + connector + quiz"
+            elif processing_mode == "quiz_only":
+                # Get quiz path
+                from ..video_processor import _get_quiz_video
+                processed_file_info['quiz_path'] = _get_quiz_video()
+                description = f"New Ad from {os.path.basename(client_video)} + quiz"
+            else:
+                description = f"New Ad from {os.path.basename(client_video)}"
+            
             def process_video():
                 error = process_video_sequence(client_video, output_path, target_width, target_height, processing_mode)
                 if error:
@@ -217,20 +315,11 @@ class ProcessingSteps:
                 f"Process Video v{version_num:02d}",
                 no_activity_timeout=1800  # 30 minutes of no FFmpeg progress
             )
-            
-            if processing_mode == "connector_quiz":
-                description = f"New Ad from {os.path.basename(client_video)} + connector + quiz"
-            else:
-                description = f"New Ad from {os.path.basename(client_video)} + quiz"
         
         print(result)
         
-        return {
-            "version": f"v{version_num:02d}",
-            "source_file": os.path.basename(client_video),
-            "output_name": output_name,
-            "description": description
-        }
+        processed_file_info["description"] = description
+        return processed_file_info
     
     def finalize_and_cleanup(self, processed_files, project_info, creds, project_paths):
         """Step 5: Log results to Google Sheets and cleanup"""

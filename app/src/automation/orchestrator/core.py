@@ -12,7 +12,7 @@ from ..workflow_dialog.helpers import (create_confirmation_data_from_orchestrato
                                      create_processing_result_from_orchestrator)
 
 from .processing_steps import ProcessingSteps
-from .ui_integration import UIIntegration
+from .ui_integration_base import UIIntegration
 from .error_handling import ErrorHandler
 
 class AutomationOrchestrator:

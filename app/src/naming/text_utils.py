@@ -129,22 +129,33 @@ class TextUtils:
         return text
     
     def _apply_capitalization(self, text):
-        """Apply proper capitalization rules"""
+        """Apply proper capitalization rules.
+        FIXED: Don't destroy VTD, STOR, ACT and other important acronyms
+        """
         words = text.split()
         capitalized_words = []
         
-        for word in words:
-            # Check if it's a word to preserve in caps
-            if word.upper() in self.preserve_caps:
-                capitalized_words.append(word.upper())
+        # List of words that should stay uppercase
+        preserve_uppercase = {'VTD', 'STOR', 'ACT', 'AD', 'GH', 'OO', 'FB', 'YT', 'IG', 'TT'}
+        
+        for i, word in enumerate(words):
+            word_upper = word.upper()
+            
+            # Check if it's a word to preserve in caps (from either list)
+            if word_upper in self.preserve_caps or word_upper in preserve_uppercase:
+                capitalized_words.append(word_upper)
             # Check if it's a small connector word (and not the first word)
-            elif len(capitalized_words) > 0 and word.lower() in ['and', 'or', 'of', 'the', 'in', 'on', 'at', 'to', 'for']:
+            elif i > 0 and word.lower() in ['and', 'or', 'of', 'the', 'in', 'on', 'at', 'to', 'for', 'from']:
                 capitalized_words.append(word.lower())
+            # Check if it already has mixed case (like "McDonald's")
+            elif any(c.isupper() for c in word[1:]):
+                capitalized_words.append(word)  # Keep as is
             else:
-                # Standard title case
-                capitalized_words.append(word.capitalize())
+                # Standard capitalization - first letter only
+                capitalized_words.append(word[0].upper() + word[1:].lower() if len(word) > 0 else word)
         
         return ' '.join(capitalized_words)
+
     
     def _remove_suffixes(self, text):
         """Remove common unwanted suffixes"""
