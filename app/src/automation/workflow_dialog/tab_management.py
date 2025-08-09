@@ -1,4 +1,5 @@
 # app/src/automation/workflow_dialog/tab_management.py
+# COMPLETE FILE - Preserves processing state when switching tabs
 
 import tkinter as tk
 from tkinter import ttk
@@ -9,7 +10,7 @@ from automation.workflow_ui_components import (
 )
 
 class TabManager:
-    """Manages tab navigation and state"""
+    """Manages tab navigation and state - WITH STATE PRESERVATION"""
     
     def __init__(self, dialog):
         self.dialog = dialog
@@ -28,6 +29,9 @@ class TabManager:
         self.results_tab = None
         self.content_container = None
         self.confirmation_buttons = None  # Explicitly initialize as None
+        
+        # FIXED: Store processing state for restoration
+        self.saved_processing_state = None
     
     def create_tab_navigation(self, parent):
         """Create tab navigation bar"""
@@ -70,12 +74,26 @@ class TabManager:
         self.results_tab = ResultsTab(self.content_container, theme)
     
     def show_tab(self, tab_index):
-        """Show specified tab with proper processing lock behavior"""
+        """Show specified tab with state preservation for processing tab"""
         
-        # Processing lock logic
-        if self.processing_active and tab_index != 1:
-            print("🔒 Processing is active - navigation locked to Processing tab")
-            return  # Block navigation away from processing tab while active
+        # FIXED: Save processing state before switching away
+        if self.current_tab == 1 and self.processing_active and tab_index != 1:
+            # Save the current processing state
+            if self.processing_tab:
+                self.saved_processing_state = {
+                    'progress': self.processing_tab.progress_var.get() if self.processing_tab.progress_var else 0,
+                    'step_text': self.processing_tab.step_label.cget('text') if self.processing_tab.step_label else '',
+                    'counter_text': self.processing_tab.video_counter_label.cget('text') if self.processing_tab.video_counter_label else '',
+                    'current_video': getattr(self.processing_tab, 'current_video', 0),
+                    'total_videos': getattr(self.processing_tab, 'total_videos', 0)
+                }
+                print(f"📌 Saved processing state: {self.saved_processing_state}")
+        
+        # FIXED: Allow viewing other tabs during processing (removed lock)
+        # Processing lock logic - commented out to allow navigation
+        # if self.processing_active and tab_index != 1:
+        #     print("🔒 Processing is active - navigation locked to Processing tab")
+        #     return  # Block navigation away from processing tab while active
         
         # Clean up any existing confirmation buttons first
         if hasattr(self, 'confirmation_buttons') and self.confirmation_buttons:
@@ -99,6 +117,9 @@ class TabManager:
             if self.processing_complete:
                 # Show read-only message when processing is complete
                 self._add_readonly_message("✅ Processing completed successfully. Review results in the Results tab.")
+            elif self.processing_active:
+                # Show message that processing is ongoing
+                self._add_readonly_message("⚙️ Processing is currently active. View progress in the Processing tab.")
             elif not self.processing_started:
                 # Show normal confirmation buttons when not started
                 self._add_confirmation_buttons()
@@ -110,6 +131,10 @@ class TabManager:
             # Processing tab
             frame = self.processing_tab.create_tab(self.dialog.confirmation_data.estimated_time)
             frame.pack(fill=tk.BOTH, expand=True)
+            
+            # FIXED: Restore saved state if returning to processing tab
+            if self.processing_active and self.saved_processing_state:
+                self._restore_processing_state()
             
             # Processing tab buttons based on state
             if self.processing_complete:
@@ -132,6 +157,35 @@ class TabManager:
         # Update tab button states
         self._update_tab_buttons(tab_index)
         self.current_tab = tab_index
+    
+    def _restore_processing_state(self):
+        """FIXED: Restore the saved processing state"""
+        if not self.saved_processing_state or not self.processing_tab:
+            return
+        
+        state = self.saved_processing_state
+        
+        # Restore progress bar
+        if self.processing_tab.progress_var:
+            self.processing_tab.progress_var.set(state['progress'])
+        
+        # Restore progress label
+        if self.processing_tab.progress_label:
+            self.processing_tab.progress_label.config(text=f"{int(state['progress'])}%")
+        
+        # Restore step label
+        if self.processing_tab.step_label:
+            self.processing_tab.step_label.config(text=state['step_text'])
+        
+        # Restore video counter
+        if self.processing_tab.video_counter_label and state['counter_text']:
+            self.processing_tab.video_counter_label.config(text=state['counter_text'])
+        
+        # Restore internal counters
+        self.processing_tab.current_video = state['current_video']
+        self.processing_tab.total_videos = state['total_videos']
+        
+        print(f"📌 Restored processing state successfully")
     
     def _add_confirmation_buttons(self):
         """UPDATED: Add action buttons to confirmation tab with transition support"""
@@ -224,7 +278,7 @@ class TabManager:
                  foreground=self.dialog.theme.colors['text_secondary']).pack()
     
     def _update_tab_buttons(self, active_tab):
-        """Update tab button states with proper processing lock"""
+        """Update tab button states - FIXED to allow navigation during processing"""
         for idx, btn in self.tab_buttons.items():
             if idx == active_tab:
                 # Active tab
@@ -239,15 +293,10 @@ class TabManager:
                                  fg=self.dialog.theme.colors['text_primary'],
                                  state='normal')
                 elif self.processing_active:
-                    # During processing: only processing tab accessible
-                    if idx == 1:  # Processing tab
-                        btn.configure(bg=self.dialog.theme.colors['tab_inactive'], 
-                                     fg=self.dialog.theme.colors['text_primary'],
-                                     state='normal')
-                    else:
-                        btn.configure(bg=self.dialog.theme.colors['tab_inactive'], 
-                                     fg=self.dialog.theme.colors['text_secondary'], 
-                                     state='disabled')
+                    # FIXED: Allow navigation to all tabs even during processing
+                    btn.configure(bg=self.dialog.theme.colors['tab_inactive'], 
+                                 fg=self.dialog.theme.colors['text_primary'],
+                                 state='normal')
                 elif self.processing_started:
                     # Processing started but not active: allow back to processing tab
                     if idx <= 1:  # Confirmation and Processing accessible
@@ -286,7 +335,7 @@ class TabManager:
                 pass
             delattr(self, 'confirmation_buttons')
         
-        # Switch to processing tab and lock navigation
+        # Switch to processing tab
         self.show_tab(1)
         
         # Start processing via the processing manager with transition setting
@@ -311,6 +360,9 @@ class TabManager:
         self.processing_active = False
         self.processing_complete = True
         self.processing_result = result
+        
+        # Clear saved processing state
+        self.saved_processing_state = None
         
         # Update processing tab to show completion
         if hasattr(self.processing_tab, 'update_progress'):

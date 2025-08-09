@@ -1,4 +1,5 @@
-# app/src/automation/workflow_ui_components/processing_tab.py - WITH VIDEO COUNTER
+# app/src/automation/workflow_ui_components/processing_tab.py
+# COMPLETE FILE - Shows "Processing video X of Y" during batch processing
 
 import tkinter as tk
 from tkinter import ttk
@@ -17,6 +18,7 @@ class ProcessingTab:
         self.cancel_btn = None
         self.video_counter_label = None  # NEW: For showing "Processing video 2/3"
         self.total_videos = 0  # Track total number of videos
+        self.current_video = 0  # Track current video being processed
         
     def create_tab(self, estimated_time: str):
         """Create processing tab content - WITH VIDEO COUNTER"""
@@ -83,33 +85,39 @@ class ProcessingTab:
             self.progress_label.config(text=f"{int(progress)}%")
         
         if step_text:
-            # Check for video processing messages
+            # Check for video processing messages and extract numbers
             if any(phrase in step_text for phrase in ["Processing Version", "Processing video", "--- Processing Version"]):
                 # Extract video number from messages like:
                 # "--- Processing Version 01 (quiz_only) ---"
-                # "Processing Version 02"
-                # "🎬 Starting video processing..."
+                # "--- Processing Version 02 (quiz_only) --- Video 2 of 3"
                 try:
                     # Look for version numbers like 01, 02, 03
                     version_match = re.search(r'Version (\d+)', step_text)
                     if version_match:
-                        current_video = int(version_match.group(1))
-                        # Try to extract total from the step text or use stored value
-                        if "(" in step_text and ")" in step_text:
-                            # Extract total if it's in format like (1/3)
-                            total_match = re.search(r'\((\d+)/(\d+)\)', step_text)
-                            if total_match:
-                                self.total_videos = int(total_match.group(2))
-                        
-                        # If we don't have total yet, try to find it from "Processing 3 files"
-                        if self.total_videos == 0:
-                            files_match = re.search(r'Processing (\d+) files', step_text)
-                            if files_match:
-                                self.total_videos = int(files_match.group(1))
-                        
-                        # Update the counter if we have both values
-                        if self.total_videos > 0:
-                            self.update_video_counter(current_video, self.total_videos)
+                        self.current_video = int(version_match.group(1))
+                    
+                    # Look for "Video X of Y" pattern
+                    video_count_match = re.search(r'Video (\d+) of (\d+)', step_text)
+                    if video_count_match:
+                        self.current_video = int(video_count_match.group(1))
+                        self.total_videos = int(video_count_match.group(2))
+                    
+                    # Try to extract total from the step text or use stored value
+                    if "(" in step_text and ")" in step_text:
+                        # Extract total if it's in format like (1/3)
+                        total_match = re.search(r'\((\d+)/(\d+)\)', step_text)
+                        if total_match:
+                            self.total_videos = int(total_match.group(2))
+                    
+                    # If we don't have total yet, try to find it from "Processing 3 files"
+                    if self.total_videos == 0:
+                        files_match = re.search(r'Processing (\d+) files', step_text)
+                        if files_match:
+                            self.total_videos = int(files_match.group(1))
+                    
+                    # Update the counter if we have both values
+                    if self.total_videos > 0 and self.current_video > 0:
+                        self.update_video_counter(self.current_video, self.total_videos)
                 except Exception as e:
                     print(f"Could not extract video number: {e}")
             
@@ -120,6 +128,16 @@ class ProcessingTab:
                     files_match = re.search(r'PROCESSED (\d+) FILES', step_text)
                     if files_match:
                         self.total_videos = int(files_match.group(1))
+                except:
+                    pass
+            
+            # Check for "Processing 3 files" pattern
+            elif "Processing" in step_text and "files" in step_text:
+                try:
+                    files_match = re.search(r'Processing (\d+) files', step_text)
+                    if files_match:
+                        self.total_videos = int(files_match.group(1))
+                        print(f"📹 Detected total videos: {self.total_videos}")
                 except:
                     pass
             
@@ -143,3 +161,4 @@ class ProcessingTab:
         if self.video_counter_label:
             self.video_counter_label.config(text="")
         self.total_videos = 0
+        self.current_video = 0
