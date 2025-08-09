@@ -1,11 +1,11 @@
-# app/src/naming/__init__.py - FIXED VERSION
+# app/src/naming/__init__.py - Updated for SVSL/VSL support
 """
 Modular Naming System for AI Automation Suite
 
 This module provides intelligent naming and parsing capabilities with clear separation of concerns:
 - Version extraction from filenames
 - Project information parsing
-- Standard name generation
+- Standard name generation (now with Quiz/SVSL/VSL support)
 - Content analysis for descriptions
 """
 
@@ -19,12 +19,32 @@ try:
     
     # Convenience functions that maintain backward compatibility
     def generate_output_name(project_name, first_client_video, ad_type_selection, image_desc, version_num, version_letter=""):
-        """Generate output filename - main interface function"""
+        """
+        Generate output filename - main interface function
+        Now supports ad_type_selection as "quiz", "svsl", or "vsl"
+        """
         name_gen = NameGenerator()
+        
+        # Normalize ad_type_selection to lowercase for consistency
+        if isinstance(ad_type_selection, str):
+            ad_type_selection = ad_type_selection.lower()
+            # Ensure it's a valid selection
+            if ad_type_selection not in ["quiz", "svsl", "vsl"]:
+                # Try to detect from common variations
+                if "svsl" in ad_type_selection.lower():
+                    ad_type_selection = "svsl"
+                elif "vsl" in ad_type_selection.lower():
+                    ad_type_selection = "vsl"
+                else:
+                    ad_type_selection = "quiz"  # Default
+        
         return name_gen.generate_output_name(project_name, first_client_video, ad_type_selection, image_desc, version_num, version_letter)
 
     def generate_project_folder_name(project_name, first_client_video, ad_type_selection):
-        """Generate project folder name - main interface function"""
+        """
+        Generate project folder name - main interface function
+        Now supports ad_type_selection as "Quiz", "SVSL", or "VSL" for folder names
+        """
         name_gen = NameGenerator()
         return name_gen.generate_project_folder_name(project_name, first_client_video, ad_type_selection)
 
@@ -43,6 +63,33 @@ try:
         utils = TextUtils()
         return utils.clean_project_name(raw_name)
     
+    # Additional helper functions for SVSL/VSL support
+    def detect_endpoint_type(description):
+        """
+        Detect endpoint type from card description
+        Returns: "quiz", "svsl", or "vsl"
+        """
+        description_lower = description.lower()
+        
+        if "svsl" in description_lower:
+            return "svsl"
+        elif "vsl" in description_lower:
+            return "vsl"
+        else:
+            return "quiz"
+    
+    def format_endpoint_for_folder(endpoint_type):
+        """
+        Format endpoint type for folder naming
+        Converts lowercase to proper case
+        """
+        mapping = {
+            "quiz": "Quiz",
+            "svsl": "SVSL",
+            "vsl": "VSL"
+        }
+        return mapping.get(endpoint_type.lower(), "Quiz")
+    
     # Export all the convenience functions and classes
     __all__ = [
         'VersionExtractor',
@@ -54,7 +101,9 @@ try:
         'generate_project_folder_name',
         'get_image_description',
         'parse_project_info',
-        'clean_project_name'
+        'clean_project_name',
+        'detect_endpoint_type',
+        'format_endpoint_for_folder'
     ]
     
 except ImportError as e:
@@ -66,12 +115,28 @@ except ImportError as e:
     print("   - content_analyzer.py")
     print("   - text_utils.py")
     
-    # Fallback functions to prevent crashes
+    # Fallback functions to prevent crashes - Updated for SVSL/VSL
     def generate_output_name(project_name, first_client_video, ad_type_selection, image_desc, version_num, version_letter=""):
-        return f"fallback_output_{version_num}"
+        # Normalize ad_type_selection
+        ad_type = "quiz"
+        if isinstance(ad_type_selection, str):
+            ad_type_lower = ad_type_selection.lower()
+            if "svsl" in ad_type_lower:
+                ad_type = "svsl"
+            elif "vsl" in ad_type_lower:
+                ad_type = "vsl"
+        return f"fallback_output_{ad_type}_{version_num}"
     
     def generate_project_folder_name(project_name, first_client_video, ad_type_selection):
-        return f"fallback_folder_{project_name}"
+        # Format for folder name
+        folder_type = "Quiz"
+        if isinstance(ad_type_selection, str):
+            ad_type_lower = ad_type_selection.lower()
+            if "svsl" in ad_type_lower:
+                folder_type = "SVSL"
+            elif "vsl" in ad_type_lower:
+                folder_type = "VSL"
+        return f"fallback_folder_{project_name}_{folder_type}"
     
     def get_image_description(video_path):
         return "fallback_description"
@@ -82,10 +147,18 @@ except ImportError as e:
     def clean_project_name(raw_name):
         return raw_name or "Fallback Project"
     
+    def detect_endpoint_type(description):
+        return "quiz"
+    
+    def format_endpoint_for_folder(endpoint_type):
+        return "Quiz"
+    
     __all__ = [
         'generate_output_name',
         'generate_project_folder_name', 
         'get_image_description',
         'parse_project_info',
-        'clean_project_name'
+        'clean_project_name',
+        'detect_endpoint_type',
+        'format_endpoint_for_folder'
     ]

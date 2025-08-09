@@ -1,4 +1,5 @@
-# app/src/automation/orchestrator/processing_steps.py - FIXED IMPORTS AND ALPHABETICAL ORDER
+# app/src/automation/orchestrator/processing_steps.py
+# Updated to support SVSL/VSL processing modes and new asset structure
 
 import os
 import shutil
@@ -8,8 +9,10 @@ import re
 from ..api_clients import (get_trello_card_data, download_files_from_gdrive, 
                          write_to_google_sheets, get_google_creds)
 
-# FIXED: Import the correct functions from video_processor
-from ..video_processor import get_video_dimensions, process_video_sequence
+# Import the correct functions and set account/platform function
+from ..video_processor import (get_video_dimensions, process_video_sequence,
+                              set_processor_account_platform, _get_connector_video, 
+                              _get_quiz_video, _get_svsl_video, _get_vsl_video)
 
 from ..workflow_utils import parse_project_info, create_project_structure
 from ...naming_generator import generate_project_folder_name, generate_output_name, get_image_description
@@ -46,137 +49,136 @@ class ProcessingSteps:
     
     def parse_and_validate(self, card_data):
         """Step 2: Parse instructions and validate assets"""
+        print("\n--- Step 2: Parsing Instructions & Validating Assets ---")
         
-        # Parse processing mode
         processing_mode = self.orchestrator.parser.parse_card_instructions(card_data.get('desc', ''))
-        print(f"Processing mode detected: {processing_mode}")
         
-        # Validate required assets
+        # Validate required assets exist
         asset_issues = self.orchestrator.validator.validate_assets(processing_mode)
         
         if not self.orchestrator.validator.show_validation_results(asset_issues):
-            raise Exception("Asset validation failed - cannot proceed")
+            raise Exception("Required assets missing - cannot proceed")
         
-        # Parse project info
-        def parse_project():
-            project_info = parse_project_info(card_data['name'])
-            if not project_info:
-                raise Exception("Could not parse project info from card name")
-            return project_info
-        
-        project_info = self.orchestrator.monitor.execute_with_activity_monitoring(
-            parse_project,
-            "Project Info Parsing",
-            no_activity_timeout=30
-        )
-        
-        print(f"Successfully parsed project: {project_info['project_name']}")
-        print(f"Version letter: {project_info.get('version_letter', 'Not found')}")
-        
-        return processing_mode, project_info
+        return processing_mode
     
-    def setup_project(self, card_data, project_info):
-        """Step 3: Setup credentials, download files, create project structure"""
-        print("\n--- Step 2: Downloading & Setting Up Project ---")
+    def download_and_setup(self, card_data, project_info):
+        """Step 3: Download videos and set up project structure"""
+        print("\n--- Step 3: Downloading Videos & Setting Up Project ---")
         
-        # Setup credentials
-        def setup_credentials():
-            creds = get_google_creds()
+        # Get Google credentials - FIX: get_google_creds returns just creds, not tuple
+        def get_creds():
+            creds = get_google_creds()  # Returns Credentials object directly
             if not creds:
-                raise Exception("Google credentials not available")
+                raise Exception("Failed to get Google credentials")
             return creds
         
         creds = self.orchestrator.monitor.execute_with_activity_monitoring(
-            setup_credentials,
-            "Google Credentials Setup",
-            no_activity_timeout=30
+            get_creds,
+            "Google Authentication",
+            no_activity_timeout=60
         )
         
-        # Download videos
+        # Extract Google Drive link
+        gdrive_link = self.orchestrator.validator.extract_gdrive_link(card_data.get('desc', ''))
+        
+        # Download videos - Pass creds to download function
         def download_videos():
-            # FIXED: Use the new API clients approach
-            from ..api_clients import TrelloClient
-            trello_client = TrelloClient()
-            gdrive_link = trello_client.extract_gdrive_link(card_data.get('desc', ''))
-            
-            downloaded_videos, error = download_files_from_gdrive(gdrive_link, creds, self.orchestrator.monitor)
+            videos, error = download_files_from_gdrive(gdrive_link, creds)
             if error:
                 raise Exception(f"Failed to download videos: {error}")
-            if not downloaded_videos:
-                raise Exception("No video files were downloaded")
-            return downloaded_videos
+            return videos
         
         downloaded_videos = self.orchestrator.monitor.execute_with_activity_monitoring(
             download_videos,
-            "Google Drive Download",
-            no_activity_timeout=600  # 10 minutes of no download progress
+            "Video Download",
+            no_activity_timeout=300
         )
         
         # Create project structure
-        naming_suffix = "quiz"
-        project_folder_name = generate_project_folder_name(
-            project_name=project_info['project_name'],
-            first_client_video=downloaded_videos[0],
-            ad_type_selection=naming_suffix.title()
+        def create_structure():
+            # CRITICAL FIX: Get processing mode from orchestrator, not project_info
+            processing_mode = getattr(self.orchestrator, 'processing_mode', '')
+            
+            # Determine ad_type_selection based on the actual processing mode
+            ad_type_selection = "Quiz"  # Default
+            
+            if 'svsl' in processing_mode.lower():
+                ad_type_selection = "SVSL"
+            elif 'vsl' in processing_mode.lower():
+                ad_type_selection = "VSL"
+            else:
+                ad_type_selection = "Quiz"
+            
+            print(f"📁 Creating folder with type: {ad_type_selection} (based on mode: {processing_mode})")
+            
+            # Use first downloaded video if available, otherwise use placeholder
+            first_video = downloaded_videos[0] if downloaded_videos else "placeholder.mp4"
+            
+            # Generate folder name with all required arguments
+            project_folder = generate_project_folder_name(
+                project_info['project_name'],
+                first_video,
+                ad_type_selection
+            )
+            
+            # Call create_project_structure - it returns just a paths dictionary
+            paths = create_project_structure(project_folder)
+            
+            # Validate we got a valid result
+            if not paths:
+                raise Exception("Failed to create project structure: No paths returned")
+            
+            return paths
+        
+        project_paths = self.orchestrator.monitor.execute_with_activity_monitoring(
+            create_structure,
+            "Project Structure Creation",
+            no_activity_timeout=60
         )
-        project_paths = create_project_structure(project_folder_name)
         
-        # Move files to project structure
-        client_video_final_paths = []
-        for video_path in downloaded_videos:
-            print(f"🔍 Available project_paths keys: {list(project_paths.keys())}")
-            final_path = os.path.join(project_paths['client_videos'], os.path.basename(video_path))
-            shutil.move(video_path, final_path)
-            client_video_final_paths.append(final_path)
+        print(f"✅ Downloaded {len(downloaded_videos)} videos")
+        print(f"✅ Project structure created at: {project_paths['project_root']}")
         
-        return creds, client_video_final_paths, project_paths
+        return creds, downloaded_videos, project_paths
     
     def extract_version_letter(self, filename):
         """Extract version letter (A, B, C, etc.) from filename"""
-        # Pattern 1: Date followed by letter (250721A)
-        pattern1 = r'(\d{6})([A-Z])(?:[_\.]|$)'
-        match = re.search(pattern1, filename)
-        if match:
-            return match.group(2)
+        patterns = [
+            r'_([A-Z])\.mp4$',
+            r'-([A-Z])\.mp4$',
+            r'([A-Z])\.mp4$',
+            r'_([A-Z])_\d+\.mp4$',
+            r'-([A-Z])_\d+\.mp4$'
+        ]
         
-        # Pattern 2: Test number followed by letter (12036A)
-        pattern2 = r'(\d{4,5})([A-Z])(?:[_\.]|$)'
-        match = re.search(pattern2, filename)
-        if match:
-            return match.group(2)
-        
-        # Pattern 3: Underscore followed by single letter before extension
-        pattern3 = r'_([A-Z])_?\d*\.\w+$'
-        match = re.search(pattern3, filename)
-        if match:
-            return match.group(1)
+        for pattern in patterns:
+            match = re.search(pattern, filename, re.IGNORECASE)
+            if match:
+                return match.group(1).upper()
         
         return None
     
-    def sort_videos_by_version_letter(self, video_paths):
-        """Sort videos by their version letters (A, B, C, etc.)"""
+    def sort_videos_by_version_letter(self, videos):
+        """Sort videos alphabetically by version letter (A → B → C)"""
         videos_with_letters = []
         videos_without_letters = []
         
-        for video_path in video_paths:
-            filename = os.path.basename(video_path)
+        for video in videos:
+            filename = os.path.basename(video)
             letter = self.extract_version_letter(filename)
-            
             if letter:
-                videos_with_letters.append((video_path, letter))
-                print(f"📝 Found version letter '{letter}' in: {filename}")
+                videos_with_letters.append((video, letter))
             else:
-                videos_without_letters.append(video_path)
-                print(f"⚠️ No version letter found in: {filename}")
+                videos_without_letters.append(video)
         
-        # Sort videos with letters alphabetically
+        # Sort by letter
         videos_with_letters.sort(key=lambda x: x[1])
         
-        # Combine sorted videos with letters first, then videos without letters
-        sorted_videos = [video for video, letter in videos_with_letters] + videos_without_letters
+        # Combine: lettered videos first, then non-lettered
+        sorted_videos = [v[0] for v in videos_with_letters] + videos_without_letters
         
-        # Print the final order
-        print("\n📊 Final video processing order:")
+        # Print sorting results
+        print("\n📄 Video sorting results:")
         for i, video in enumerate(sorted_videos, 1):
             filename = os.path.basename(video)
             letter = self.extract_version_letter(filename)
@@ -191,7 +193,15 @@ class ProcessingSteps:
         """Step 4: Process all videos based on mode"""
         print(f"\n--- Step 4: Processing Videos ---")
         
-        # CRITICAL FIX: Sort videos alphabetically by version letter
+        # Set account and platform for video processor
+        account_code = project_info.get('account_code') or project_info.get('detected_account_code')
+        platform_code = project_info.get('platform_code') or project_info.get('detected_platform_code')
+        
+        if account_code and platform_code:
+            print(f"🎯 Setting processor context: Account={account_code}, Platform={platform_code}")
+            set_processor_account_platform(account_code, platform_code)
+        
+        # Sort videos alphabetically by version letter
         print("\n🔤 Sorting videos by version letter (A → Z)...")
         sorted_client_videos = self.sort_videos_by_version_letter(client_videos)
         
@@ -210,8 +220,18 @@ class ProcessingSteps:
             )
             print(f"Target resolution set to {target_width}x{target_height}")
         
+        # Determine the type suffix based on processing mode
+        if "quiz" in processing_mode:
+            type_suffix = "Quiz"
+        elif "svsl" in processing_mode:
+            type_suffix = "SVSL"
+        elif "vsl" in processing_mode:
+            type_suffix = "VSL"
+        else:
+            type_suffix = "Quiz"  # Default
+        
         # Get starting version number
-        concept_name = f"GH {project_info['project_name']} {project_info['ad_type']} {project_info['test_name']} Quiz"
+        concept_name = f"GH {project_info['project_name']} {project_info['ad_type']} {project_info['test_name']} {type_suffix}"
         
         def check_sheets():
             error, start_version = write_to_google_sheets(concept_name, [], creds)
@@ -252,18 +272,35 @@ class ProcessingSteps:
     def process_single_video(self, client_video, project_paths, project_info, processing_mode, version_num, target_width, target_height):
         """Process a single video file"""
         
+        # Convert client_video to absolute path if it's relative
+        import os
+        if not os.path.isabs(client_video):
+            # If it's a relative path, make it absolute
+            client_video = os.path.abspath(client_video)
+            print(f"📁 Converted to absolute path: {client_video}")
+        
         image_desc = get_image_description(client_video)
         
         # Extract the actual version letter from this specific video file
         actual_letter = self.extract_version_letter(os.path.basename(client_video))
         
+        # Determine the type designation based on processing mode
+        if "quiz" in processing_mode:
+            type_designation = "quiz"
+        elif "svsl" in processing_mode:
+            type_designation = "svsl"
+        elif "vsl" in processing_mode:
+            type_designation = "vsl"
+        else:
+            type_designation = "quiz"  # Default
+        
         output_name = generate_output_name(
             project_name=project_info['project_name'], 
             first_client_video=client_video,
-            ad_type_selection="quiz", 
+            ad_type_selection=type_designation,  # Pass the type designation
             image_desc=image_desc, 
             version_num=version_num,
-            version_letter=actual_letter or project_info.get('version_letter', '')  # Use actual letter from file
+            version_letter=actual_letter or project_info.get('version_letter', '')
         )
         output_path = os.path.join(project_paths['ame'], f"{output_name}.mp4")
         
@@ -272,8 +309,8 @@ class ProcessingSteps:
             "version": f"v{version_num:02d}",
             "source_file": os.path.basename(client_video),
             "output_name": output_name,
-            "client_video_path": client_video,  # Store full path for duration calculation
-            "output_path": output_path  # Store output path
+            "client_video_path": client_video,
+            "output_path": output_path
         }
         
         if processing_mode == "save_only":
@@ -291,74 +328,110 @@ class ProcessingSteps:
         else:
             # Store the paths of additional videos for the breakdown report
             if processing_mode == "connector_quiz":
-                # Get connector and quiz paths
-                from ..video_processor import _get_connector_video, _get_quiz_video
                 processed_file_info['connector_path'] = _get_connector_video()
                 processed_file_info['quiz_path'] = _get_quiz_video()
                 description = f"New Ad from {os.path.basename(client_video)} + connector + quiz"
             elif processing_mode == "quiz_only":
-                # Get quiz path
-                from ..video_processor import _get_quiz_video
                 processed_file_info['quiz_path'] = _get_quiz_video()
                 description = f"New Ad from {os.path.basename(client_video)} + quiz"
+            elif processing_mode == "connector_svsl":
+                processed_file_info['connector_path'] = _get_connector_video()
+                processed_file_info['svsl_path'] = _get_svsl_video()
+                description = f"New Ad from {os.path.basename(client_video)} + connector + SVSL"
+            elif processing_mode == "svsl_only":
+                processed_file_info['svsl_path'] = _get_svsl_video()
+                description = f"New Ad from {os.path.basename(client_video)} + SVSL"
+            elif processing_mode == "connector_vsl":
+                processed_file_info['connector_path'] = _get_connector_video()
+                processed_file_info['vsl_path'] = _get_vsl_video()
+                description = f"New Ad from {os.path.basename(client_video)} + connector + VSL"
+            elif processing_mode == "vsl_only":
+                processed_file_info['vsl_path'] = _get_vsl_video()
+                description = f"New Ad from {os.path.basename(client_video)} + VSL"
             else:
                 description = f"New Ad from {os.path.basename(client_video)}"
             
-            def process_video():
-                error = process_video_sequence(client_video, output_path, target_width, target_height, processing_mode)
+            # Process with FFmpeg - ensure absolute path is passed
+            def process_with_ffmpeg():
+                error = process_video_sequence(
+                    client_video, output_path, target_width, target_height, processing_mode
+                )
                 if error:
-                    raise Exception(f"Video processing failed: {error}")
+                    raise Exception(error)
                 return f"Processed: {output_name}.mp4"
             
             result = self.orchestrator.monitor.execute_with_activity_monitoring(
-                process_video,
+                process_with_ffmpeg,
                 f"Process Video v{version_num:02d}",
-                no_activity_timeout=1800  # 30 minutes of no FFmpeg progress
+                no_activity_timeout=300
             )
         
-        print(result)
+        processed_file_info['description'] = description
         
-        processed_file_info["description"] = description
+        # Add file size if available
+        if os.path.exists(output_path):
+            size_mb = os.path.getsize(output_path) / (1024 * 1024)
+            processed_file_info['size_mb'] = round(size_mb, 2)
+        
+        print(f"✅ {result}")
+        
         return processed_file_info
     
-    def finalize_and_cleanup(self, processed_files, project_info, creds, project_paths):
-        """Step 5: Log results to Google Sheets and cleanup"""
-        print("\n--- Step 5: Logging to Google Sheets ---")
+    def write_to_sheets(self, project_info, processed_files, creds):
+        """Step 5: Write results to Google Sheets"""
+        print("\n--- Step 5: Writing to Google Sheets ---")
         
-        if processed_files:
-            concept_name = f"GH {project_info['project_name']} {project_info['ad_type']} {project_info['test_name']} Quiz"
-            data_to_write = [
-                [pf['version'], pf['description'], pf['output_name']]
-                for pf in processed_files
-            ]
-            
-            def write_results():
-                error, _ = write_to_google_sheets(concept_name, data_to_write, creds)
-                if error:
-                    raise Exception(f"Failed to write to Google Sheets: {error}")
-                return "Results logged successfully"
-            
-            result = self.orchestrator.monitor.execute_with_activity_monitoring(
-                write_results,
-                "Google Sheets Logging",
-                no_activity_timeout=120
-            )
-            print(result)
+        # Determine the type suffix based on what was processed
+        type_suffix = "Quiz"  # Default
+        if processed_files and len(processed_files) > 0:
+            first_file = processed_files[0]
+            if 'svsl_path' in first_file:
+                type_suffix = "SVSL"
+            elif 'vsl_path' in first_file:
+                type_suffix = "VSL"
+        
+        # Build concept name for display in column 1
+        concept_name = f"GH {project_info['project_name']} {project_info['ad_type']} {project_info['test_name']} {type_suffix}"
+        
+        # For worksheet routing, we need to use the original card title that has account/platform
+        # This should be stored in the orchestrator
+        routing_name = None
+        if hasattr(self.orchestrator, 'original_card_title'):
+            routing_name = self.orchestrator.original_card_title
+            print(f"📋 Using original card title for routing: '{routing_name}'")
         else:
-            print("No files were processed, skipping log.")
+            # Fallback to concept name if no original title stored
+            routing_name = concept_name
+            print(f"⚠️ Original card title not found, using concept name for routing")
         
-        # Step 6: Cleanup temporary files
-        print("\n--- Step 6: Cleaning up temporary files ---")
-        temp_dir = "temp_downloads"
+        # Convert output names to list of lists (each name becomes a row with one column)
+        output_names = []
+        for f in processed_files:
+            # Each row should be a list, even if it has just one element
+            output_names.append([f['output_name']])  # Make it a list with one element
         
-        # Check if temp directory exists before trying to remove it
-        if os.path.exists(temp_dir):
+        def write_sheets():
+            # Use write_to_google_sheets_with_custom_name if available
             try:
-                shutil.rmtree(temp_dir)
-                print(f"✅ Cleaned up temporary directory: {temp_dir}")
-            except Exception as e:
-                print(f"⚠️ Warning: Could not remove temp directory {temp_dir}: {e}")
-        else:
-            print(f"✅ No temporary files to clean up (temp directory {temp_dir} does not exist)")
+                from ..api_clients import write_to_google_sheets_with_custom_name
+                error, _ = write_to_google_sheets_with_custom_name(
+                    routing_name,  # For finding worksheet (has account/platform)
+                    concept_name,  # For column 1 display
+                    output_names, 
+                    creds
+                )
+            except ImportError:
+                # Fallback to regular write function
+                error, _ = write_to_google_sheets(concept_name, output_names, creds)
+            
+            if error:
+                raise Exception(f"Failed to write to Google Sheets: {error}")
+            return "Success"
         
-        print("✅ Cleanup completed successfully")
+        self.orchestrator.monitor.execute_with_activity_monitoring(
+            write_sheets,
+            "Google Sheets Update",
+            no_activity_timeout=120
+        )
+        
+        print(f"✅ Successfully wrote {len(output_names)} entries to Google Sheets")

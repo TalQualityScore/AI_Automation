@@ -1,8 +1,7 @@
-# app/src/automation/orchestrator/ui_integration_base.py
+# app/src/automation/orchestrator/ui_integration_base.py - COMPLETE FIX
 """
 UI Integration Base Module - Main orchestrator
-This is the refactored version of ui_integration.py
-Delegates to specialized modules for better organization
+Fixed version with correct method names
 """
 
 import time
@@ -44,15 +43,15 @@ class UIIntegration:
             # Step 1: Check and update project name
             final_project_name = self.progress.check_and_update_project_name(progress_callback)
             
-            # Step 2: Download assets
+            # Step 2: Download assets - FIX: Use download_and_setup
             progress_callback(25, "📥 Downloading Assets from Google Drive...")
             print(f"🔍 PASSING UPDATED PROJECT_INFO TO SETUP: '{self.orchestrator.project_info['project_name']}'")
             
+            # Call download_and_setup instead of setup_project
             self.orchestrator.creds, self.orchestrator.downloaded_videos, self.orchestrator.project_paths = \
-                self.processing.setup_project_with_progress(
+                self.orchestrator.processing_steps.download_and_setup(
                     self.orchestrator.card_data, 
-                    self.orchestrator.project_info, 
-                    progress_callback
+                    self.orchestrator.project_info
                 )
             
             # Store generated folder name
@@ -67,85 +66,83 @@ class UIIntegration:
             
             self.orchestrator.video_paths_tracking = []
             
-            print(f"🔍 PASSING UPDATED PROJECT_INFO TO PROCESSING: '{self.orchestrator.project_info['project_name']}'")
-            self.orchestrator.processed_files = self.processing.process_videos_with_progress(
+            print(f"🔍 PASSING UPDATED PROJECT_INFO TO PROCESS_VIDEOS: '{self.orchestrator.project_info['project_name']}'")
+            
+            # Set account and platform for video processor before processing
+            account_code = self.orchestrator.project_info.get('account_code') or \
+                          self.orchestrator.project_info.get('detected_account_code')
+            platform_code = self.orchestrator.project_info.get('platform_code') or \
+                           self.orchestrator.project_info.get('detected_platform_code')
+            
+            if account_code and platform_code:
+                print(f"🎯 Setting processor context: Account={account_code}, Platform={platform_code}")
+                from ..video_processor import set_processor_account_platform
+                set_processor_account_platform(account_code, platform_code)
+            
+            # Process videos
+            self.orchestrator.processed_files = self.orchestrator.processing_steps.process_videos(
                 self.orchestrator.downloaded_videos,
                 self.orchestrator.project_paths,
                 self.orchestrator.project_info,
                 self.orchestrator.processing_mode,
-                self.orchestrator.creds,
-                progress_callback,
-                use_transitions
+                self.orchestrator.creds
             )
             
-            # Step 4: Update Google Sheets
-            sheets_routing_name = self.orchestrator.original_card_title
-            sheets_column1_name = self.orchestrator.generated_folder_name
+            # Step 4: Write to Google Sheets
+            progress_callback(90, "📊 Updating Google Sheets...")
             
-            self.sheets.update_google_sheets(
-                self.orchestrator.processed_files,
+            self.orchestrator.processing_steps.write_to_sheets(
                 self.orchestrator.project_info,
-                self.orchestrator.creds,
-                self.orchestrator.project_paths,
-                sheets_routing_name,
-                sheets_column1_name,
-                progress_callback
-            )
-            
-            # Step 5: Generate report
-            self.sheets.generate_breakdown_report(
                 self.orchestrator.processed_files,
-                self.orchestrator.project_paths,
-                use_transitions,
-                progress_callback
+                self.orchestrator.creds
             )
             
-            # Step 6: Complete
-            progress_callback(100, "🎉 Processing complete!")
+            # Step 5: Generate reports
+            progress_callback(95, "📄 Generating reports...")
             
-            return create_processing_result_from_orchestrator(
-                processed_files=self.orchestrator.processed_files,
-                start_time=self.orchestrator.start_time,
-                output_folder=self.orchestrator.project_paths['project_root'],
+            # Generate breakdown report if available
+            try:
+                from ..reports.breakdown_report import generate_breakdown_report
+                self.orchestrator.breakdown_report_path = generate_breakdown_report(
+                    self.orchestrator.processed_files,
+                    self.orchestrator.project_paths['project_root'],
+                    time.time() - self.orchestrator.start_time,
+                    use_transitions
+                )
+                print(f"✅ Breakdown report generated: {self.orchestrator.breakdown_report_path}")
+            except ImportError:
+                print("⚠️ Breakdown report module not available")
+            
+            progress_callback(100, "✅ Processing complete!")
+            
+            # Create success result
+            result = create_processing_result_from_orchestrator(
+                self.orchestrator.processed_files,
+                self.orchestrator.start_time,
+                self.orchestrator.project_paths['project_root'],
                 success=True
             )
             
+            return result
+            
         except Exception as e:
-            return self._handle_processing_error(e)
-    
-    def _handle_processing_error(self, error):
-        """Handle processing errors"""
-        print(f"❌ PROCESSING ERROR: {error}")
-        import traceback
-        traceback.print_exc()
-        
-        from ..workflow_data_models import ProcessingResult
-        return ProcessingResult(
-            success=False,
-            duration="",
-            processed_files=[],
-            output_folder="",
-            error_message=str(error),
-            error_solution=self.orchestrator.error_handler.generate_error_solution(str(error))
-        )
-    
-    # Keep these delegation methods for backward compatibility
-    def _setup_project_with_progress(self, card_data, project_info, progress_callback):
-        """Delegate to processing module"""
-        return self.processing.setup_project_with_progress(card_data, project_info, progress_callback)
-    
-    def _process_videos_with_progress(self, downloaded_videos, project_paths, project_info, 
-                                     processing_mode, creds, progress_callback, use_transitions=True):
-        """Delegate to processing module"""
-        return self.processing.process_videos_with_progress(
-            downloaded_videos, project_paths, project_info, 
-            processing_mode, creds, progress_callback, use_transitions
-        )
-    
-    def _finalize_with_correct_names(self, processed_files, project_info, creds, project_paths, 
-                                   routing_name, column1_name):
-        """Delegate to sheets module"""
-        self.sheets.finalize_with_correct_names(
-            processed_files, project_info, creds, project_paths, 
-            routing_name, column1_name
-        )
+            print(f"❌ PROCESSING ERROR: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            # Create error result
+            from ..workflow_data_models import ProcessingResult
+            return ProcessingResult(
+                success=False,
+                duration='',
+                processed_files=[],
+                output_folder='',
+                error_message=str(e),
+                error_solution=(
+                    "1. Check your internet connection\n"
+                    "2. Verify all API credentials are correct\n"
+                    "3. Ensure input files and links are accessible\n"
+                    "4. Try restarting the application\n"
+                    "5. Check the error log for more details"
+                )
+            )

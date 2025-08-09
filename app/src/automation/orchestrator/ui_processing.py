@@ -9,66 +9,66 @@ import time
 import os
 
 class UIProcessing:
-    """Handles video processing with UI updates"""
+    """Handles UI processing operations"""
     
     def __init__(self, orchestrator):
         self.orchestrator = orchestrator
     
     def setup_project_with_progress(self, card_data, project_info, progress_callback):
-        """Setup project with progress updates"""
-        progress_callback(30, "🔑 Setting up credentials...")
+        """Download videos and set up project structure with progress updates"""
+        
         print(f"🔍 SETUP_PROJECT RECEIVED PROJECT_INFO: '{project_info['project_name']}'")
         
-        # This will create folders using the updated project name
-        creds, downloaded_videos, project_paths = self.orchestrator.processing_steps.setup_project(
-            card_data, project_info
+        progress_callback(30, "📥 Downloading videos from Google Drive...")
+        
+        # Use the correct method name: download_and_setup instead of setup_project
+        creds, downloaded_videos, project_paths = self.orchestrator.processing_steps.download_and_setup(
+            card_data,
+            project_info
         )
         
-        progress_callback(50, "📁 Project structure created...")
-        print(f"📁 PROJECT STRUCTURE CREATED AT: '{project_paths['project_root']}'")
+        progress_callback(50, f"✅ Downloaded {len(downloaded_videos)} videos")
         
         return creds, downloaded_videos, project_paths
     
     def process_videos_with_progress(self, downloaded_videos, project_paths, project_info, 
-                                    processing_mode, creds, progress_callback, use_transitions=True):
-        """Process videos with progress updates showing video X of Y"""
+                                    processing_mode, creds, progress_callback):
+        """Process videos with progress updates"""
+        
+        # Set account and platform for video processor
+        account_code = project_info.get('account_code') or project_info.get('detected_account_code')
+        platform_code = project_info.get('platform_code') or project_info.get('detected_platform_code')
+        
+        if account_code and platform_code:
+            print(f"🎯 Setting processor context: Account={account_code}, Platform={platform_code}")
+            from ..video_processor import set_processor_account_platform
+            set_processor_account_platform(account_code, platform_code)
         
         total_videos = len(downloaded_videos)
-        processed_files = []
         
-        progress_callback(70, f"🎬 Starting video processing... ({total_videos} files)")
-        print(f"🔍 PROCESS_VIDEOS RECEIVED PROJECT_INFO: '{project_info['project_name']}'")
+        for i, video in enumerate(downloaded_videos, 1):
+            progress = 60 + (30 * i / total_videos)
+            progress_callback(progress, f"Processing video {i}/{total_videos}...")
         
-        # Determine target dimensions
-        target_width, target_height = self._get_target_dimensions(downloaded_videos, processing_mode)
+        # Process videos using the processing_steps
+        processed_files = self.orchestrator.processing_steps.process_videos(
+            downloaded_videos,
+            project_paths,
+            project_info,
+            processing_mode,
+            creds
+        )
         
-        # Get starting version number
-        start_version = self._get_starting_version(project_info, creds)
+        progress_callback(95, "📊 Updating Google Sheets...")
         
-        # Process each video with counter
-        for i, client_video in enumerate(downloaded_videos):
-            version_num = start_version + i
-            current_video = i + 1
-            
-            # Update progress with "Processing video X of Y"
-            progress_percentage = 70 + (20 * current_video / total_videos)
-            progress_callback(
-                progress_percentage, 
-                f"--- Processing Version {version_num:02d} ({processing_mode}) --- Video {current_video} of {total_videos}"
-            )
-            
-            processed_file = self.orchestrator.processing_steps.process_single_video(
-                client_video, project_paths, project_info, processing_mode,
-                version_num, target_width, target_height
-            )
-            
-            # Track video paths for breakdown report
-            self._add_video_paths_to_file(processed_file, client_video, processing_mode, project_info)
-            
-            processed_files.append(processed_file)
+        # Write to sheets
+        self.orchestrator.processing_steps.write_to_sheets(
+            project_info,
+            processed_files,
+            creds
+        )
         
-        progress_callback(85, "✅ Video processing complete...")
-        print(f"✅ PROCESSED {len(processed_files)} FILES")
+        progress_callback(100, "✅ Processing complete!")
         
         return processed_files
     
@@ -86,32 +86,30 @@ class UIProcessing:
         start_version = 1  # Default
         
         try:
-            # Try to import the function from various locations
-            from ..api_clients import check_google_sheet_for_project
-            _, start_version = check_google_sheet_for_project(
-                project_info['project_name'], 
-                creds
-            )
-            print(f"📊 Starting from version: {start_version}")
-        except ImportError:
-            try:
-                from ..api_clients.google_sheets import check_google_sheet_for_project
-                _, start_version = check_google_sheet_for_project(
-                    project_info['project_name'], 
-                    creds
-                )
+            # Try to import the function from api_clients
+            from ..api_clients import write_to_google_sheets
+            
+            # Determine endpoint type for concept name
+            endpoint_type = "Quiz"  # Default
+            processing_mode = project_info.get('processing_mode', '')
+            if 'svsl' in processing_mode.lower():
+                endpoint_type = "SVSL"
+            elif 'vsl' in processing_mode.lower():
+                endpoint_type = "VSL"
+            
+            # Build concept name with correct endpoint type
+            concept_name = f"GH {project_info['project_name']} {project_info.get('ad_type', '')} {project_info.get('test_name', '')} {endpoint_type}"
+            
+            # Use write_to_google_sheets with empty data to check version
+            error, start_version = write_to_google_sheets(concept_name, [], creds)
+            if not error:
                 print(f"📊 Starting from version: {start_version}")
-            except ImportError:
-                try:
-                    from ..workflow_utils import check_google_sheet_for_project
-                    _, start_version = check_google_sheet_for_project(
-                        project_info['project_name'], 
-                        creds
-                    )
-                    print(f"📊 Starting from version: {start_version}")
-                except ImportError:
-                    print("⚠️ check_google_sheet_for_project not found, using default start version 1")
-                    start_version = 1
+            else:
+                print(f"⚠️ Could not check sheet version: {error}")
+                start_version = 1
+        except ImportError as e:
+            print(f"⚠️ write_to_google_sheets import error: {e}")
+            start_version = 1
         except Exception as e:
             print(f"⚠️ Error checking Google Sheet: {e}, using default start version 1")
             start_version = 1
@@ -122,10 +120,19 @@ class UIProcessing:
         """Add video paths to processed file for breakdown report"""
         processed_file['client_video_path'] = client_video
         
+        # Get account and platform for correct asset paths
+        account_code = project_info.get('account_code') or project_info.get('detected_account_code', 'OO')
+        platform_code = project_info.get('platform_code') or project_info.get('detected_platform_code', 'FB')
+        
+        # Add paths based on processing mode - using new folder structure
         if 'connector' in processing_mode:
-            platform = project_info.get('detected_platform_code', 'FB')
-            processed_file['connector_path'] = f"Assets/Videos/connectors/{platform}/connector.mp4"
+            processed_file['connector_path'] = f"Assets/Videos/{account_code}/{platform_code}/Connectors/connector.mp4"
         
         if 'quiz' in processing_mode:
-            platform = project_info.get('detected_platform_code', 'FB')
-            processed_file['quiz_path'] = f"Assets/Videos/quiz_outro/{platform}/quiz_outro.mp4"
+            processed_file['quiz_path'] = f"Assets/Videos/{account_code}/{platform_code}/Quiz/quiz_outro.mp4"
+        
+        if 'svsl' in processing_mode:
+            processed_file['svsl_path'] = f"Assets/Videos/{account_code}/{platform_code}/SVSL/svsl.mp4"
+        
+        if 'vsl' in processing_mode:
+            processed_file['vsl_path'] = f"Assets/Videos/{account_code}/{platform_code}/VSL/vsl.mp4"

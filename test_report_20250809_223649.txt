@@ -1,0 +1,265 @@
+Enhanced Test Report - 2025-08-09 22:36:49.897994
+================================================================================
+Pass Rate: 98.5%
+Total: 136, Passed: 134, Failed: 0, Warnings: 2
+Execution Time: 7.75 seconds
+
+================================================================================
+DETAILED RESULTS:
+--------------------------------------------------------------------------------
+PASS     | IMPORTS         | app.src.automation.workflow_data_models.ConfirmationData | Import successful (4.5ms)
+         | Duration: 0.005s
+         | Details: {
+  "import_time_ms": 4.516999993938953
+}
+PASS     | IMPORTS         | app.src.automation.workflow_data_models.ValidationIssue | Import successful (4.5ms)
+         | Duration: 0.005s
+         | Details: {
+  "import_time_ms": 4.516999993938953
+}
+PASS     | IMPORTS         | app.src.automation.workflow_data_models.ProcessingResult | Import successful (4.5ms)
+         | Duration: 0.005s
+         | Details: {
+  "import_time_ms": 4.516999993938953
+}
+PASS     | IMPORTS         | app.src.automation.workflow_ui_components.WorkflowTheme | Import successful (12.8ms)
+         | Duration: 0.013s
+         | Details: {
+  "import_time_ms": 12.793500034604222
+}
+PASS     | IMPORTS         | app.src.automation.orchestrator.AutomationOrchestrator | Import successful (331.9ms)
+         | Duration: 0.332s
+         | Details: {
+  "import_time_ms": 331.90009999088943
+}
+PASS     | IMPORTS         | app.src.automation.api_clients.TrelloClient | Import successful (0.0ms)
+         | Duration: 0.000s
+         | Details: {
+  "import_time_ms": 0.002200016751885414
+}
+PASS     | IMPORTS         | app.src.automation.api_clients.GoogleDriveClient | Import successful (0.0ms)
+         | Duration: 0.000s
+         | Details: {
+  "import_time_ms": 0.002200016751885414
+}
+PASS     | IMPORTS         | app.src.automation.video_processor.VideoProcessor | Import successful (0.0ms)
+         | Duration: 0.000s
+         | Details: {
+  "import_time_ms": 0.0008999486453831196
+}
+PASS     | IMPORTS         | app.src.automation.validation_engine.ValidationEngine | Import successful (0.0ms)
+         | Duration: 0.000s
+         | Details: {
+  "import_time_ms": 0.000600004568696022
+}
+PASS     | IMPORTS         | app.src.automation.instruction_parser.InstructionParser | Import successful (0.0ms)
+         | Duration: 0.000s
+         | Details: {
+  "import_time_ms": 0.000700005330145359
+}
+PASS     | IMPORT_PERF     | app.src.automation.workflow_data_models | Import time: 1.6ms
+PASS     | IMPORT_PERF     | app.src.automation.orchestrator | Import time: 0.2ms
+PASS     | DEPENDENCIES    | ffmpeg                         | FFmpeg N-120264-g9c55f22ef2-20250715 available
+         | Duration: 0.029s
+PASS     | DEPENDENCIES    | ffprobe                        | FFprobe available
+         | Duration: 0.020s
+PASS     | DEPENDENCIES    | Google API                     | Credentials found (2416 bytes)
+         | Duration: 0.000s
+PASS     | DEPENDENCIES    | Trello API                     | Trello API configured in .env
+         | Duration: 0.000s
+PASS     | DEPENDENCIES    | Network Connection             | Network connection OK
+         | Duration: 0.025s
+PASS     | DEPENDENCIES    | Disk Space                     | Disk space OK: 187.4GB free of 464.9GB (59.7% used)
+         | Duration: 0.000s
+PASS     | DEPENDENCIES    | Python Version                 | Python 3.13.5
+PASS     | DATA_MODELS     | ConfirmationData_Normal Case   | All attributes validated
+         | Duration: 0.000s
+PASS     | DATA_MODELS     | ConfirmationData_Empty Videos  | All attributes validated
+         | Duration: 0.000s
+PASS     | DATA_MODELS     | ConfirmationData_Special Characters | All attributes validated
+         | Duration: 0.000s
+PASS     | DATA_MODELS     | ConfirmationData_Large Batch   | All attributes validated
+         | Duration: 0.000s
+PASS     | DATA_VALIDATION | Empty Project Name             | Validation test completed
+PASS     | DATA_VALIDATION | Long Project Name              | Validation test completed
+PASS     | DATA_VALIDATION | Invalid Characters             | Validation test completed
+PASS     | DATA_VALIDATION | No Videos                      | Validation test completed
+PASS     | DATA_VALIDATION | Duplicate Videos               | Validation test completed
+PASS     | DATA_SERIALIZATION | JSON                           | Serialized to 288 bytes
+PASS     | UI_COMPONENTS   | Theme.bg                       | Color valid: #ffffff
+PASS     | UI_COMPONENTS   | Theme.accent                   | Color valid: #0078d4
+PASS     | UI_COMPONENTS   | Theme.success                  | Color valid: #107c10
+PASS     | UI_COMPONENTS   | Theme.warning                  | Color valid: #ff8c00
+PASS     | UI_COMPONENTS   | Theme.error                    | Color valid: #d13438
+PASS     | UI_COMPONENTS   | Theme.text_primary             | Color valid: #323130
+PASS     | UI_COMPONENTS   | Theme.text_secondary           | Color valid: #605e5c
+PASS     | UI_COMPONENTS   | Theme.border                   | Color valid: #e1dfdd
+PASS     | UI_COMPONENTS   | Theme.tab_active               | Color valid: #ffffff
+PASS     | UI_COMPONENTS   | Theme.tab_inactive             | Color valid: #f8f8f8
+PASS     | UI_COMPONENTS   | Theme_Complete                 | All required colors present
+PASS     | UI_COMPONENTS   | Frame_Creation                 | Frame created
+PASS     | UI_COMPONENTS   | Label_Creation                 | Label created
+PASS     | UI_COMPONENTS   | Button_Creation                | Button created
+PASS     | UI_THEME        | Consistency                    | Theme consistency check completed
+PASS     | WORKFLOW        | Quiz Only - 3 Videos_parsing   | Parsed: OO/Facebook/QUIZ ONLY
+         | Duration: 0.000s
+PASS     | WORKFLOW        | Quiz Only - 3 Videos           | Scenario completed - 3 videos
+         | Duration: 0.000s
+         | Details: {
+  "videos": 3,
+  "mode": "QUIZ ONLY"
+}
+PASS     | WORKFLOW        | Connector + Quiz - Single Video_parsing | Parsed: BC3/YouTube/CONNECTOR QUIZ
+         | Duration: 0.000s
+PASS     | WORKFLOW        | Connector + Quiz - Single Video | Scenario completed - 1 videos
+         | Duration: 0.000s
+         | Details: {
+  "videos": 1,
+  "mode": "CONNECTOR QUIZ"
+}
+PASS     | WORKFLOW        | Save Only - No Processing_parsing | Parsed: PP/Facebook/SAVE ONLY
+         | Duration: 0.000s
+PASS     | WORKFLOW        | Save Only - No Processing      | Scenario completed - 2 videos
+         | Duration: 0.000s
+         | Details: {
+  "videos": 2,
+  "mode": "SAVE ONLY"
+}
+PASS     | WORKFLOW        | Unknown Account Detection_parsing | Parsed: UNKNOWN/UNKNOWN/UNKNOWN
+         | Duration: 0.000s
+PASS     | WORKFLOW        | Unknown Account Detection      | Scenario completed - 1 videos
+         | Duration: 0.000s
+         | Details: {
+  "videos": 1,
+  "mode": "QUIZ ONLY"
+}
+PASS     | WORKFLOW        | Multiple Templates_parsing     | Parsed: GG/TikTok/CONNECTOR QUIZ
+         | Duration: 0.000s
+PASS     | WORKFLOW        | Multiple Templates             | Scenario completed - 2 videos
+         | Duration: 0.000s
+         | Details: {
+  "videos": 2,
+  "mode": "COMPLEX"
+}
+PASS     | PARSING         | OO FB - Project                | Correctly parsed: OO/Facebook
+PASS     | PARSING         | BC3 YT - Campaign              | Correctly parsed: BC3/YouTube
+PASS     | PARSING         | PP TT - Video                  | Correctly parsed: PP/TikTok
+PASS     | PARSING         | GG IG - Content                | Correctly parsed: GG/Instagram
+PASS     | PARSING         | Unknown Format                 | Correctly parsed: UNKNOWN/UNKNOWN
+PASS     | PROCESSING_MODES | add quiz only                  | Mode: QUIZ ONLY
+PASS     | PROCESSING_MODES | please add quiz                | Mode: QUIZ ONLY
+PASS     | PROCESSING_MODES | add connector and quiz         | Mode: CONNECTOR QUIZ
+PASS     | PROCESSING_MODES | just save                      | Mode: SAVE ONLY
+PASS     | PROCESSING_MODES | no processing needed           | Mode: SAVE ONLY
+PASS     | PROCESSING_MODES | add intro and outro with transitions | Mode: COMPLEX
+PASS     | INTEGRATION     | Trello_get_card                | get_card endpoint validated
+PASS     | INTEGRATION     | Trello_update_card             | update_card endpoint validated
+PASS     | INTEGRATION     | Trello_add_comment             | add_comment endpoint validated
+PASS     | INTEGRATION     | Google Drive_list_files        | list_files endpoint validated
+PASS     | INTEGRATION     | Google Drive_download_file     | download_file endpoint validated
+PASS     | INTEGRATION     | Google Drive_upload_file       | upload_file endpoint validated
+PASS     | INTEGRATION     | Google Sheets_read_range       | read_range endpoint validated
+PASS     | INTEGRATION     | Google Sheets_update_values    | update_values endpoint validated
+PASS     | FILE_OPS        | Temp_File_Creation             | Temp file created successfully
+PASS     | FILE_OPS        | File_Creation                  | File created, size: 0 bytes
+PASS     | FILE_OPS        | Directory_Operations           | Directory operations successful
+PASS     | FILE_OPS        | File_Permissions               | Read/write permissions OK
+PASS     | PATH_HANDLING   | windows                        | Path handled: C:\Videos\Project
+PASS     | PATH_HANDLING   | windows_forward                | Path handled: C:/Videos/Project
+PASS     | PATH_HANDLING   | unix                           | Path handled: /home/user/videos
+PASS     | PATH_HANDLING   | home                           | Path handled: ~/Documents/Videos
+PASS     | PATH_HANDLING   | relative                       | Path handled: .\relative\path
+PASS     | PATH_HANDLING   | network                        | Path handled: \\network\share
+PASS     | VIDEO_VALIDATION | .mp4                           | Valid video extension
+PASS     | VIDEO_VALIDATION | .avi                           | Valid video extension
+PASS     | VIDEO_VALIDATION | .mov                           | Valid video extension
+PASS     | VIDEO_VALIDATION | .mkv                           | Valid video extension
+PASS     | VIDEO_VALIDATION | .webm                          | Valid video extension
+PASS     | VIDEO_VALIDATION | .txt                           | Correctly rejected
+PASS     | VIDEO_VALIDATION | .pdf                           | Correctly rejected
+PASS     | VIDEO_VALIDATION | .exe                           | Correctly rejected
+PASS     | VIDEO_VALIDATION | .zip                           | Correctly rejected
+PASS     | PERFORMANCE     | UI Response Time               | 10.36ms (threshold: 100ms)
+         | Details: {
+  "actual": 10.359100007917732,
+  "threshold": 100
+}
+PASS     | PERFORMANCE     | Data Model Creation            | 0.00ms (threshold: 10ms)
+         | Details: {
+  "actual": 5.099980626255274e-05,
+  "threshold": 10
+}
+PASS     | PERFORMANCE     | File I/O Operations            | 0.87ms (threshold: 500ms)
+         | Details: {
+  "actual": 0.869500043336302,
+  "threshold": 500
+}
+PASS     | PERFORMANCE     | String Processing              | 0.03ms (threshold: 50ms)
+         | Details: {
+  "actual": 0.025799963623285294,
+  "threshold": 50
+}
+PASS     | PERFORMANCE     | List Operations                | 0.09ms (threshold: 20ms)
+         | Details: {
+  "actual": 0.0858000130392611,
+  "threshold": 20
+}
+PASS     | MEMORY          | Current Usage                  | Memory usage: 61.9MB
+PASS     | CPU             | Usage                          | CPU usage: 2.4%
+PASS     | RESPONSE_TIME   | Instant Response               | 2.0ms
+PASS     | RESPONSE_TIME   | Quick Response                 | 50.1ms
+PASS     | RESPONSE_TIME   | Normal Response                | 200.1ms
+PASS     | ERROR_HANDLING  | Invalid Trello Card ID         | Error handled gracefully
+PASS     | ERROR_HANDLING  | Google Drive Access Denied     | Error handled gracefully
+PASS     | ERROR_HANDLING  | FFmpeg Not Found               | Error handled gracefully
+PASS     | ERROR_HANDLING  | Network Timeout                | Error handled gracefully
+PASS     | ERROR_HANDLING  | Invalid Video Format           | Error handled gracefully
+PASS     | ERROR_HANDLING  | Disk Full                      | Error handled gracefully
+PASS     | ERROR_HANDLING  | Memory Exhaustion              | Error handled gracefully
+PASS     | ERROR_HANDLING  | Permission Denied              | Error handled gracefully
+PASS     | EXCEPTION_HANDLING | ValueError                     | Exception caught correctly
+PASS     | EXCEPTION_HANDLING | KeyError                       | Exception caught correctly
+PASS     | EXCEPTION_HANDLING | TypeError                      | Exception caught correctly
+PASS     | EXCEPTION_HANDLING | OSError                        | Exception caught correctly
+PASS     | EXCEPTION_HANDLING | RuntimeError                   | Exception caught correctly
+PASS     | RECOVERY        | Network Retry                  | Recovery mechanism validated
+PASS     | RECOVERY        | File Recovery                  | Recovery mechanism validated
+PASS     | RECOVERY        | Transaction Rollback           | Recovery mechanism validated
+PASS     | RECOVERY        | State Restoration              | Recovery mechanism validated
+PASS     | RECOVERY        | Cache Clear                    | Recovery mechanism validated
+PASS     | SECURITY        | SQL Injection                  | Input properly sanitized
+PASS     | SECURITY        | XSS Attack                     | Input properly sanitized
+PASS     | SECURITY        | Command Injection              | Input properly sanitized
+WARN     | SECURITY        | Path Traversal                 | Input not modified - verify if safe
+PASS     | SECURITY        | Null Byte                      | Input properly sanitized
+PASS     | PATH_SECURITY   | ../../../etc/passwd            | Path traversal prevented
+PASS     | PATH_SECURITY   | ..\..\..\windows\system32      | Path traversal prevented
+PASS     | PATH_SECURITY   | C:\..\..\..\windows            | Path traversal prevented
+PASS     | PATH_SECURITY   | /etc/../etc/passwd             | Path traversal prevented
+PASS     | PATH_SECURITY   | \\server\..\..\share           | Path traversal prevented
+WARN     | PERMISSIONS     | File Permissions               | Unexpected permissions: 0o666
+PASS     | REAL_SCENARIOS  | Marketing Team Daily Batch     | Completed - 10 videos
+         | Details: {
+  "videos": 10,
+  "expected_time": 20
+}
+PASS     | REAL_SCENARIOS  | Emergency Quick Edit           | Completed - 1 videos
+         | Details: {
+  "videos": 1,
+  "expected_time": 2
+}
+PASS     | REAL_SCENARIOS  | Archive Migration              | Completed - 50 videos
+         | Details: {
+  "videos": 50,
+  "expected_time": 5
+}
+PASS     | REAL_SCENARIOS  | Multi-Platform Campaign        | Completed - 3 videos
+         | Details: {
+  "videos": 3,
+  "expected_time": 10
+}
+PASS     | REAL_SCENARIOS  | Weekend Batch Processing       | Completed - 100 videos
+         | Details: {
+  "videos": 100,
+  "expected_time": 60
+}

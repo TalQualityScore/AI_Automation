@@ -1,4 +1,4 @@
-# app/src/automation/workflow_dialog/helpers.py - FIXED WITH ENHANCED DEBUG LOGGING
+# app/src/automation/workflow_dialog/helpers.py - Updated for SVSL/VSL support
 
 import os
 import time
@@ -12,7 +12,7 @@ def create_confirmation_data_from_orchestrator(card_data: dict,
                                              project_info: dict,
                                              downloaded_videos: list,
                                              validation_issues: list = None):
-    """Convert orchestrator data to ConfirmationData format - FIXED WITH PROPER DATA RETRIEVAL"""
+    """Convert orchestrator data to ConfirmationData format with SVSL/VSL support"""
     
     project_name = project_info.get('project_name', 'Unknown Project')
     
@@ -20,6 +20,7 @@ def create_confirmation_data_from_orchestrator(card_data: dict,
     card_title = card_data.get('name', '')
     print(f"🔍 HELPERS DEBUG - Card Title: '{card_title}'")
     print(f"🔍 HELPERS DEBUG - Project Name: '{project_name}'")
+    print(f"🔍 HELPERS DEBUG - Processing Mode: '{processing_mode}'")
     print(f"🔍 HELPERS DEBUG - Available project_info keys: {list(project_info.keys())}")
     
     # FIXED: Try multiple sources for account/platform data
@@ -79,7 +80,6 @@ def create_confirmation_data_from_orchestrator(card_data: dict,
                 print(f"✅ FRESH DETECTION COMPLETE: Account='{detected_account_code}', Platform='{detected_platform_code}'")
             else:
                 print(f"⚠️ PARTIAL DETECTION - will need user fallback: Account='{detected_account_code}', Platform='{detected_platform_code}'")
-
                 
         except Exception as e:
             print(f"❌ ERROR during fresh detection: {e}")
@@ -94,52 +94,28 @@ def create_confirmation_data_from_orchestrator(card_data: dict,
         
         # ENHANCED DEBUG: Check environment before attempting dialog
         print(f"🔍 DEBUG - Threading info:")
-        print(f"   Current thread: {threading.current_thread()}")
-        print(f"   Main thread: {threading.main_thread()}")
+        print(f"   Current thread: {threading.current_thread().name}")
         print(f"   Is main thread: {threading.current_thread() is threading.main_thread()}")
         
-        # Check if we're in main thread (required for dialogs)
+        # Check if we can show dialog
         if threading.current_thread() is threading.main_thread():
-            print(f"✅ CONFIRMED - Running in main thread")
-            
-            # ENHANCED DEBUG: Check tkinter state
             try:
-                import tkinter as tk
-                if hasattr(tk, '_default_root') and tk._default_root:
-                    print(f"🔍 DEBUG - Existing tkinter root found: {tk._default_root}")
-                else:
-                    print(f"🔍 DEBUG - No existing tkinter root")
-            except Exception as tk_check_error:
-                print(f"⚠️ DEBUG - Tkinter state check failed: {tk_check_error}")
-            
-            try:
-                print(f"🔍 DEBUG - About to import FallbackSelectionDialog...")
+                print(f"✅ MAIN THREAD - Can show fallback dialog")
                 
-                # Import and show fallback dialog
+                # Show fallback dialog
                 from ..api_clients.account_mapper.fallback_dialog import FallbackSelectionDialog
-                print(f"✅ DEBUG - FallbackSelectionDialog import successful")
-                
-                print(f"🔍 DEBUG - About to create FallbackSelectionDialog instance...")
                 fallback_dialog = FallbackSelectionDialog()
-                print(f"✅ DEBUG - FallbackSelectionDialog instance created")
                 
-                print(f"🔍 DEBUG - About to call show_fallback_selection with:")
-                print(f"   card_title: '{card_title}'")
-                print(f"   detected_account_code: '{detected_account_code}'")
-                print(f"   detected_platform_code: '{detected_platform_code}'")
-                
-                # Show dialog with current detection state
-                print(f"🚀 DEBUG - Calling show_fallback_selection NOW...")
-                
+                # Pass the card title and any partial detections
                 detected_account_code, detected_platform_code = fallback_dialog.show_fallback_selection(
-                    card_title, 
-                    detected_account_code, 
-                    detected_platform_code,
-                    card_url=f"https://trello.com/c/{card_data.get('id', 'unknown')}"  # Add card URL
+                    card_title=card_title,
+                    detected_account=detected_account_code if detected_account_code != 'UNKNOWN' else None,
+                    detected_platform=detected_platform_code if detected_platform_code != 'UNKNOWN' else None,
+                    card_url=card_data.get('shortUrl', '')
                 )
-
-                # CRITICAL: Check if user chose to exit program
-                if detected_account_code is None and detected_platform_code is None:
+                
+                # Check if user cancelled
+                if detected_account_code is None or detected_platform_code is None:
                     print("❌ USER CHOSE TO EXIT PROGRAM - Terminating application")
                     print("🔴 Program terminated by user choice in verification dialog")
                     sys.exit(0)  # Exit the entire program
@@ -206,16 +182,17 @@ def create_confirmation_data_from_orchestrator(card_data: dict,
         'YT': 'YouTube',
         'IG': 'Instagram',
         'TT': 'TikTok',
-        'SNAP': 'Snapchat'
+        'SNAP': 'Snapchat',
+        'REELS': 'Reels'
     }
     
     detected_account = f"{detected_account_code} ({account_mapping.get(detected_account_code, detected_account_code)})"
     detected_platform = platform_mapping.get(detected_platform_code, detected_platform_code)
     
     print(f"🎯 HELPERS FINAL - Account: {detected_account_code}, Platform: {detected_platform_code}")
-    print(f"🎯 HELPERS FINAL - Looking for: {detected_account_code} + {detected_platform_code} sheet")
+    print(f"🎯 HELPERS FINAL - Processing Mode: {processing_mode}")
     
-    # Determine templates based on processing mode
+    # Determine templates based on processing mode - UPDATED FOR SVSL/VSL
     templates = []
     if processing_mode == "connector_quiz":
         templates = [
@@ -228,10 +205,39 @@ def create_confirmation_data_from_orchestrator(card_data: dict,
             f"Add quiz outro ({detected_platform}/Quiz/) with slide transition",
             "Apply professional slide transitions"
         ]
+    elif processing_mode == "connector_svsl":
+        templates = [
+            f"Add Blake connector ({detected_platform}/Connectors/) with slide transition",
+            f"Add SVSL ({detected_platform}/SVSL/) with slide transition",
+            "Apply professional slide transitions between segments"
+        ]
+    elif processing_mode == "svsl_only":
+        templates = [
+            f"Add SVSL ({detected_platform}/SVSL/) with slide transition",
+            "Apply professional slide transitions"
+        ]
+    elif processing_mode == "connector_vsl":
+        templates = [
+            f"Add Blake connector ({detected_platform}/Connectors/) with slide transition",
+            f"Add VSL ({detected_platform}/VSL/) with slide transition",
+            "Apply professional slide transitions between segments"
+        ]
+    elif processing_mode == "vsl_only":
+        templates = [
+            f"Add VSL ({detected_platform}/VSL/) with slide transition",
+            "Apply professional slide transitions"
+        ]
     elif processing_mode == "save_only":
         templates = ["Save and rename videos (no processing)"]
     
-    output_location = f"GH {project_name} {project_info.get('ad_type', '')} {project_info.get('test_name', '')} Quiz"
+    # Determine output location based on processing mode
+    endpoint_type = "Quiz"  # Default
+    if "svsl" in processing_mode:
+        endpoint_type = "SVSL"
+    elif "vsl" in processing_mode:
+        endpoint_type = "VSL"
+    
+    output_location = f"GH {project_name} {project_info.get('ad_type', '')} {project_info.get('test_name', '')} {endpoint_type}"
     
     file_count = len(downloaded_videos)
     if processing_mode == "save_only":
@@ -244,10 +250,21 @@ def create_confirmation_data_from_orchestrator(card_data: dict,
     issues = []
     if validation_issues:
         for issue in validation_issues:
-            issues.append(ValidationIssue(
-                severity=issue.get('severity', 'info'),
-                message=issue.get('message', str(issue))
-            ))
+            # Check if issue is already a ValidationIssue object
+            if isinstance(issue, ValidationIssue):
+                issues.append(issue)
+            # Handle dictionary format
+            elif isinstance(issue, dict):
+                issues.append(ValidationIssue(
+                    severity=issue.get('severity', 'info'),
+                    message=issue.get('message', str(issue))
+                ))
+            # Handle other formats
+            else:
+                issues.append(ValidationIssue(
+                    severity='info',
+                    message=str(issue)
+                ))
     
     return ConfirmationData(
         project_name=project_name,
@@ -281,6 +298,13 @@ def create_processing_result_from_orchestrator(processed_files: list,
     result_files = []
     for i, file_info in enumerate(processed_files):
         if isinstance(file_info, dict):
+            # Determine what type of endpoint was used
+            endpoint_type = "quiz"
+            if 'svsl_path' in file_info:
+                endpoint_type = "svsl"
+            elif 'vsl_path' in file_info:
+                endpoint_type = "vsl"
+            
             result_files.append({
                 'version': file_info.get('version', f'v{i+1:02d}'),
                 'source_file': file_info.get('source_file', f'unknown_{i+1}.mp4'),
@@ -289,8 +313,9 @@ def create_processing_result_from_orchestrator(processed_files: list,
                 'duration': file_info.get('duration', '0:00'),
                 'size_mb': file_info.get('size_mb', 0),
                 'connector_start': file_info.get('connector_start', ''),
-                'quiz_start': file_info.get('quiz_start', ''),
-                'total_duration': file_info.get('total_duration', '0:00')
+                'endpoint_start': file_info.get(f'{endpoint_type}_start', ''),
+                'total_duration': file_info.get('total_duration', '0:00'),
+                'endpoint_type': endpoint_type
             })
         else:
             # Handle simple filename strings
@@ -303,8 +328,9 @@ def create_processing_result_from_orchestrator(processed_files: list,
                 'duration': '0:00',
                 'size_mb': 0,
                 'connector_start': '',
-                'quiz_start': '',
-                'total_duration': '0:00'
+                'endpoint_start': '',
+                'total_duration': '0:00',
+                'endpoint_type': 'quiz'
             })
     
     return ProcessingResult(
