@@ -1,5 +1,5 @@
 # app/src/automation/instruction_parser.py
-# Updated to detect SVSL and VSL processing modes
+# FINAL VERSION - Comprehensive VSL pattern detection
 
 import re
 
@@ -34,14 +34,16 @@ class InstructionParser:
             r"blake\s+connector.*quiz"
         ]
         
-        # New SVSL patterns
+        # Enhanced SVSL patterns
         self.svsl_patterns = [
             r"attach\s+to\s+svsl",
             r"connect\s+to\s+svsl(?!\s+and)",
             r"add\s+svsl",
             r"svsl\s+only",
             r"only\s+svsl",
-            r"just\s+svsl"
+            r"just\s+svsl",
+            r"combine\s+.*with\s+.*svsl",
+            r"combine\s+.*svsl"
         ]
         
         self.connector_svsl_patterns = [
@@ -52,14 +54,21 @@ class InstructionParser:
             r"blake\s+connector.*svsl"
         ]
         
-        # New VSL patterns
+        # COMPREHENSIVE VSL patterns - covers all variations
         self.vsl_patterns = [
             r"attach\s+to\s+vsl",
             r"connect\s+to\s+vsl(?!\s+and)",
             r"add\s+vsl",
             r"vsl\s+only",
             r"only\s+vsl",
-            r"just\s+vsl"
+            r"just\s+vsl",
+            # CRITICAL: These patterns match your cards
+            r"combine\s+.*with\s+.*vsl",           # "combine the three standalone versions with our VSL"
+            r"combine\s+.*vsl",                    # "combine with VSL" 
+            r"combine\s+.*with\s+our\s+vsl",       # "combine with our VSL"
+            r"combine\s+.*versions\s+with\s+.*vsl", # "combine versions with VSL"
+            r"combine\s+the\s+.*with\s+.*vsl",     # "combine the ... with VSL"
+            r"standalone\s+versions\s+with\s+.*vsl" # "standalone versions with our VSL"
         ]
         
         self.connector_vsl_patterns = [
@@ -87,6 +96,8 @@ class InstructionParser:
         """
         description_lower = description.lower()
         
+        print(f"🔍 PARSING INSTRUCTIONS: '{description[:100]}...'")
+        
         # Priority 1: Check for save-only patterns
         if self._check_patterns(description_lower, self.save_patterns):
             print("📋 Detected: SAVE ONLY mode")
@@ -106,17 +117,18 @@ class InstructionParser:
             return "connector_vsl"
         
         # Priority 3: Check for endpoint-only patterns
-        if self._check_patterns(description_lower, self.quiz_patterns):
-            print("📋 Detected: QUIZ ONLY mode")
-            return "quiz_only"
+        # IMPORTANT: Check VSL FIRST (before quiz) since VSL is more specific
+        if self._check_patterns(description_lower, self.vsl_patterns):
+            print("📋 Detected: VSL ONLY mode")
+            return "vsl_only"
         
         if self._check_patterns(description_lower, self.svsl_patterns):
             print("📋 Detected: SVSL ONLY mode")
             return "svsl_only"
         
-        if self._check_patterns(description_lower, self.vsl_patterns):
-            print("📋 Detected: VSL ONLY mode")
-            return "vsl_only"
+        if self._check_patterns(description_lower, self.quiz_patterns):
+            print("📋 Detected: QUIZ ONLY mode")
+            return "quiz_only"
         
         # Check for general processing keywords
         processing_keywords = ["process", "edit", "render", "export", "quiz", "connector", "svsl", "vsl"]
@@ -135,6 +147,7 @@ class InstructionParser:
         """Check if any pattern matches in the text"""
         for pattern in patterns:
             if re.search(pattern, text):
+                print(f"✅ MATCHED PATTERN: '{pattern}' in text")
                 return True
         return False
     
@@ -150,3 +163,27 @@ class InstructionParser:
             "connector_vsl": "Add Connector + VSL"
         }
         return mode_displays.get(mode, mode.replace('_', ' ').title())
+    
+    def debug_pattern_matching(self, description: str) -> dict:
+        """Debug function to test all patterns against description"""
+        description_lower = description.lower()
+        results = {}
+        
+        pattern_groups = {
+            'save': self.save_patterns,
+            'quiz': self.quiz_patterns,
+            'connector_quiz': self.connector_quiz_patterns,
+            'svsl': self.svsl_patterns,
+            'connector_svsl': self.connector_svsl_patterns,
+            'vsl': self.vsl_patterns,
+            'connector_vsl': self.connector_vsl_patterns
+        }
+        
+        for group_name, patterns in pattern_groups.items():
+            matches = []
+            for pattern in patterns:
+                if re.search(pattern, description_lower):
+                    matches.append(pattern)
+            results[group_name] = matches
+        
+        return results

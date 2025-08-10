@@ -39,8 +39,16 @@ class UIPreparation:
             self.orchestrator.card_data.get('desc', '')
         )
         
+        # CRITICAL FIX: Update validator with detected account/platform before validation
+        self.orchestrator.validator.set_account_platform(
+            self.orchestrator.detected_account_code, 
+            self.orchestrator.detected_platform_code
+        )
+        print(f"🔧 ValidationEngine updated: Account={self.orchestrator.detected_account_code}, Platform={self.orchestrator.detected_platform_code}")
+
         # Validate assets
         asset_issues = self.orchestrator.validator.validate_assets(self.orchestrator.processing_mode)
+
         
         # Create and return confirmation data
         return self._create_confirmation_data(asset_issues)

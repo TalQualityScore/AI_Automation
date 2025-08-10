@@ -63,3 +63,52 @@ class ProcessingSteps:
     def sort_videos_by_version_letter(self, videos):
         """Sort videos by version letter"""
         return self.video_sorter.sort_videos_by_version_letter(videos)
+    
+    def finalize_and_cleanup(self, processed_files, project_info, creds, project_paths):
+        """Step 6: Move downloaded videos and cleanup temp files"""
+        print("\n--- Step 6: Organizing Files & Cleanup ---")
+        
+        try:
+            # Import the cleanup utilities
+            import os
+            import shutil
+            from ...api_clients.config import DOWNLOADS_DIR
+            
+            # Get the client videos folder path
+            client_videos_path = project_paths.get('client_videos')
+            if not client_videos_path:
+                print("⚠️ Client videos path not found, skipping file organization")
+                return
+            
+            # Check if temp downloads directory exists
+            if not os.path.exists(DOWNLOADS_DIR):
+                print("⚠️ No temp downloads found, skipping cleanup")
+                return
+            
+            # Move all downloaded videos to _Footage/Video/Client
+            moved_count = 0
+            for filename in os.listdir(DOWNLOADS_DIR):
+                if filename.lower().endswith(('.mp4', '.mov', '.avi', '.mkv', '.webm')):
+                    source_path = os.path.join(DOWNLOADS_DIR, filename)
+                    dest_path = os.path.join(client_videos_path, filename)
+                    
+                    try:
+                        shutil.move(source_path, dest_path)
+                        print(f"📁 Moved: {filename} → _Footage/Video/Client/")
+                        moved_count += 1
+                    except Exception as move_error:
+                        print(f"⚠️ Could not move {filename}: {move_error}")
+            
+            # Clean up temp directory
+            try:
+                if os.path.exists(DOWNLOADS_DIR):
+                    shutil.rmtree(DOWNLOADS_DIR)
+                    print(f"🧹 Cleaned up temp downloads directory")
+            except Exception as cleanup_error:
+                print(f"⚠️ Could not clean up temp directory: {cleanup_error}")
+            
+            print(f"✅ File organization complete: {moved_count} videos moved to project folder")
+            
+        except Exception as e:
+            print(f"⚠️ Error during file organization: {e}")
+            # Don't fail the entire automation for cleanup issues

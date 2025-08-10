@@ -97,12 +97,19 @@ class TextUtils:
     
     def _normalize_separators(self, text):
         """Replace various separators with spaces"""
-        # Replace + with spaces first (special case)
+        # Replace + with spaces first (special case for URL encoding)
         text = text.replace('+', ' ')
         
-        # Replace other separators
-        for sep in ['_', '-']:
+        # Replace other separators including URL encodings
+        for sep in ['_', '-', '%20', '%2B']:
             text = text.replace(sep, ' ')
+        
+        # Additional aggressive cleaning for stubborn cases
+        import urllib.parse
+        try:
+            text = urllib.parse.unquote_plus(text)
+        except:
+            pass
         
         return text
     

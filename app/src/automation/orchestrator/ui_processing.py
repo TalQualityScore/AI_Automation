@@ -68,6 +68,16 @@ class UIProcessing:
             creds
         )
         
+        progress_callback(97, "📁 Organizing files...")
+    
+        # ADD THIS: Call finalize_and_cleanup
+        self.orchestrator.processing_steps.finalize_and_cleanup(
+            processed_files,
+            project_info, 
+            creds,
+            project_paths
+        )
+        
         progress_callback(100, "✅ Processing complete!")
         
         return processed_files
