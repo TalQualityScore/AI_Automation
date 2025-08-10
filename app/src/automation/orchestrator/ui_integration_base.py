@@ -88,16 +88,41 @@ class UIIntegration:
                 self.orchestrator.creds
             )
             
-            # Step 4: Write to Google Sheets
-            progress_callback(90, "📊 Updating Google Sheets...")
+            # Step 4: Write to Google Sheets (wrapped in try/except so cleanup always runs)
+            sheets_success = False
+            try:
+                progress_callback(90, "📊 Updating Google Sheets...")
+                
+                self.orchestrator.processing_steps.write_to_sheets(
+                    self.orchestrator.project_info,
+                    self.orchestrator.processed_files,
+                    self.orchestrator.creds
+                )
+                sheets_success = True
+                print("✅ Google Sheets update completed successfully")
+                
+            except Exception as sheets_error:
+                print(f"⚠️ Google Sheets update failed: {sheets_error}")
+                # Continue - don't let sheets failure stop cleanup
             
-            self.orchestrator.processing_steps.write_to_sheets(
-                self.orchestrator.project_info,
-                self.orchestrator.processed_files,
-                self.orchestrator.creds
-            )
+            # Step 5: CRITICAL FIX - Always run file cleanup
+            try:
+                progress_callback(93, "📁 Organizing files...")
+                
+                print("🧹 Running file cleanup...")
+                self.orchestrator.processing_steps.finalize_and_cleanup(
+                    self.orchestrator.processed_files,
+                    self.orchestrator.project_info, 
+                    self.orchestrator.creds,
+                    self.orchestrator.project_paths
+                )
+                print("✅ File cleanup completed")
+                
+            except Exception as cleanup_error:
+                print(f"⚠️ File cleanup failed: {cleanup_error}")
+                # Don't fail entire process for cleanup issues
             
-            # Step 5: Generate reports
+            # Step 6: Generate reports
             progress_callback(95, "📄 Generating reports...")
             
             # Generate breakdown report if available
@@ -113,7 +138,11 @@ class UIIntegration:
             except ImportError:
                 print("⚠️ Breakdown report module not available")
             
-            progress_callback(100, "✅ Processing complete!")
+            # Final progress update
+            if sheets_success:
+                progress_callback(100, "✅ Processing complete!")
+            else:
+                progress_callback(100, "⚠️ Processing complete (Google Sheets failed)")
             
             # Create success result
             result = create_processing_result_from_orchestrator(

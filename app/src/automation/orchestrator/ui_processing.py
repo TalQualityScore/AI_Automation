@@ -33,7 +33,9 @@ class UIProcessing:
     
     def process_videos_with_progress(self, downloaded_videos, project_paths, project_info, 
                                     processing_mode, creds, progress_callback):
-        """Process videos with progress updates"""
+        """
+        Process videos with progress updates - FIXED to ensure cleanup always runs
+        """
         
         # Set account and platform for video processor
         account_code = project_info.get('account_code') or project_info.get('detected_account_code')
@@ -59,26 +61,47 @@ class UIProcessing:
             creds
         )
         
-        progress_callback(95, "📊 Updating Google Sheets...")
+        # CRITICAL FIX: Use try/finally to ensure cleanup ALWAYS runs
+        sheets_success = False
+        try:
+            progress_callback(95, "📊 Updating Google Sheets...")
+            
+            # Write to sheets - this might fail due to protection errors
+            self.orchestrator.processing_steps.write_to_sheets(
+                project_info,
+                processed_files,
+                creds
+            )
+            sheets_success = True
+            print("✅ Google Sheets update completed successfully")
+            
+        except Exception as sheets_error:
+            print(f"⚠️ Google Sheets update failed: {sheets_error}")
+            # Continue processing - don't let sheets failure stop file cleanup
+            
+        finally:
+            # CRITICAL: Always run cleanup regardless of sheets success/failure
+            try:
+                progress_callback(97, "📁 Organizing files...")
+                
+                print("🧹 Running file cleanup (regardless of sheets status)...")
+                self.orchestrator.processing_steps.finalize_and_cleanup(
+                    processed_files,
+                    project_info, 
+                    creds,
+                    project_paths
+                )
+                print("✅ File cleanup completed")
+                
+            except Exception as cleanup_error:
+                print(f"⚠️ File cleanup failed: {cleanup_error}")
+                # Don't fail the entire process for cleanup issues
         
-        # Write to sheets
-        self.orchestrator.processing_steps.write_to_sheets(
-            project_info,
-            processed_files,
-            creds
-        )
-        
-        progress_callback(97, "📁 Organizing files...")
-    
-        # ADD THIS: Call finalize_and_cleanup
-        self.orchestrator.processing_steps.finalize_and_cleanup(
-            processed_files,
-            project_info, 
-            creds,
-            project_paths
-        )
-        
-        progress_callback(100, "✅ Processing complete!")
+        # Update progress based on overall success
+        if sheets_success:
+            progress_callback(100, "✅ Processing complete!")
+        else:
+            progress_callback(100, "⚠️ Processing complete (Google Sheets failed)")
         
         return processed_files
     
@@ -107,42 +130,28 @@ class UIProcessing:
             elif 'vsl' in processing_mode.lower():
                 endpoint_type = "VSL"
             
-            # Build concept name with correct endpoint type
-            concept_name = f"GH {project_info['project_name']} {project_info.get('ad_type', '')} {project_info.get('test_name', '')} {endpoint_type}"
+            # Create concept name for version lookup
+            project_name = project_info.get('project_name', 'Unknown Project')
+            account_name = project_info.get('account_code', 'GH')
+            ad_type = project_info.get('ad_type', 'VTD')
+            test_name = project_info.get('test_name', '0000')
             
-            # Use write_to_google_sheets with empty data to check version
-            error, start_version = write_to_google_sheets(concept_name, [], creds)
-            if not error:
-                print(f"📊 Starting from version: {start_version}")
-            else:
-                print(f"⚠️ Could not check sheet version: {error}")
-                start_version = 1
-        except ImportError as e:
-            print(f"⚠️ write_to_google_sheets import error: {e}")
-            start_version = 1
-        except Exception as e:
-            print(f"⚠️ Error checking Google Sheet: {e}, using default start version 1")
-            start_version = 1
+            concept_name = f"{account_name} {project_name} {ad_type} {test_name} {endpoint_type}"
+            
+            print(f"🔍 Looking up starting version for: '{concept_name}'")
+            
+            # Get next version from sheets
+            start_version = write_to_google_sheets(
+                project_info, [], creds, 
+                routing_name=concept_name,
+                column1_name=concept_name,
+                dry_run=True  # Just get version, don't write
+            )
+            
+            print(f"📊 Starting version from sheets: {start_version}")
+            
+        except Exception as version_error:
+            print(f"⚠️ Could not get starting version from sheets: {version_error}")
+            print("📊 Using default starting version: 1")
         
         return start_version
-    
-    def _add_video_paths_to_file(self, processed_file, client_video, processing_mode, project_info):
-        """Add video paths to processed file for breakdown report"""
-        processed_file['client_video_path'] = client_video
-        
-        # Get account and platform for correct asset paths
-        account_code = project_info.get('account_code') or project_info.get('detected_account_code', 'OO')
-        platform_code = project_info.get('platform_code') or project_info.get('detected_platform_code', 'FB')
-        
-        # Add paths based on processing mode - using new folder structure
-        if 'connector' in processing_mode:
-            processed_file['connector_path'] = f"Assets/Videos/{account_code}/{platform_code}/Connectors/connector.mp4"
-        
-        if 'quiz' in processing_mode:
-            processed_file['quiz_path'] = f"Assets/Videos/{account_code}/{platform_code}/Quiz/quiz_outro.mp4"
-        
-        if 'svsl' in processing_mode:
-            processed_file['svsl_path'] = f"Assets/Videos/{account_code}/{platform_code}/SVSL/svsl.mp4"
-        
-        if 'vsl' in processing_mode:
-            processed_file['vsl_path'] = f"Assets/Videos/{account_code}/{platform_code}/VSL/vsl.mp4"

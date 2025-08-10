@@ -6,12 +6,12 @@ Split from the original 205-line parse_project_info function
 
 import re
 from typing import Optional, Dict
-from urllib.parse import unquote
+from urllib.parse import unquote, unquote_plus
 
 def extract_folder_name_from_drive_link(gdrive_link: str) -> Optional[str]:
     """
     Extract folder name from various Google Drive link formats OR Trello card titles.
-    FIXED: Handle "from GH" pattern in card titles
+    FIXED: Handle "from GH" pattern in card titles AND URL decode + characters
     
     Args:
         gdrive_link: Google Drive URL, folder name, or Trello card title
@@ -27,11 +27,25 @@ def extract_folder_name_from_drive_link(gdrive_link: str) -> Optional[str]:
             folder_part = parts[1].strip()
             # Remove the (VTD XXXX) suffix if present
             folder_part = re.sub(r'\s*\([^)]*\)\s*$', '', folder_part)
+            
+            # CRITICAL FIX: Apply URL decoding to handle + characters
+            try:
+                folder_part = unquote_plus(folder_part)  # Converts + to spaces
+                folder_part = unquote(folder_part)       # Handles other URL encoding
+            except:
+                pass  # If decoding fails, use original
+            
             return folder_part.strip()
     
-    # If it's already just a folder name, return it
+    # If it's already just a folder name, decode it before returning
     if not gdrive_link.startswith('http'):
-        return gdrive_link.strip()
+        decoded_name = gdrive_link.strip()
+        try:
+            decoded_name = unquote_plus(decoded_name)  # Convert + to spaces
+            decoded_name = unquote(decoded_name)       # Handle other URL encoding
+        except:
+            pass  # If decoding fails, use original
+        return decoded_name
     
     # Handle different Google Drive URL patterns
     patterns = [
@@ -49,11 +63,22 @@ def extract_folder_name_from_drive_link(gdrive_link: str) -> Optional[str]:
             name_match = re.search(r'/([^/]+)(?:\?|$)', gdrive_link)
             if name_match:
                 folder_name = unquote(name_match.group(1))
+                # CRITICAL FIX: Apply additional URL decoding for + characters
+                try:
+                    folder_name = unquote_plus(folder_name)
+                except:
+                    pass
                 return folder_name.strip()
             return folder_id
     
-    # If no pattern matches, return the original
-    return gdrive_link.strip()
+    # If no pattern matches, decode and return the original
+    decoded_link = gdrive_link.strip()
+    try:
+        decoded_link = unquote_plus(decoded_link)
+        decoded_link = unquote(decoded_link)
+    except:
+        pass
+    return decoded_link
 
 def parse_standard_format(folder_name: str) -> Optional[Dict[str, str]]:
     """

@@ -13,7 +13,7 @@ temp_downloads/
 Output/
 *.log
 QuickCommitPush.bat
-working_test_suite.py
+comprehensive_qa_test.py
 
 # IDE / OS specific
 .vscode/
