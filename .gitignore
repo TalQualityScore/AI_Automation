@@ -11,9 +11,13 @@ __pycache__/
 credentials.json
 temp_downloads/
 Output/
+QA TEST/
 *.log
 QuickCommitPush.bat
 comprehensive_qa_test.py
+qa_test_report.json
+qa_report_extractor.py
+code_bloat_analyzer.py
 
 # IDE / OS specific
 .vscode/
@@ -66,3 +70,4 @@ wheels/
 .Trashes
 ehthumbs.db
 Thumbs.db
+qa_test_report.json

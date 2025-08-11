@@ -1,7 +1,7 @@
-# app/src/automation/orchestrator/ui_integration_base.py - COMPLETE FIX
+# app/src/automation/orchestrator/ui_integration_base.py - COMPLETE FIXED VERSION
 """
 UI Integration Base Module - Main orchestrator
-Fixed version with correct method names
+Fixed version with breakdown report location fix
 """
 
 import time
@@ -43,11 +43,11 @@ class UIIntegration:
             # Step 1: Check and update project name
             final_project_name = self.progress.check_and_update_project_name(progress_callback)
             
-            # Step 2: Download assets - FIX: Use download_and_setup
+            # Step 2: Download assets
             progress_callback(25, "📥 Downloading Assets from Google Drive...")
             print(f"🔍 PASSING UPDATED PROJECT_INFO TO SETUP: '{self.orchestrator.project_info['project_name']}'")
             
-            # Call download_and_setup instead of setup_project
+            # Call download_and_setup
             self.orchestrator.creds, self.orchestrator.downloaded_videos, self.orchestrator.project_paths = \
                 self.orchestrator.processing_steps.download_and_setup(
                     self.orchestrator.card_data, 
@@ -105,9 +105,50 @@ class UIIntegration:
                 print(f"⚠️ Google Sheets update failed: {sheets_error}")
                 # Continue - don't let sheets failure stop cleanup
             
-            # Step 5: CRITICAL FIX - Always run file cleanup
+            # Step 5: Generate reports FIRST (while files are still in temp_downloads)
+            progress_callback(93, "📄 Generating reports...")
+
+            # Generate breakdown report BEFORE moving files
             try:
-                progress_callback(93, "📁 Organizing files...")
+                from automation.reports.breakdown_report import generate_breakdown_report
+                
+                # Get output folder
+                output_folder = self.orchestrator.project_paths.get('project_root')
+                if not output_folder or not os.path.exists(output_folder):
+                    ame_folder = self.orchestrator.project_paths.get('_AME', '')
+                    if ame_folder and os.path.exists(ame_folder):
+                        output_folder = os.path.dirname(ame_folder)
+                        print(f"📁 Using parent of _AME folder: {output_folder}")
+                
+                print(f"📄 Generating breakdown report in: {output_folder}")
+                
+                # Calculate duration
+                duration_seconds = time.time() - self.orchestrator.start_time
+                duration_str = f"{int(duration_seconds // 60)}m {int(duration_seconds % 60)}s"
+                
+                # Generate report WHILE files are still in original location
+                self.orchestrator.breakdown_report_path = generate_breakdown_report(
+                    self.orchestrator.processed_files,
+                    output_folder,
+                    duration_str,
+                    use_transitions
+                )
+                
+                if self.orchestrator.breakdown_report_path and os.path.exists(self.orchestrator.breakdown_report_path):
+                    print(f"✅ Breakdown report saved: {self.orchestrator.breakdown_report_path}")
+                else:
+                    print(f"⚠️ Breakdown report path returned but file not found")
+                    
+            except ImportError as e:
+                print(f"⚠️ Breakdown report import failed: {e}")
+            except Exception as e:
+                print(f"⚠️ Could not generate breakdown report: {e}")
+                import traceback
+                traceback.print_exc()
+
+            # Step 6: NOW organize and move files (AFTER breakdown report is done)
+            try:
+                progress_callback(95, "📁 Organizing files...")
                 
                 print("🧹 Running file cleanup...")
                 self.orchestrator.processing_steps.finalize_and_cleanup(
@@ -121,23 +162,7 @@ class UIIntegration:
             except Exception as cleanup_error:
                 print(f"⚠️ File cleanup failed: {cleanup_error}")
                 # Don't fail entire process for cleanup issues
-            
-            # Step 6: Generate reports
-            progress_callback(95, "📄 Generating reports...")
-            
-            # Generate breakdown report if available
-            try:
-                from ..reports.breakdown_report import generate_breakdown_report
-                self.orchestrator.breakdown_report_path = generate_breakdown_report(
-                    self.orchestrator.processed_files,
-                    self.orchestrator.project_paths['project_root'],
-                    time.time() - self.orchestrator.start_time,
-                    use_transitions
-                )
-                print(f"✅ Breakdown report generated: {self.orchestrator.breakdown_report_path}")
-            except ImportError:
-                print("⚠️ Breakdown report module not available")
-            
+
             # Final progress update
             if sheets_success:
                 progress_callback(100, "✅ Processing complete!")
@@ -148,7 +173,7 @@ class UIIntegration:
             result = create_processing_result_from_orchestrator(
                 self.orchestrator.processed_files,
                 self.orchestrator.start_time,
-                self.orchestrator.project_paths['project_root'],
+                self.orchestrator.project_paths.get('project_root', '.'),
                 success=True
             )
             

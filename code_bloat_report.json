@@ -1,7 +1,7 @@
 {
   "summary": {
-    "total_files": 101,
-    "total_lines": 15982,
+    "total_files": 114,
+    "total_lines": 17644,
     "critical_files": 1
   },
   "thresholds": {
@@ -28,14 +28,14 @@
       }
     },
     {
-      "path": "comprehensive_fixes.py",
-      "lines": 223,
-      "functions": 7,
+      "path": "folder_tree.py",
+      "lines": 16,
+      "functions": 1,
       "classes": 0,
-      "complexity": 35,
+      "complexity": 2,
       "largest_function": {
-        "name": "test_account_detection",
-        "lines": 36
+        "name": "print_tree",
+        "lines": 7
       }
     },
     {
@@ -80,28 +80,6 @@
       "largest_function": {
         "name": "analyze_imports",
         "lines": 206
-      }
-    },
-    {
-      "path": "test_integration.py",
-      "lines": 9,
-      "functions": 1,
-      "classes": 0,
-      "complexity": 1,
-      "largest_function": {
-        "name": "test_placeholder",
-        "lines": 3
-      }
-    },
-    {
-      "path": "working_test_suite.py",
-      "lines": 1715,
-      "functions": 64,
-      "classes": 2,
-      "complexity": 246,
-      "largest_function": {
-        "name": "generate_enhanced_report",
-        "lines": 116
       }
     },
     {
@@ -238,13 +216,13 @@
     },
     {
       "path": "app\\src\\automation\\instruction_parser.py",
-      "lines": 83,
-      "functions": 1,
+      "lines": 189,
+      "functions": 5,
       "classes": 1,
-      "complexity": 13,
+      "complexity": 18,
       "largest_function": {
-        "name": "parse_card_instructions",
-        "lines": 77
+        "name": "__init__",
+        "lines": 72
       }
     },
     {
@@ -326,24 +304,24 @@
     },
     {
       "path": "app\\src\\automation\\validation_engine.py",
-      "lines": 197,
-      "functions": 6,
+      "lines": 289,
+      "functions": 9,
       "classes": 3,
-      "complexity": 28,
+      "complexity": 53,
       "largest_function": {
         "name": "validate_assets",
-        "lines": 58
+        "lines": 98
       }
     },
     {
       "path": "app\\src\\automation\\video_processor.py",
-      "lines": 372,
-      "functions": 17,
+      "lines": 607,
+      "functions": 25,
       "classes": 1,
-      "complexity": 50,
+      "complexity": 96,
       "largest_function": {
-        "name": "process_video_sequence",
-        "lines": 71
+        "name": "_robust_concat",
+        "lines": 91
       }
     },
     {
@@ -359,13 +337,13 @@
     },
     {
       "path": "app\\src\\automation\\workflow_utils.py",
-      "lines": 380,
-      "functions": 9,
+      "lines": 47,
+      "functions": 0,
       "classes": 0,
-      "complexity": 64,
+      "complexity": 0,
       "largest_function": {
-        "name": "parse_project_info",
-        "lines": 205
+        "name": "",
+        "lines": 0
       }
     },
     {
@@ -546,29 +524,73 @@
     },
     {
       "path": "app\\src\\automation\\orchestrator\\processing_steps.py",
-      "lines": 275,
-      "functions": 16,
-      "classes": 1,
-      "complexity": 44,
+      "lines": 27,
+      "functions": 0,
+      "classes": 0,
+      "complexity": 0,
       "largest_function": {
-        "name": "setup_project",
-        "lines": 55
+        "name": "",
+        "lines": 0
       }
     },
     {
-      "path": "app\\src\\automation\\orchestrator\\ui_integration.py",
-      "lines": 539,
-      "functions": 8,
+      "path": "app\\src\\automation\\orchestrator\\ui_integration_base.py",
+      "lines": 177,
+      "functions": 3,
       "classes": 1,
-      "complexity": 61,
+      "complexity": 12,
       "largest_function": {
         "name": "ui_processing_callback",
-        "lines": 224
+        "lines": 146
+      }
+    },
+    {
+      "path": "app\\src\\automation\\orchestrator\\ui_preparation.py",
+      "lines": 128,
+      "functions": 6,
+      "classes": 1,
+      "complexity": 8,
+      "largest_function": {
+        "name": "prepare_confirmation_data",
+        "lines": 38
+      }
+    },
+    {
+      "path": "app\\src\\automation\\orchestrator\\ui_processing.py",
+      "lines": 157,
+      "functions": 5,
+      "classes": 1,
+      "complexity": 17,
+      "largest_function": {
+        "name": "process_videos_with_progress",
+        "lines": 73
+      }
+    },
+    {
+      "path": "app\\src\\automation\\orchestrator\\ui_progress.py",
+      "lines": 133,
+      "functions": 5,
+      "classes": 1,
+      "complexity": 25,
+      "largest_function": {
+        "name": "_check_all_name_sources",
+        "lines": 63
+      }
+    },
+    {
+      "path": "app\\src\\automation\\orchestrator\\ui_sheets.py",
+      "lines": 175,
+      "functions": 6,
+      "classes": 1,
+      "complexity": 28,
+      "largest_function": {
+        "name": "finalize_with_correct_names",
+        "lines": 84
       }
     },
     {
       "path": "app\\src\\automation\\orchestrator\\__init__.py",
-      "lines": 46,
+      "lines": 66,
       "functions": 1,
       "classes": 0,
       "complexity": 5,
@@ -578,14 +600,80 @@
       }
     },
     {
+      "path": "app\\src\\automation\\orchestrator\\processing\\project_setup.py",
+      "lines": 143,
+      "functions": 8,
+      "classes": 1,
+      "complexity": 24,
+      "largest_function": {
+        "name": "download_and_setup",
+        "lines": 89
+      }
+    },
+    {
+      "path": "app\\src\\automation\\orchestrator\\processing\\sheets_writer.py",
+      "lines": 144,
+      "functions": 3,
+      "classes": 1,
+      "complexity": 20,
+      "largest_function": {
+        "name": "write_to_sheets",
+        "lines": 131
+      }
+    },
+    {
+      "path": "app\\src\\automation\\orchestrator\\processing\\steps_coordinator.py",
+      "lines": 241,
+      "functions": 10,
+      "classes": 1,
+      "complexity": 38,
+      "largest_function": {
+        "name": "finalize_and_cleanup",
+        "lines": 174
+      }
+    },
+    {
+      "path": "app\\src\\automation\\orchestrator\\processing\\video_processor.py",
+      "lines": 368,
+      "functions": 7,
+      "classes": 1,
+      "complexity": 60,
+      "largest_function": {
+        "name": "process_single_video",
+        "lines": 254
+      }
+    },
+    {
+      "path": "app\\src\\automation\\orchestrator\\processing\\video_sorter.py",
+      "lines": 74,
+      "functions": 2,
+      "classes": 1,
+      "complexity": 8,
+      "largest_function": {
+        "name": "sort_videos_by_version_letter",
+        "lines": 37
+      }
+    },
+    {
+      "path": "app\\src\\automation\\orchestrator\\processing\\__init__.py",
+      "lines": 17,
+      "functions": 0,
+      "classes": 0,
+      "complexity": 0,
+      "largest_function": {
+        "name": "",
+        "lines": 0
+      }
+    },
+    {
       "path": "app\\src\\automation\\reports\\breakdown_report.py",
-      "lines": 269,
+      "lines": 260,
       "functions": 5,
       "classes": 0,
-      "complexity": 51,
+      "complexity": 47,
       "largest_function": {
         "name": "generate_breakdown_report",
-        "lines": 181
+        "lines": 178
       }
     },
     {
@@ -667,13 +755,13 @@
     },
     {
       "path": "app\\src\\automation\\workflow_dialog\\helpers.py",
-      "lines": 315,
+      "lines": 341,
       "functions": 2,
       "classes": 0,
-      "complexity": 51,
+      "complexity": 58,
       "largest_function": {
         "name": "create_confirmation_data_from_orchestrator",
-        "lines": 254
+        "lines": 271
       }
     },
     {
@@ -853,6 +941,61 @@
       }
     },
     {
+      "path": "app\\src\\automation\\workflow_utils_modules\\folder_parser.py",
+      "lines": 223,
+      "functions": 4,
+      "classes": 0,
+      "complexity": 26,
+      "largest_function": {
+        "name": "extract_folder_name_from_drive_link",
+        "lines": 71
+      }
+    },
+    {
+      "path": "app\\src\\automation\\workflow_utils_modules\\project_parser.py",
+      "lines": 163,
+      "functions": 2,
+      "classes": 0,
+      "complexity": 20,
+      "largest_function": {
+        "name": "create_fallback_info",
+        "lines": 102
+      }
+    },
+    {
+      "path": "app\\src\\automation\\workflow_utils_modules\\project_structure.py",
+      "lines": 71,
+      "functions": 1,
+      "classes": 0,
+      "complexity": 6,
+      "largest_function": {
+        "name": "create_project_structure",
+        "lines": 62
+      }
+    },
+    {
+      "path": "app\\src\\automation\\workflow_utils_modules\\validation.py",
+      "lines": 172,
+      "functions": 3,
+      "classes": 0,
+      "complexity": 25,
+      "largest_function": {
+        "name": "clean_project_name",
+        "lines": 75
+      }
+    },
+    {
+      "path": "app\\src\\automation\\workflow_utils_modules\\__init__.py",
+      "lines": 32,
+      "functions": 0,
+      "classes": 0,
+      "complexity": 0,
+      "largest_function": {
+        "name": "",
+        "lines": 0
+      }
+    },
+    {
       "path": "app\\src\\managers\\canvas_manager.py",
       "lines": 216,
       "functions": 17,
@@ -920,13 +1063,13 @@
     },
     {
       "path": "app\\src\\naming\\name_generator.py",
-      "lines": 241,
-      "functions": 8,
+      "lines": 202,
+      "functions": 6,
       "classes": 1,
-      "complexity": 25,
+      "complexity": 17,
       "largest_function": {
         "name": "generate_output_name",
-        "lines": 69
+        "lines": 86
       }
     },
     {
@@ -942,10 +1085,10 @@
     },
     {
       "path": "app\\src\\naming\\text_utils.py",
-      "lines": 353,
+      "lines": 371,
       "functions": 14,
       "classes": 1,
-      "complexity": 45,
+      "complexity": 48,
       "largest_function": {
         "name": "test_text_cleaning",
         "lines": 55
@@ -964,13 +1107,13 @@
     },
     {
       "path": "app\\src\\naming\\__init__.py",
-      "lines": 91,
-      "functions": 10,
+      "lines": 164,
+      "functions": 14,
       "classes": 0,
-      "complexity": 11,
+      "complexity": 27,
       "largest_function": {
         "name": "generate_output_name",
-        "lines": 4
+        "lines": 21
       }
     },
     {
@@ -1019,17 +1162,6 @@
     },
     {
       "path": "Assets\\Images\\__init__.py",
-      "lines": 0,
-      "functions": 0,
-      "classes": 0,
-      "complexity": 0,
-      "largest_function": {
-        "name": "",
-        "lines": 0
-      }
-    },
-    {
-      "path": "Assets\\Videos\\connectors\\__init__.py",
       "lines": 0,
       "functions": 0,
       "classes": 0,
@@ -1095,7 +1227,7 @@
       }
     },
     {
-      "path": "Assets\\Videos\\quiz_outro\\__init__.py",
+      "path": "output\\__init__.py",
       "lines": 0,
       "functions": 0,
       "classes": 0,
@@ -1106,14 +1238,25 @@
       }
     },
     {
-      "path": "output\\__init__.py",
-      "lines": 0,
-      "functions": 0,
-      "classes": 0,
-      "complexity": 0,
+      "path": "QA TEST\\comprehensive_qa_test.py",
+      "lines": 1670,
+      "functions": 44,
+      "classes": 3,
+      "complexity": 267,
       "largest_function": {
-        "name": "",
-        "lines": 0
+        "name": "_generate_final_report",
+        "lines": 82
+      }
+    },
+    {
+      "path": "QA TEST\\qa_report_extractor.py",
+      "lines": 103,
+      "functions": 1,
+      "classes": 0,
+      "complexity": 13,
+      "largest_function": {
+        "name": "extract_key_issues",
+        "lines": 81
       }
     },
     {
@@ -1130,14 +1273,13 @@
   ],
   "recommendations": [
     {
-      "file": "working_test_suite.py",
+      "file": "QA TEST\\comprehensive_qa_test.py",
       "severity": "critical",
       "issues": [
-        "File has 1715 lines (critical threshold: 1000)",
-        "Function 'generate_enhanced_report' has 116 lines",
-        "Too many imports: 29"
+        "File has 1670 lines (critical threshold: 1000)",
+        "Too many imports: 21"
       ],
-      "suggested_splits": 5
+      "suggested_splits": 1
     },
     {
       "file": "code_bloat_analyzer.py",
@@ -1157,12 +1299,12 @@
       "suggested_splits": 1
     },
     {
-      "file": "app\\src\\automation\\workflow_utils.py",
+      "file": "app\\src\\automation\\video_processor.py",
       "severity": "high",
       "issues": [
-        "Function 'parse_project_info' has 205 lines"
+        "File has 607 lines (threshold: 500)"
       ],
-      "suggested_splits": 1
+      "suggested_splits": 2
     },
     {
       "file": "app\\src\\automation\\api_clients\\account_mapper\\fallback_dialog.py",
@@ -1181,11 +1323,34 @@
       "suggested_splits": 1
     },
     {
-      "file": "app\\src\\automation\\orchestrator\\ui_integration.py",
+      "file": "app\\src\\automation\\orchestrator\\ui_integration_base.py",
       "severity": "high",
       "issues": [
-        "File has 539 lines (threshold: 500)",
-        "Function 'ui_processing_callback' has 224 lines"
+        "Function 'ui_processing_callback' has 146 lines"
+      ],
+      "suggested_splits": 1
+    },
+    {
+      "file": "app\\src\\automation\\orchestrator\\processing\\sheets_writer.py",
+      "severity": "high",
+      "issues": [
+        "Function 'write_to_sheets' has 131 lines"
+      ],
+      "suggested_splits": 1
+    },
+    {
+      "file": "app\\src\\automation\\orchestrator\\processing\\steps_coordinator.py",
+      "severity": "high",
+      "issues": [
+        "Function 'finalize_and_cleanup' has 174 lines"
+      ],
+      "suggested_splits": 1
+    },
+    {
+      "file": "app\\src\\automation\\orchestrator\\processing\\video_processor.py",
+      "severity": "high",
+      "issues": [
+        "Function 'process_single_video' has 254 lines"
       ],
       "suggested_splits": 1
     },
@@ -1193,8 +1358,7 @@
       "file": "app\\src\\automation\\reports\\breakdown_report.py",
       "severity": "high",
       "issues": [
-        "Function 'generate_breakdown_report' has 181 lines",
-        "High overall complexity score: 51"
+        "Function 'generate_breakdown_report' has 178 lines"
       ],
       "suggested_splits": 1
     },
@@ -1202,13 +1366,21 @@
       "file": "app\\src\\automation\\workflow_dialog\\helpers.py",
       "severity": "high",
       "issues": [
-        "Function 'create_confirmation_data_from_orchestrator' has 254 lines",
-        "High overall complexity score: 51"
+        "Function 'create_confirmation_data_from_orchestrator' has 271 lines",
+        "High overall complexity score: 58"
       ],
       "suggested_splits": 1
     },
     {
-      "file": "app\\src\\automation\\instruction_parser.py",
+      "file": "app\\src\\automation\\workflow_utils_modules\\project_parser.py",
+      "severity": "high",
+      "issues": [
+        "Function 'create_fallback_info' has 102 lines"
+      ],
+      "suggested_splits": 1
+    },
+    {
+      "file": "QA TEST\\qa_report_extractor.py",
       "severity": "medium",
       "issues": [
         "High overall complexity score: 13"
