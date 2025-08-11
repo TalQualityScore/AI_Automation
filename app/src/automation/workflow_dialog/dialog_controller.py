@@ -1,4 +1,4 @@
-# app/src/automation/workflow_dialog/dialog_controller.py - COMPLETE FIXED VERSION WITH COMPACT LAYOUT
+# app/src/automation/workflow_dialog/dialog_controller.py - ENHANCED FOR DROPDOWN SELECTIONS
 
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -13,7 +13,7 @@ from .processing_thread import ProcessingThreadManager
 from .notification_handlers import NotificationManager
 
 class UnifiedWorkflowDialog:
-    """Main workflow dialog controller - COMPLETE with compact layout"""
+    """Main workflow dialog controller with dropdown selection support"""
     
     def __init__(self, parent=None):
         self.parent = parent
@@ -33,6 +33,14 @@ class UnifiedWorkflowDialog:
         # CRITICAL: Store orchestrator reference for project name flow
         self.orchestrator = None
         self.updated_project_name = None  # Direct storage
+        
+        # NEW: Store user selections from dropdowns
+        self.user_selections = {
+            'account_code': None,
+            'platform_code': None, 
+            'processing_mode': None,
+            'project_name': None
+        }
         
     def set_orchestrator(self, orchestrator):
         """Set orchestrator reference for complete project name flow"""
@@ -165,34 +173,110 @@ class UnifiedWorkflowDialog:
         # self.notification_manager.create_notification_icons(notification_frame)
     
     def _on_confirm(self):
-        """Handle confirm button - start processing with FIXED project name flow"""
-        print(f"\n🎬 CONFIRM CLICKED")
+        """Handle confirm button - ENHANCED to capture dropdown selections"""
+        print(f"\n🎬 CONFIRM CLICKED - Capturing user selections")
         
-        # CRITICAL: Capture any project name changes from confirmation tab before processing
+        # CRITICAL: Capture any changes from confirmation tab before processing
         if hasattr(self.tab_manager, 'confirmation_tab') and self.tab_manager.confirmation_tab:
-            # Get the updated confirmation data
+            # Get the updated confirmation data with dropdown selections
             updated_data = self.tab_manager.confirmation_tab.get_updated_data()
             
-            if updated_data and updated_data.project_name != self.confirmation_data.project_name:
-                print(f"🔄 CAPTURING PROJECT NAME CHANGE:")
-                print(f"   Original: '{self.confirmation_data.project_name}'")
-                print(f"   Updated:  '{updated_data.project_name}'")
+            if updated_data:
+                # Track what changed
+                changes = []
                 
-                # Store the updated name in multiple locations to ensure it flows through
-                self.updated_project_name = updated_data.project_name
+                # Check project name change
+                if updated_data.project_name != self.confirmation_data.project_name:
+                    changes.append(f"Project: '{self.confirmation_data.project_name}' → '{updated_data.project_name}'")
+                    self.user_selections['project_name'] = updated_data.project_name
                 
-                if self.orchestrator:
-                    self.orchestrator.updated_project_name = updated_data.project_name
-                    print(f"✅ Updated orchestrator.updated_project_name = '{self.orchestrator.updated_project_name}'")
+                # Check account change
+                if hasattr(updated_data, 'account') and updated_data.account != getattr(self.confirmation_data, 'account', None):
+                    changes.append(f"Account: '{getattr(self.confirmation_data, 'account', 'N/A')}' → '{updated_data.account}'")
+                    self.user_selections['account_code'] = updated_data.account
                 
-                # Update our confirmation_data too
+                # Check platform change
+                if hasattr(updated_data, 'platform') and updated_data.platform != getattr(self.confirmation_data, 'platform', None):
+                    changes.append(f"Platform: '{getattr(self.confirmation_data, 'platform', 'N/A')}' → '{updated_data.platform}'")
+                    self.user_selections['platform_code'] = updated_data.platform
+                
+                # Check processing mode change
+                if hasattr(updated_data, 'processing_mode') and updated_data.processing_mode != getattr(self.confirmation_data, 'processing_mode', None):
+                    changes.append(f"Mode: '{getattr(self.confirmation_data, 'processing_mode', 'N/A')}' → '{updated_data.processing_mode}'")
+                    self.user_selections['processing_mode'] = updated_data.processing_mode
+                
+                # Log all changes
+                if changes:
+                    print(f"🔄 USER SELECTIONS CAPTURED:")
+                    for change in changes:
+                        print(f"   {change}")
+                    
+                    # NEW: Apply selections to orchestrator
+                    self._apply_selections_to_orchestrator()
+                else:
+                    print(f"ℹ️ No changes detected from user selections")
+                
+                # Update our confirmation_data
                 self.confirmation_data = updated_data
                 print(f"✅ Updated dialog confirmation_data")
             else:
-                print(f"ℹ️ No project name change detected")
+                print(f"⚠️ Could not get updated data from confirmation tab")
         
         # Proceed with tab management
         self.tab_manager.on_confirm_clicked()
+    
+    def _apply_selections_to_orchestrator(self):
+        """NEW: Apply user selections to orchestrator for processing pipeline"""
+        if not self.orchestrator:
+            print(f"⚠️ No orchestrator reference - selections cannot be applied")
+            return
+        
+        print(f"🔄 APPLYING USER SELECTIONS TO ORCHESTRATOR:")
+        
+        # Apply project name
+        if self.user_selections['project_name']:
+            self.orchestrator.updated_project_name = self.user_selections['project_name']
+            print(f"   ✅ Project name: {self.user_selections['project_name']}")
+        
+        # Apply account code
+        if self.user_selections['account_code']:
+            self.orchestrator.detected_account_code = self.user_selections['account_code']
+            self.orchestrator.user_selected_account = self.user_selections['account_code']
+            print(f"   ✅ Account code: {self.user_selections['account_code']}")
+        
+        # Apply platform code
+        if self.user_selections['platform_code']:
+            self.orchestrator.detected_platform_code = self.user_selections['platform_code']
+            self.orchestrator.user_selected_platform = self.user_selections['platform_code']
+            print(f"   ✅ Platform code: {self.user_selections['platform_code']}")
+        
+        # Apply processing mode
+        if self.user_selections['processing_mode']:
+            self.orchestrator.processing_mode = self.user_selections['processing_mode']
+            self.orchestrator.user_selected_mode = self.user_selections['processing_mode']
+            print(f"   ✅ Processing mode: {self.user_selections['processing_mode']}")
+        
+        # Update validator with new account/platform if changed
+        if (self.user_selections['account_code'] or self.user_selections['platform_code']) and hasattr(self.orchestrator, 'validator'):
+            account = self.user_selections['account_code'] or self.orchestrator.detected_account_code
+            platform = self.user_selections['platform_code'] or self.orchestrator.detected_platform_code
+            
+            self.orchestrator.validator.set_account_platform(account, platform)
+            print(f"   🔧 Validator updated with: {account}/{platform}")
+        
+        # Update project_info if it exists
+        if hasattr(self.orchestrator, 'project_info') and self.orchestrator.project_info:
+            if self.user_selections['account_code']:
+                self.orchestrator.project_info['account_code'] = self.user_selections['account_code']
+                self.orchestrator.project_info['detected_account_code'] = self.user_selections['account_code']
+            
+            if self.user_selections['platform_code']:
+                self.orchestrator.project_info['platform_code'] = self.user_selections['platform_code']
+                self.orchestrator.project_info['detected_platform_code'] = self.user_selections['platform_code']
+            
+            print(f"   📊 Project info updated with user selections")
+        
+        print(f"✅ All user selections applied to orchestrator successfully")
     
     def _on_cancel(self):
         """Handle cancel action"""

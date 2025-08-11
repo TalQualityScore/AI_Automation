@@ -34,31 +34,15 @@ def show_usage():
     print("  python local_automation.py                               # UI Mode (shows Trello popup)")
     print("  python local_automation.py <TRELLO_CARD_ID>              # UI Mode with card ID")
     print("  python local_automation.py <TRELLO_CARD_ID> --headless   # Headless Mode")
-    print("  python local_automation.py --test                        # Run Integration Tests")
     print()
     print("Examples:")
     print("  python local_automation.py                               # Opens Trello card popup")
     print("  python local_automation.py 'abc123xyz'")
     print("  python local_automation.py 'abc123xyz' --headless") 
-    print("  python local_automation.py --test")
     print()
     print("Modes:")
     print("  UI Mode      - Shows confirmation dialog, progress, and results")
     print("  Headless     - Command-line only (legacy mode)")
-    print("  Test Mode    - Run integration tests for the UI system")
-
-def run_integration_tests():
-    """Run the integration test suite"""
-    try:
-        from test_integration import run_all_tests
-        print("🧪 Starting Integration Test Suite...")
-        print("-" * 50)
-        run_all_tests()
-    except ImportError as e:
-        print(f"❌ Could not import test suite: {e}")
-        print("Make sure test_integration.py is in the project root.")
-    except Exception as e:
-        print(f"❌ Test suite failed: {e}")
 
 if __name__ == "__main__":
     # FIXED: Handle no arguments case - show UI with popup
@@ -84,17 +68,14 @@ if __name__ == "__main__":
     if "--help" in sys.argv or "-h" in sys.argv:
         show_usage()
         sys.exit(0)
-        
-    if "--test" in sys.argv:
-        run_integration_tests()
-        sys.exit(0)
     
     # Handle arguments provided
     card_id = sys.argv[1]
     
-    # Validate card ID
+    # Validate card ID  
     if not card_id or card_id.startswith('--'):
         print("❌ Error: Invalid Trello card ID")
+        print("💡 Use --help to see usage examples")
         show_usage()
         sys.exit(1)
     
