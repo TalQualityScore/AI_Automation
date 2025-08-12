@@ -137,9 +137,9 @@ class ConfirmationTab:
         canvas.bind('<Enter>', _bind_mousewheel)
         canvas.bind('<Leave>', _unbind_mousewheel)
         
-        # Content sections with proper spacing for buttons
+        # Content sections
         content_frame = ttk.Frame(scrollable_frame, style='White.TFrame')
-        content_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=(5, 20))  # FIXED: Reduced bottom padding for buttons
+        content_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=(5, 20))
         
         # Initialize and create all sections
         self._create_sections(content_frame)
@@ -147,6 +147,63 @@ class ConfirmationTab:
         # Pack canvas and scrollbar
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # ADD BUTTONS DIRECTLY HERE
+        self._create_action_buttons(parent_frame)
+
+    def _create_action_buttons(self, parent_frame):
+        """Create action buttons at the bottom of the confirmation tab"""
+        # Create button frame at the bottom of the parent frame
+        button_frame = ttk.Frame(parent_frame, style='White.TFrame')
+        button_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=40, pady=(10, 20))
+        
+        button_container = ttk.Frame(button_frame, style='White.TFrame')
+        button_container.pack()
+        
+        # Cancel button
+        cancel_btn = ttk.Button(
+            button_container, 
+            text="❌ CANCEL", 
+            style='Secondary.TButton',
+            command=self._on_cancel
+        )
+        cancel_btn.pack(side=tk.LEFT, padx=(0, 15))
+        
+        # Confirm button
+        confirm_btn = ttk.Button(
+            button_container, 
+            text="✅ CONFIRM & RUN", 
+            style='Accent.TButton', 
+            command=self._on_confirm
+        )
+        confirm_btn.pack(side=tk.LEFT)
+        confirm_btn.focus_set()
+        
+        # Store reference
+        self.button_frame = button_frame
+        
+        print("DEBUG: Buttons created in confirmation tab")
+        print(f"DEBUG: Button frame visible: {button_frame.winfo_viewable()}")
+
+    def _on_cancel(self):
+        """Handle cancel button click"""
+        if self.dialog_controller:
+            self.dialog_controller._on_cancel()
+        else:
+            print("WARNING: No dialog controller set")
+
+    def _on_confirm(self):
+        """Handle confirm button click"""
+        if self.dialog_controller:
+            # Get transition setting
+            use_transitions = self.use_transitions.get()
+            self.dialog_controller.dialog.use_transitions = use_transitions
+            print(f"🎬 Starting processing with transitions: {'ENABLED' if use_transitions else 'DISABLED'}")
+            
+            # Call the dialog's confirm handler
+            self.dialog_controller._on_confirm()
+        else:
+            print("WARNING: No dialog controller set")
     
     def _create_sections(self, content_frame):
         """Create all modular sections - FIXED ORDER"""
@@ -160,17 +217,17 @@ class ConfirmationTab:
             content_frame, self.data, self.theme, self
         )
         
-        # Video Info Section
-        self.sections['video'] = VideoSection(
-            content_frame, self.data, self.theme, self
-        )
+        # REMOVED: Video Info Section - redundant with Processing Summary
+        # self.sections['video'] = VideoSection(
+        #     content_frame, self.data, self.theme, self
+        # )
         
-        # FIXED: Processing Options BEFORE Summary
+        # Processing Options BEFORE Summary
         self.sections['processing'] = ProcessingSection(
             content_frame, self.data, self.theme, self
         )
         
-        # Summary Section
+        # Summary Section (includes video count)
         self.sections['summary'] = SummarySection(
             content_frame, self.data, self.theme, self
         )

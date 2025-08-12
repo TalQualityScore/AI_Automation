@@ -122,15 +122,27 @@ class ProjectSection:
                  foreground='#605e5c').pack()
     
     def _get_account_options(self):
-        """Get account options from actual project data - DO NOT MAKE UP NAMES"""
-        # FIXED: Use only known account codes without making up full names
+        """Get CORRECT account options from actual config.py"""
+        # CORRECTED: Using actual account names from your GitHub config.py
         return [
-            "OO - Optimization Obsessed",
-            "MCT - My Conversion Toolkit", 
-            "BC3 - Business Coaching 3.0",
-            "TR - The Rapid"
-            # REMOVED: Made-up accounts that don't exist in actual data
-            # Only include accounts that actually exist in the project
+            "TR - Total Restore",
+            "BC3 - Bio Complete 3",
+            "OO - Olive Oil",
+            "MCT - MCT",
+            "DS - Dark Spot",
+            "NB - Nature's Blend",
+            "MK - Morning Kick",
+            "DRC - Dermal Repair Complex",
+            "PC - Phyto Collagen",
+            "GD - Glucose Defense",
+            "MC - Morning Complete",
+            "PP - Pro Plant",
+            "SPC - Superfood Complete",
+            "MA - Metabolic Advanced",
+            "KA - Keto Active",
+            "BLR - BadLand Ranch",
+            "Bio X4 - Bio X4",
+            "Upwellness - Upwellness"
         ]
     
     def _get_platform_options(self):
@@ -156,24 +168,40 @@ class ProjectSection:
         ]
     
     def _get_default_account_selection(self):
-        """Get default account selection"""
+        """Get default account selection - match what's detected"""
         current_account = getattr(self.data, 'account', 'TR')
+        
+        print(f"DEBUG: Looking for account code: {current_account}")
+        
+        # Find matching account in options
         for option in self._get_account_options():
             if option.startswith(current_account + ' - '):
+                print(f"DEBUG: Found matching account: {option}")
                 return option
-        return "TR - The Rapid"
+        
+        # Default fallback
+        print(f"DEBUG: No match found, using default TR - Total Restore")
+        return "TR - Total Restore"
     
     def _get_default_platform_selection(self):
         """Get default platform selection"""
         current_platform = getattr(self.data, 'platform', 'FB')
+        
+        print(f"DEBUG: Looking for platform code: {current_platform}")
+        
         for option in self._get_platform_options():
             if option.startswith(current_platform + ' - '):
+                print(f"DEBUG: Found matching platform: {option}")
                 return option
+        
         return "FB - Facebook"
     
     def _get_default_processing_mode_selection(self):
         """Get default processing mode selection"""
         current_mode = getattr(self.data, 'processing_mode', 'quiz_only')
+        
+        print(f"DEBUG: Current processing mode: {current_mode}")
+        
         mode_displays = {
             "save_only": "Save As Is",
             "quiz_only": "Add Quiz Outro", 
@@ -183,7 +211,10 @@ class ProjectSection:
             "vsl_only": "Add VSL",
             "connector_vsl": "Add Connector + VSL"
         }
-        return mode_displays.get(current_mode, "Add Quiz Outro")
+        
+        result = mode_displays.get(current_mode, "Add Quiz Outro")
+        print(f"DEBUG: Selected processing mode: {result}")
+        return result
     
     def _on_project_name_change(self, event=None):
         """Handle project name changes"""
@@ -205,6 +236,11 @@ class ProjectSection:
             if selected and ' - ' in selected:
                 account_code = selected.split(' - ')[0]
                 print(f"🔄 Account changed to: {account_code}")
+                
+                # Update the data object
+                self.data.account = account_code
+                
+                # Refresh summary
                 self.main_tab.refresh_summary()
         except Exception as e:
             print(f"⚠️ Account change error (safely handled): {e}")
@@ -215,11 +251,33 @@ class ProjectSection:
         if selected and ' - ' in selected:
             platform_code = selected.split(' - ')[0]
             print(f"🔄 Platform changed to: {platform_code}")
+            
+            # Update the data object
+            self.data.platform = platform_code
+            
+            # Refresh summary
             self.main_tab.refresh_summary()
     
     def _on_processing_mode_change(self, event=None):
         """Handle processing mode change"""
         selected = self.main_tab.processing_mode_var.get()
-        mode_code = self.main_tab._get_mode_code_from_display(selected)
+        
+        # Convert display name back to code
+        mode_map = {
+            "Save As Is": "save_only",
+            "Add Quiz Outro": "quiz_only",
+            "Add Connector + Quiz": "connector_quiz",
+            "Add SVSL": "svsl_only",
+            "Add Connector + SVSL": "connector_svsl",
+            "Add VSL": "vsl_only",
+            "Add Connector + VSL": "connector_vsl"
+        }
+        
+        mode_code = mode_map.get(selected, "quiz_only")
         print(f"🔄 Processing mode changed to: {mode_code}")
+        
+        # Update the data object
+        self.data.processing_mode = mode_code
+        
+        # Refresh summary
         self.main_tab.refresh_summary()

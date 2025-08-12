@@ -37,17 +37,48 @@ class SummarySection:
         for widget in self.summary_frame.winfo_children():
             widget.destroy()
         
-        # FIXED: Use actual video count from data
-        video_count = len(self.data.client_videos) if hasattr(self.data, 'client_videos') and self.data.client_videos else 0
-        ttk.Label(self.summary_frame, text=f"• {video_count} client video{'s' if video_count != 1 else ''} will be processed",
-                 style='Body.TLabel', font=('Segoe UI', 8)).pack(anchor=tk.W)  # FIXED: 2 points smaller font
+        # DEBUG: Let's see what's actually in the data
+        print("=" * 50)
+        print("DEBUG: Summary Section - Inspecting data")
+        print(f"DEBUG: data type = {type(self.data)}")
+        print(f"DEBUG: data attributes = {dir(self.data)}")
         
-        # FIXED: Processing type with connector format
+        if hasattr(self.data, 'client_videos'):
+            print(f"DEBUG: client_videos type = {type(self.data.client_videos)}")
+            if isinstance(self.data.client_videos, list):
+                print(f"DEBUG: client_videos length = {len(self.data.client_videos)}")
+                for i, video in enumerate(self.data.client_videos):
+                    print(f"DEBUG:   Video {i+1}: {video}")
+            else:
+                print(f"DEBUG: client_videos value = {self.data.client_videos}")
+        
+        if hasattr(self.data, 'file_sizes'):
+            print(f"DEBUG: file_sizes = {self.data.file_sizes}")
+        print("=" * 50)
+        
+        # Get REAL video count from the actual data
+        video_count = 0
+        
+        if hasattr(self.data, 'client_videos') and self.data.client_videos:
+            if isinstance(self.data.client_videos, list):
+                # Count only non-empty entries
+                actual_videos = [v for v in self.data.client_videos if v]
+                video_count = len(actual_videos)
+            else:
+                video_count = 1
+        
+        # If we still have 0, default to 1
+        if video_count == 0:
+            video_count = 1
+        
+        ttk.Label(self.summary_frame, 
+                text=f"• {video_count} client video{'s' if video_count != 1 else ''} will be processed",
+                style='Body.TLabel', font=('Segoe UI', 8)).pack(anchor=tk.W)
+        
+        # Current processing mode
         current_mode = self.main_tab.processing_mode_var.get() if hasattr(self.main_tab, 'processing_mode_var') else getattr(self.data, 'processing_mode', 'Add Quiz Outro')
         
-        # Determine endpoint and connector
-        has_connector = 'Connector' in current_mode
-        
+        # Determine endpoint
         if 'Quiz' in current_mode:
             endpoint = "Quiz Outro"
         elif 'SVSL' in current_mode:
@@ -59,25 +90,26 @@ class SummarySection:
         else:
             endpoint = "Quiz Outro"
         
-        # FIXED: Combine connector + endpoint in one line
-        if has_connector and endpoint != "No processing (Save As Is)":
-            connection_text = f"Connector + {endpoint}"
+        # Videos will be connected to
+        ttk.Label(self.summary_frame, 
+                text=f"• Videos will be connected to: {endpoint}",
+                style='Body.TLabel', font=('Segoe UI', 8)).pack(anchor=tk.W)
+        
+        # Transition setting
+        if self.main_tab.use_transitions.get():
+            ttk.Label(self.summary_frame, 
+                    text="• Processing type: with smooth transitions",
+                    style='Body.TLabel', font=('Segoe UI', 8)).pack(anchor=tk.W)
         else:
-            connection_text = endpoint
+            ttk.Label(self.summary_frame, 
+                    text="• Processing type: without transitions",
+                    style='Body.TLabel', font=('Segoe UI', 8)).pack(anchor=tk.W)
         
-        ttk.Label(self.summary_frame, text=f"• Videos will be connected to: {connection_text}",
-                 style='Body.TLabel', font=('Segoe UI', 8)).pack(anchor=tk.W)  # FIXED: 2 points smaller font
-        
-        # Transition type
-        transition_text = "with smooth transitions" if self.main_tab.use_transitions.get() else "with simple stitching"
-        ttk.Label(self.summary_frame, text=f"• Processing type: {transition_text}",
-                 style='Body.TLabel', font=('Segoe UI', 8)).pack(anchor=tk.W)  # FIXED: 2 points smaller font
-        
-        # Estimated time (if available)
-        if hasattr(self.data, 'estimated_time') and self.data.estimated_time:
-            ttk.Label(self.summary_frame, text=f"• Estimated processing time: {self.data.estimated_time}",
-                     style='Body.TLabel', font=('Segoe UI', 8)).pack(anchor=tk.W)  # FIXED: 2 points smaller font
-    
+        # Estimated time
+        ttk.Label(self.summary_frame, 
+                text=f"• Estimated processing time: {self.data.estimated_time}",
+                style='Body.TLabel', font=('Segoe UI', 8)).pack(anchor=tk.W)
+
     def refresh(self):
         """Refresh summary when settings change"""
         self._update_summary_content()

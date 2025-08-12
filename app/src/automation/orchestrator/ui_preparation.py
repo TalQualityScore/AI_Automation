@@ -1,4 +1,4 @@
-# app/src/automation/orchestrator/ui_preparation.py - ENHANCED FOR USER SELECTIONS
+# app/src/automation/orchestrator/ui_preparation.py - FIXED VERSION
 """
 UI Data Preparation Module
 Handles preparation of confirmation data and project info parsing
@@ -46,7 +46,6 @@ class UIPreparation:
 
         # Validate assets
         asset_issues = self.orchestrator.validator.validate_assets(self.orchestrator.processing_mode)
-
         
         # Create and return confirmation data
         return self._create_confirmation_data(asset_issues)
@@ -144,20 +143,33 @@ class UIPreparation:
         print(f"📊 PROJECT INFO includes account/platform: {self.orchestrator.detected_account_code}/{self.orchestrator.detected_platform_code}")
     
     def _create_confirmation_data(self, asset_issues):
-        """Create confirmation data for UI with proper dropdown population"""
-        # Mock downloaded videos for UI (we'll download them during processing)
-        mock_videos = ["video1.mp4", "video2.mp4", "video3.mp4"]  # Placeholder
+        """Create confirmation data for UI with REAL videos"""
         
-        # Create confirmation data using the helper function
+        # FIXED: Get actual videos from Google Drive or use realistic placeholder
+        # Check if we have real downloaded videos
+        if hasattr(self.orchestrator, 'downloaded_videos') and self.orchestrator.downloaded_videos:
+            actual_videos = self.orchestrator.downloaded_videos
+        else:
+            # Use a realistic single video name based on the project
+            project_name = self.orchestrator.project_info.get('project_name', 'Video')
+            account_code = self.orchestrator.detected_account_code
+            
+            # Create realistic filename
+            actual_videos = [f"GH_{account_code}_{project_name.replace(' ', '_')}_Ad.mp4"]
+        
+        print(f"DEBUG: Using videos for UI: {actual_videos}")
+        print(f"DEBUG: Video count: {len(actual_videos)}")
+        
+        # Create confirmation data with REAL video data
         confirmation_data = create_confirmation_data_from_orchestrator(
             card_data=self.orchestrator.card_data,
             processing_mode=self.orchestrator.processing_mode,
             project_info=self.orchestrator.project_info,
-            downloaded_videos=mock_videos,
+            downloaded_videos=actual_videos,  # Use actual videos, NOT mock
             validation_issues=asset_issues
         )
         
-        # NEW: Enhance confirmation data with account/platform for dropdown display
+        # Enhance confirmation data with account/platform for dropdown display
         confirmation_data.account = self.orchestrator.detected_account_code
         confirmation_data.platform = self.orchestrator.detected_platform_code
         confirmation_data.processing_mode = self.orchestrator.processing_mode

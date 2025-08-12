@@ -1,4 +1,4 @@
-# app/src/automation/unified_workflow_dialog.py - SIMPLE FIX using existing modules
+# app/src/automation/unified_workflow_dialog.py - FIXED VERSION
 from .trello_card_popup import TrelloCardPopup
 
 # Import helper functions
@@ -14,6 +14,8 @@ try:
     MODULAR_AVAILABLE = True
 except ImportError as e:
     print(f"❌ Could not import modular dialog: {e}")
+    import traceback
+    traceback.print_exc()
     print("Will create fallback implementation...")
     MODULAR_AVAILABLE = False
 
@@ -35,7 +37,23 @@ if MODULAR_AVAILABLE:
         def show_workflow(self, confirmation_data, processing_callback):
             """Delegate to modular dialog controller"""
             print("🎬 Using modular workflow dialog...")
+            
+            # DEBUG: Check what videos are being passed
+            print("=" * 50)
+            print(f"DEBUG: UnifiedWorkflowDialog.show_workflow called with:")
+            print(f"  Project: {confirmation_data.project_name}")
+            print(f"  Videos count: {len(confirmation_data.client_videos)}")
+            if confirmation_data.client_videos:
+                for i, video in enumerate(confirmation_data.client_videos):
+                    print(f"    Video {i+1}: {video}")
+            print("=" * 50)
+            
             return self.modular_dialog.show_workflow(confirmation_data, processing_callback)
+        
+        def set_orchestrator(self, orchestrator):
+            """Pass orchestrator reference to modular dialog"""
+            if hasattr(self.modular_dialog, 'set_orchestrator'):
+                self.modular_dialog.set_orchestrator(orchestrator)
 
 else:
     # Fallback - minimal working implementation for debugging
@@ -122,6 +140,10 @@ else:
                 processing_window.destroy()
                 messagebox.showerror("Error", f"Processing failed: {str(e)}")
                 return False
+        
+        def set_orchestrator(self, orchestrator):
+            """Compatibility method for fallback"""
+            pass
 
 # Export the main class and helpers
 __all__ = [

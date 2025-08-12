@@ -18,6 +18,14 @@ def create_confirmation_data_from_orchestrator(card_data: dict,
     """
     
     print(f"🔄 Creating confirmation data...")
+
+    # DEBUG: Show what videos are being passed
+    print("=" * 50)
+    print(f"DEBUG: Downloaded videos passed to helpers:")
+    print(f"  Count: {len(downloaded_videos)}")
+    for i, video in enumerate(downloaded_videos):
+        print(f"  Video {i+1}: {video}")
+    print("=" * 50)
     
     # Step 1: Get project name
     project_name = project_info.get('project_name', 'Unknown Project')
@@ -28,13 +36,13 @@ def create_confirmation_data_from_orchestrator(card_data: dict,
     
     # Create display names
     account_mapping = {
-        'OO': 'Optimization Obsessed',
-        'MCT': 'My Conversion Toolkit',
-        'BC3': 'Business Coaching 3.0', 
-        'TR': 'The Rapid',
-        'LG': 'Lead Genesis',
-        'UM': 'Underground Marketing',
-        'DP': 'Digital Prosperity'
+        'OO': 'Olive Oil',
+        'MCT': 'MCT',
+        'BC3': 'Bio Complete 3', 
+        'TR': 'Total Restore',
+        'DS': 'Dark Spot',
+        'NB': 'Natures Blend',
+        'MK': 'Morning Kick'
     }
     
     platform_mapping = {
