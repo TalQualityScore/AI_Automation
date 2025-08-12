@@ -1,4 +1,5 @@
-# app/src/automation/workflow_dialog/dialog_controller.py - SIMPLIFIED VERSION
+# app/src/automation/workflow_dialog/dialog_controller.py - MINIMAL CHANGE VERSION
+# ONLY CHANGED: Window height from 750 to 850 for multi-mode UI
 
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -55,7 +56,9 @@ class UnifiedWorkflowDialog:
         # Create window
         self.root = tk.Toplevel(self.parent) if self.parent else tk.Tk()
         self.root.title("AI Automation Workflow")
-        self.root.geometry("540x750")
+        
+        # ONLY CHANGE: Increased height from 540x750 to 540x850 for multi-mode UI
+        self.root.geometry("540x850")
         self.root.resizable(False, False)
         
         # Setup theme and window
@@ -77,8 +80,8 @@ class UnifiedWorkflowDialog:
         """Setup window properties"""
         self.root.update_idletasks()
         
-        # Center window
-        width, height = 540, 750
+        # ONLY CHANGE: Updated dimensions from 540x750 to 540x850
+        width, height = 540, 850
         x = (self.root.winfo_screenwidth() // 2) - (width // 2)
         y = (self.root.winfo_screenheight() // 2) - (height // 2)
         self.root.geometry(f"{width}x{height}+{x}+{y}")
