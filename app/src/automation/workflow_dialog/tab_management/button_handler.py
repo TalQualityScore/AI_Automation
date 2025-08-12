@@ -1,5 +1,5 @@
 # app/src/automation/workflow_dialog/tab_management/button_handler.py
-"""Button Handler - Manages all button creation and actions - FIXED WITH OVERLAY"""
+"""Button Handler - Manages all button creation and actions - FIXED STYLING"""
 
 import tkinter as tk
 from tkinter import ttk
@@ -19,128 +19,89 @@ class ButtonHandler:
                 pass
             self.tm.confirmation_buttons = None
     
-    def add_confirmation_buttons(self):
-        """Add action buttons - PROPERLY POSITIONED"""
-        print("=" * 50)
-        print("DEBUG: add_confirmation_buttons() called")
-        
-        # Clean up first
-        self.cleanup_confirmation_buttons()
-        
-        # Create button frame using tk.Frame (more reliable than ttk)
-        button_frame = tk.Frame(self.tm.dialog.root, bg='white', height=60)
-        
-        # Position at y=670 (window is 750px tall, leaves 80px at bottom)
-        button_frame.place(x=70, y=670, width=400, height=60)
-        
-        # Cancel button
-        cancel_btn = tk.Button(
-            button_frame,
-            text="❌ CANCEL",
-            font=('Segoe UI', 11),
-            bg='#f0f0f0',
-            command=self.tm.dialog._on_cancel
-        )
-        cancel_btn.place(x=50, y=15, width=120, height=35)
-        
-        # Confirm button
-        confirm_btn = tk.Button(
-            button_frame,
-            text="✅ CONFIRM & RUN",
-            font=('Segoe UI', 11, 'bold'),
-            bg='#0078d4',
-            fg='white',
-            command=self._on_confirm_with_transitions
-        )
-        confirm_btn.place(x=230, y=15, width=140, height=35)
-        
-        # Store reference
-        self.tm.confirmation_buttons = button_frame
-        
-        # Force visibility
-        button_frame.lift()
-        self.tm.dialog.root.update()
-        
-        print(f"DEBUG: Buttons positioned at y=670")
-        print(f"  Frame visible: {button_frame.winfo_viewable()}")
-        print("=" * 50)
-    
     def add_confirmation_buttons_overlay(self):
-        """Add buttons as a toplevel overlay - FIXED VERSION"""
+        """Add buttons as overlay with improved styling - FIXED VERSION"""
         print("=" * 50)
         print("DEBUG: add_confirmation_buttons_overlay() called")
         
         # Clean up any existing buttons
         self.cleanup_confirmation_buttons()
         
-        # Create button frame with explicit size
-        button_frame = tk.Frame(self.tm.dialog.root, bg='#f0f0f0', width=460, height=70)
+        # Get window dimensions for dynamic positioning
+        window_height = self.tm.dialog.root.winfo_height()
+        window_width = self.tm.dialog.root.winfo_width()
+        
+        # Calculate button position (85px from bottom for better spacing)
+        button_y = max(window_height - 85, 650)  # Fallback to 650 if window too small
+        
+        # Create button frame with proper styling
+        button_frame = tk.Frame(
+            self.tm.dialog.root, 
+            bg='white',  # White background instead of gray
+            relief='flat',
+            bd=0,
+            width=480, 
+            height=60
+        )
         button_frame.pack_propagate(False)  # Prevent frame from shrinking
         
-        # Use place to position at bottom (since pack isn't working)
-        button_frame.place(x=40, y=650, width=460, height=70)
+        # Use place to position dynamically
+        button_frame.place(x=30, y=button_y, width=480, height=60)
         
-        # Create buttons directly in frame with grid
+        # Create buttons with improved styling
         cancel_btn = tk.Button(
             button_frame,
             text="❌ CANCEL",
-            font=('Segoe UI', 11),
-            bg='white',
-            fg='black',
-            bd=2,
-            relief='raised',
+            font=('Segoe UI', 10, 'normal'),
+            bg='#f3f2f1',  # Light gray background
+            fg='#323130',  # Dark gray text
+            activebackground='#e1dfdd',  # Hover color
+            activeforeground='#323130',
+            bd=1,
+            relief='solid',
+            borderwidth=1,
+            cursor='hand2',
+            padx=20,
+            pady=8,
             command=self.tm.dialog._on_cancel
         )
-        cancel_btn.place(x=80, y=18, width=130, height=35)
+        cancel_btn.place(x=90, y=15, width=140, height=32)
         
         confirm_btn = tk.Button(
             button_frame,
             text="✅ CONFIRM & RUN",
-            font=('Segoe UI', 11, 'bold'),
-            bg='#0078d4',
+            font=('Segoe UI', 10, 'bold'),
+            bg='#0078d4',  # Microsoft blue
             fg='white',
-            bd=2,
-            relief='raised',
+            activebackground='#106ebe',  # Darker blue on hover
+            activeforeground='white',
+            bd=0,
+            relief='flat',
+            cursor='hand2',
+            padx=20,
+            pady=8,
             command=self._on_confirm_with_transitions
         )
-        confirm_btn.place(x=250, y=18, width=130, height=35)
+        confirm_btn.place(x=250, y=15, width=140, height=32)
         
         # Store reference
         self.tm.confirmation_buttons = button_frame
         
-        # Force to top
+        # Force visibility with proper layering
         button_frame.lift()
         button_frame.tkraise()
         
         # Force updates
-        button_frame.update()
         self.tm.dialog.root.update_idletasks()
         self.tm.dialog.root.update()
         
-        print(f"DEBUG: Overlay buttons added with place()")
-        print(f"  Frame exists: {button_frame.winfo_exists()}")
-        print(f"  Frame mapped: {button_frame.winfo_ismapped()}")
+        print(f"DEBUG: Improved overlay buttons added")
+        print(f"  Position: x=30, y={button_y}")
+        print(f"  Frame size: 480x60")
         print(f"  Frame visible: {button_frame.winfo_viewable()}")
-        print(f"  Frame geometry: {button_frame.winfo_geometry()}")
         print(f"  Cancel visible: {cancel_btn.winfo_viewable()}")
         print(f"  Confirm visible: {confirm_btn.winfo_viewable()}")
-        
-        # Check actual positions
-        print("DEBUG: Actual widget positions:")
-        print(f"  Button frame: x={button_frame.winfo_x()}, y={button_frame.winfo_y()}")
-        print(f"  Cancel btn: x={cancel_btn.winfo_x()}, y={cancel_btn.winfo_y()}")
-        print(f"  Confirm btn: x={confirm_btn.winfo_x()}, y={confirm_btn.winfo_y()}")
-        
-        print("DEBUG: Window children after adding buttons:")
-        for child in self.tm.dialog.root.winfo_children():
-            try:
-                geo = child.winfo_geometry()
-                vis = child.winfo_viewable()
-                print(f"  - {child.__class__.__name__}: {geo} (visible: {vis})")
-            except:
-                pass
         print("=" * 50)
-
     
     def _on_confirm_with_transitions(self):
         """Handle confirm with transition settings"""
@@ -162,16 +123,30 @@ class ButtonHandler:
         # Clean up first
         self.cleanup_confirmation_buttons()
         
-        message_frame = ttk.Frame(self.tm.dialog.root, style='White.TFrame')
-        message_frame.pack(fill=tk.X, padx=40, pady=(0, 30), side=tk.BOTTOM)
+        # Get window dimensions for dynamic positioning
+        window_height = self.tm.dialog.root.winfo_height()
+        button_y = max(window_height - 85, 650)
         
-        ttk.Label(
-            message_frame, 
-            text=message, 
-            style='Body.TLabel',
-            font=('Segoe UI', 11, 'italic'),
-            foreground=self.tm.dialog.theme.colors['text_secondary']
-        ).pack()
+        message_frame = tk.Frame(
+            self.tm.dialog.root,
+            bg='white',
+            relief='flat',
+            bd=0,
+            width=480,
+            height=60
+        )
+        message_frame.place(x=30, y=button_y, width=480, height=60)
+        
+        message_label = tk.Label(
+            message_frame,
+            text=message,
+            font=('Segoe UI', 10, 'italic'),
+            bg='white',
+            fg='#605e5c',  # Medium gray
+            wraplength=450,
+            justify='center'
+        )
+        message_label.place(x=15, y=20, width=450, height=20)
         
         self.tm.confirmation_buttons = message_frame
     
@@ -201,18 +176,11 @@ class ButtonHandler:
         
         ttk.Label(
             info_container, 
-            text="✅ Processing completed successfully!", 
-            style='Body.TLabel', 
-            font=('Segoe UI', 12, 'bold'),
-            foreground=self.tm.dialog.theme.colors['success']
-        ).pack(pady=10)
-        
-        ttk.Button(
-            info_container, 
-            text="📊 View Results", 
-            style='Accent.TButton',
-            command=lambda: self.tm.show_tab(2)
-        ).pack()
+            text="✅ Processing completed successfully! Check the Results tab for details.", 
+            style='Body.TLabel',
+            font=('Segoe UI', 11, 'italic'),
+            foreground='#107c10'  # Green color
+        ).pack(pady=(0, 15))
     
     def add_inactive_processing_message(self, parent):
         """Add message for inactive processing tab"""
@@ -224,16 +192,8 @@ class ButtonHandler:
         
         ttk.Label(
             info_container, 
-            text="⏸️ Processing not currently active", 
-            style='Body.TLabel', 
-            font=('Segoe UI', 11),
-            foreground=self.tm.dialog.theme.colors['text_secondary']
-        ).pack(pady=10)
-        
-        ttk.Label(
-            info_container, 
-            text="Return to Confirmation tab to start processing", 
-            style='Body.TLabel', 
-            font=('Segoe UI', 9, 'italic'),
-            foreground=self.tm.dialog.theme.colors['text_secondary']
+            text="⚠️ Processing has not been started yet. Return to the Confirmation tab to begin.", 
+            style='Body.TLabel',
+            font=('Segoe UI', 11, 'italic'),
+            foreground='#d83b01'  # Orange-red color
         ).pack()

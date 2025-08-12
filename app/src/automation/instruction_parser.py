@@ -1,5 +1,5 @@
 # app/src/automation/instruction_parser.py
-# FINAL VERSION - Comprehensive VSL pattern detection
+# MINIMAL FIX - Just add critical VSL patterns and reorder priority
 
 import re
 
@@ -8,6 +8,14 @@ class InstructionParser:
     
     def __init__(self):
         # Define priority patterns for different processing modes
+        
+        # NEW: Critical VSL patterns that should be checked FIRST
+        self.critical_vsl_patterns = [
+            r"connect\s+to\s+an?\s+vsl",              # "connect to an VSL" or "connect to a VSL"
+            r"please\s+connect\s+to\s+an?\s+vsl",     # "please connect to an VSL"
+            r"attach\s+to\s+an?\s+vsl",               # "attach to a VSL"
+        ]
+        
         self.save_patterns = [
             r"save\s+as\s+is",
             r"save\s+them\s+as\s+is",
@@ -83,27 +91,24 @@ class InstructionParser:
         """
         Parse Trello card description to determine processing mode
         
-        Priority order:
-        1. Save as is (highest priority)
+        FIXED Priority order:
+        1. Critical VSL patterns (NEW - checked FIRST)
         2. Connector + Quiz/SVSL/VSL
         3. Quiz/SVSL/VSL only
-        4. Default to quiz_only if processing keywords found
-        5. Default to save_only if no clear instruction
-        
-        Returns:
-            One of: "save_only", "quiz_only", "connector_quiz",
-                   "svsl_only", "connector_svsl", "vsl_only", "connector_vsl"
+        4. Save as is (moved later)
+        5. Default to quiz_only if processing keywords found
+        6. Default to save_only if no clear instruction
         """
         description_lower = description.lower()
         
         print(f"🔍 PARSING INSTRUCTIONS: '{description[:100]}...'")
         
-        # Priority 1: Check for save-only patterns
-        if self._check_patterns(description_lower, self.save_patterns):
-            print("📋 Detected: SAVE ONLY mode")
-            return "save_only"
+        # CRITICAL: Check for high-priority VSL patterns FIRST
+        if self._check_patterns(description_lower, self.critical_vsl_patterns):
+            print("📋 Detected: VSL ONLY mode (Critical Pattern Match)")
+            return "vsl_only"
         
-        # Priority 2: Check for connector + endpoint patterns
+        # Priority 1: Check for connector + endpoint patterns
         if self._check_patterns(description_lower, self.connector_quiz_patterns):
             print("📋 Detected: CONNECTOR + QUIZ mode")
             return "connector_quiz"
@@ -116,7 +121,7 @@ class InstructionParser:
             print("📋 Detected: CONNECTOR + VSL mode")
             return "connector_vsl"
         
-        # Priority 3: Check for endpoint-only patterns
+        # Priority 2: Check for endpoint-only patterns
         # IMPORTANT: Check VSL FIRST (before quiz) since VSL is more specific
         if self._check_patterns(description_lower, self.vsl_patterns):
             print("📋 Detected: VSL ONLY mode")
@@ -129,6 +134,11 @@ class InstructionParser:
         if self._check_patterns(description_lower, self.quiz_patterns):
             print("📋 Detected: QUIZ ONLY mode")
             return "quiz_only"
+        
+        # Priority 3: Check for save-only patterns (MOVED LATER)
+        if self._check_patterns(description_lower, self.save_patterns):
+            print("📋 Detected: SAVE ONLY mode")
+            return "save_only"
         
         # Check for general processing keywords
         processing_keywords = ["process", "edit", "render", "export", "quiz", "connector", "svsl", "vsl"]
@@ -170,6 +180,7 @@ class InstructionParser:
         results = {}
         
         pattern_groups = {
+            'critical_vsl': self.critical_vsl_patterns,  # NEW
             'save': self.save_patterns,
             'quiz': self.quiz_patterns,
             'connector_quiz': self.connector_quiz_patterns,

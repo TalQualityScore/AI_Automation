@@ -1,4 +1,4 @@
-# app/src/automation/workflow_dialog/processing_thread.py - UPDATED for Tab State
+# app/src/automation/workflow_dialog/processing_thread.py - FIXED TabManager Method
 
 import threading
 import time
@@ -44,39 +44,45 @@ class ProcessingThreadManager:
         except Exception as e:
             print(f"Error in UI queue checker: {e}")
         
-        # Continue checking if dialog still exists and not cancelled
-        if self.dialog.root and not self.is_cancelled:
+        # Reschedule
+        if self.dialog.root:
             self.dialog.root.after(100, self._check_ui_queue)
     
-    def start_processing(self, processing_callback: Callable, estimated_duration: str):
+    def start_processing(self, processing_callback: Callable, estimated_time: str):
         """Start processing in background thread"""
-        self.start_time = time.time()
+        
+        # Reset states
         self.is_cancelled = False
         self.processing_complete = False
+        self.start_time = time.time()
+        
+        # Update tab manager state
+        if self.dialog.tab_manager:
+            self.dialog.tab_manager.processing_active = True
+            self.dialog.tab_manager.processing_started = True
+        
+        print("🎬 Starting processing thread...")
         
         def process():
+            """Background processing function"""
             try:
-                if processing_callback:
-                    print("🔍 DEBUG: About to call processing callback")
-                    result = processing_callback(self._update_progress)
-                    print(f"🔍 DEBUG: Processing returned result: {result}")
-                    
-                    if result and not self.is_cancelled:
-                        # Put the result directly in the queue
-                        self.ui_queue.put(result)
-                    else:
-                        print("❌ No result returned from processing or cancelled")
-                else:
-                    # Fallback simulation
-                    self._simulate_processing()
+                # Call the actual processing function
+                result = processing_callback(self._update_progress)
+                
+                if not self.is_cancelled:
+                    # Put result in queue for UI thread handling
+                    self.ui_queue.put(result)
                     
             except Exception as processing_exception:
-                print(f"❌ Processing failed: {processing_exception}")
+                print(f"❌ Processing error: {processing_exception}")
+                import traceback
+                traceback.print_exc()
+                
                 if not self.is_cancelled:
                     # Create error result
                     error_result = ProcessingResult(
                         success=False,
-                        duration="",
+                        duration="0s",
                         processed_files=[],
                         output_folder="",
                         error_message=str(processing_exception),
@@ -155,9 +161,9 @@ class ProcessingThreadManager:
                         except Exception as btn_error:
                             print(f"Button update error: {btn_error}")
                 
-                # FIXED: Update tab buttons to allow navigation
-                if self.dialog.tab_manager:
-                    self.dialog.tab_manager._update_tab_buttons(self.dialog.tab_manager.current_tab)
+                # FIXED: Update tab buttons to allow navigation using correct method path
+                if self.dialog.tab_manager and self.dialog.tab_manager.navigation:
+                    self.dialog.tab_manager.navigation._update_tab_buttons(self.dialog.tab_manager.current_tab)
                 
                 # Auto-advance to results after 3 seconds
                 self.dialog.root.after(3000, lambda: self._show_results_tab(result))
@@ -198,65 +204,46 @@ class ProcessingThreadManager:
             (100, "Complete!")
         ]
         
-        for progress, message in steps:
-            if self.is_cancelled:
-                return
+        def simulate():
+            for progress, step in steps:
+                if self.is_cancelled:
+                    break
+                
+                self._update_progress(progress, step)
+                time.sleep(0.5)
             
-            elapsed = time.time() - self.start_time if self.start_time else 0
-            self._update_progress(progress, message, elapsed)
-            time.sleep(1)
+            if not self.is_cancelled:
+                # Simulate successful result
+                result = ProcessingResult(
+                    success=True,
+                    duration="2.5s",
+                    processed_files=[{"output_name": "simulated_output.mp4"}],
+                    output_folder="C:/temp/output"
+                )
+                self.ui_queue.put(result)
         
-        # Create mock result
-        result = ProcessingResult(
-            success=True,
-            duration="2 minutes 30 seconds",
-            processed_files=[{
-                'version': 'v01',
-                'source_file': 'test.mp4',
-                'output_name': 'test_output',
-                'description': 'Test result'
-            }],
-            output_folder=r"C:\Users\Desktop\Test Output"
-        )
-        
-        # Put result in queue
-        try:
-            self.ui_queue.put(result)
-        except:
-            pass
-    
-    def _generate_error_solution(self, error_message: str) -> str:
-        """Generate error solutions based on message content"""
-        error_lower = error_message.lower()
-        
-        if "google drive" in error_lower and "404" in error_lower:
-            return """1. Check if the Google Drive folder link is correct and accessible
-2. Verify the folder is shared with your service account email  
-3. Ensure the folder contains video files (.mp4 or .mov)
-4. Try opening the Google Drive link in your browser to confirm access"""
-        
-        elif "trello" in error_lower:
-            return """1. Verify your Trello API key and token are correct
-2. Check if the Trello card ID exists and is accessible
-3. Ensure the Trello card has proper description with Google Drive link"""
-        
-        elif "ffmpeg" in error_lower:
-            return """1. Ensure FFmpeg is installed and available in your system PATH
-2. Check if input video files are not corrupted
-3. Verify you have enough disk space for processing"""
-        
-        else:
-            return """1. Check your internet connection
-2. Verify all API credentials are correct
-3. Ensure input files and links are accessible
-4. Try restarting the application"""
+        self.processing_thread = threading.Thread(target=simulate, daemon=True)
+        self.processing_thread.start()
     
     def cancel_processing(self):
-        """Cancel the current processing and update tab states"""
-        print("🛑 Canceling processing...")
+        """Cancel current processing"""
+        print("⏹️ Cancelling processing...")
         self.is_cancelled = True
         
-        # FIXED: Update tab manager state when cancelling
         if self.dialog.tab_manager:
             self.dialog.tab_manager.processing_active = False
-            self.dialog.tab_manager._update_tab_buttons(self.dialog.tab_manager.current_tab)
+    
+    def _generate_error_solution(self, error_message: str) -> str:
+        """Generate helpful solution for common errors"""
+        error_lower = error_message.lower()
+        
+        if "file not found" in error_lower:
+            return "Please check that all required files exist and paths are correct."
+        elif "permission" in error_lower:
+            return "Please check file permissions or try running as administrator."
+        elif "memory" in error_lower:
+            return "Please close other applications or try processing smaller files."
+        elif "ffmpeg" in error_lower:
+            return "Please ensure FFmpeg is installed and accessible."
+        else:
+            return "Please check the logs for more details or contact support."

@@ -1,8 +1,7 @@
-# app/src/automation/orchestrator/ui_preparation.py - FIXED VERSION
+# app/src/automation/orchestrator/ui_preparation.py - LIGHTWEIGHT FIX
 """
-UI Data Preparation Module
-Handles preparation of confirmation data and project info parsing
-Enhanced to respect user dropdown selections and prevent auto-detection override
+UI Data Preparation Module - LIGHTWEIGHT VIDEO COUNT FIX
+Just counts Google Drive files without downloading them
 """
 
 from ..workflow_dialog.helpers import create_confirmation_data_from_orchestrator
@@ -143,29 +142,22 @@ class UIPreparation:
         print(f"📊 PROJECT INFO includes account/platform: {self.orchestrator.detected_account_code}/{self.orchestrator.detected_platform_code}")
     
     def _create_confirmation_data(self, asset_issues):
-        """Create confirmation data for UI with REAL videos"""
+        """Create confirmation data for UI with LIGHTWEIGHT video count - NO DOWNLOADS"""
         
-        # FIXED: Get actual videos from Google Drive or use realistic placeholder
-        # Check if we have real downloaded videos
-        if hasattr(self.orchestrator, 'downloaded_videos') and self.orchestrator.downloaded_videos:
-            actual_videos = self.orchestrator.downloaded_videos
-        else:
-            # Use a realistic single video name based on the project
-            project_name = self.orchestrator.project_info.get('project_name', 'Video')
-            account_code = self.orchestrator.detected_account_code
-            
-            # Create realistic filename
-            actual_videos = [f"GH_{account_code}_{project_name.replace(' ', '_')}_Ad.mp4"]
+        # NEW: Lightweight approach - just count files, don't download
+        print("🔍 Getting video count from Google Drive (lightweight)...")
         
-        print(f"DEBUG: Using videos for UI: {actual_videos}")
-        print(f"DEBUG: Video count: {len(actual_videos)}")
+        video_list = self._get_video_list_from_drive()
         
-        # Create confirmation data with REAL video data
+        print(f"DEBUG: Using videos for UI: {video_list}")
+        print(f"DEBUG: Video count: {len(video_list)}")
+        
+        # Create confirmation data with video list (not actual downloads)
         confirmation_data = create_confirmation_data_from_orchestrator(
             card_data=self.orchestrator.card_data,
             processing_mode=self.orchestrator.processing_mode,
             project_info=self.orchestrator.project_info,
-            downloaded_videos=actual_videos,  # Use actual videos, NOT mock
+            downloaded_videos=video_list,  # Use video list for display
             validation_issues=asset_issues
         )
         
@@ -178,11 +170,82 @@ class UIPreparation:
         print(f"   Account: {confirmation_data.account}")
         print(f"   Platform: {confirmation_data.platform}")
         print(f"   Processing Mode: {confirmation_data.processing_mode}")
+        print(f"   Video Count: {len(confirmation_data.client_videos)}")
         
         # Store confirmation data for later access
         self.orchestrator.confirmation_data = confirmation_data
         
         return confirmation_data
+    
+    def _get_video_list_from_drive(self):
+        """NEW: Get video file list from Google Drive WITHOUT downloading - FAST"""
+        
+        try:
+            # Extract Google Drive link from card description
+            card_desc = self.orchestrator.card_data.get('desc', '')
+            
+            if 'drive.google.com' not in card_desc:
+                print(f"❌ No Google Drive link found in card description")
+                return self._create_fallback_video_list()
+            
+            # Extract folder ID
+            import re
+            match = re.search(r'https://drive\.google\.com/drive/folders/([\w-]+)', card_desc)
+            if not match:
+                print(f"❌ Could not extract folder ID from Google Drive link")
+                return self._create_fallback_video_list()
+            
+            folder_id = match.group(1)
+            print(f"🔗 Found Google Drive folder ID: {folder_id}")
+            
+            # Get Google credentials
+            from ..api_clients import get_google_creds
+            creds = get_google_creds()
+            if not creds:
+                print(f"❌ Could not get Google credentials")
+                return self._create_fallback_video_list()
+            
+            # Create Drive service and list files (NO DOWNLOAD)
+            from googleapiclient.discovery import build
+            service = build("drive", "v3", credentials=creds)
+            
+            # Query for video files in the folder
+            query = f"'{folder_id}' in parents and mimeType contains 'video/'"
+            results = service.files().list(
+                q=query, 
+                fields="files(id, name, size)"
+            ).execute()
+            
+            files = results.get("files", [])
+            print(f"📁 Found {len(files)} video files in Google Drive folder")
+            
+            if not files:
+                print(f"⚠️ No video files found in Google Drive folder")
+                return self._create_fallback_video_list()
+            
+            # Create list of video names (for display purposes)
+            video_names = []
+            for file_info in files:
+                file_name = file_info['name']
+                video_names.append(file_name)
+                print(f"  📹 {file_name}")
+            
+            return video_names
+            
+        except Exception as e:
+            print(f"❌ Error getting video list from Google Drive: {e}")
+            return self._create_fallback_video_list()
+    
+    def _create_fallback_video_list(self):
+        """Create fallback video list when Google Drive access fails"""
+        project_name = self.orchestrator.project_info.get('project_name', 'Video')
+        account_code = self.orchestrator.detected_account_code
+        
+        # Create realistic filename
+        fallback_video = f"GH_{account_code}_{project_name.replace(' ', '_')}_Ad.mp4"
+        print(f"📝 Using fallback video list: [{fallback_video}]")
+        
+        return [fallback_video]
     
     def update_with_user_selections(self, user_selections):
         """NEW: Update orchestrator with user selections from dropdowns"""

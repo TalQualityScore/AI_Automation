@@ -1,6 +1,6 @@
 # app/src/automation/workflow_ui_components/confirmation_tab/main_tab.py
 """
-Main Confirmation Tab Controller
+Main Confirmation Tab Controller - FIXED: No scrolling + Working refresh methods
 Modular architecture with organized sections
 """
 
@@ -98,93 +98,98 @@ class ConfirmationTab:
         return self.use_transitions.get()
     
     def create_tab(self):
-        """Create and return the tab frame - MODULAR VERSION"""
+        """Create and return the tab frame - FIXED VERSION WITHOUT SCROLLING"""
         if not hasattr(self, 'frame'):
             self.frame = ttk.Frame(self.parent, style='White.TFrame')
             self._create_ui_in_frame(self.frame)
         return self.frame
     
     def _create_ui_in_frame(self, parent_frame):
-        """Create confirmation UI with modular sections"""
-        # Main scrollable frame
+        """Create confirmation UI with modular sections - FIXED: No scrolling"""
+        # REMOVED: All scrolling components (Canvas, Scrollbar, etc.)
+        # Main container - simple frame without scrolling
         main_frame = ttk.Frame(parent_frame, style='White.TFrame')
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=30, pady=20)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=30, pady=(20, 100))  # Added bottom padding for buttons
         
-        # Create scrollable area
-        canvas = tk.Canvas(main_frame, bg='white', highlightthickness=0, height=500)
-        scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas, style='White.TFrame')
-        
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-        
-        # Better mousewheel binding
-        def _on_mousewheel(event):
-            if canvas.winfo_exists():
-                canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        
-        def _bind_mousewheel(event):
-            canvas.bind_all("<MouseWheel>", _on_mousewheel)
-        
-        def _unbind_mousewheel(event):
-            canvas.unbind_all("<MouseWheel>")
-        
-        canvas.bind('<Enter>', _bind_mousewheel)
-        canvas.bind('<Leave>', _unbind_mousewheel)
-        
-        # Content sections
-        content_frame = ttk.Frame(scrollable_frame, style='White.TFrame')
-        content_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=(5, 20))
+        # Content sections - direct frame, no scrolling needed
+        content_frame = ttk.Frame(main_frame, style='White.TFrame')
+        content_frame.pack(fill=tk.BOTH, expand=True)
         
         # Initialize and create all sections
         self._create_sections(content_frame)
         
-        # Pack canvas and scrollbar
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        # ADD BUTTONS DIRECTLY HERE
-        self._create_action_buttons(parent_frame)
-
-    def _create_action_buttons(self, parent_frame):
-        """Create action buttons at the bottom of the confirmation tab"""
-        # Create button frame at the bottom of the parent frame
-        button_frame = ttk.Frame(parent_frame, style='White.TFrame')
-        button_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=40, pady=(10, 20))
-        
-        button_container = ttk.Frame(button_frame, style='White.TFrame')
-        button_container.pack()
-        
-        # Cancel button
-        cancel_btn = ttk.Button(
-            button_container, 
-            text="❌ CANCEL", 
-            style='Secondary.TButton',
-            command=self._on_cancel
+        print("DEBUG: Fixed confirmation tab created without scrolling")
+    
+    def _create_sections(self, parent):
+        """Create all sections in order - FIXED: Correct constructor calls"""
+        # 1. Project Information Section - Fixed constructor call
+        self.sections['project'] = ProjectSection(
+            parent, self.data, self.theme, self
         )
-        cancel_btn.pack(side=tk.LEFT, padx=(0, 15))
         
-        # Confirm button
-        confirm_btn = ttk.Button(
-            button_container, 
-            text="✅ CONFIRM & RUN", 
-            style='Accent.TButton', 
-            command=self._on_confirm
+        # 2. Validation Section (only if needed)
+        if hasattr(self.data, 'issues') and self.data.issues:
+            self.sections['validation'] = ValidationSection(
+                parent, self.data, self.theme, self
+            )
+        
+        # 3. Processing Options Section  
+        self.sections['processing'] = ProcessingSection(
+            parent, self.data, self.theme, self
         )
-        confirm_btn.pack(side=tk.LEFT)
-        confirm_btn.focus_set()
         
-        # Store reference
-        self.button_frame = button_frame
+        # 4. Processing Summary Section
+        self.sections['summary'] = SummarySection(
+            parent, self.data, self.theme, self
+        )
         
-        print("DEBUG: Buttons created in confirmation tab")
-        print(f"DEBUG: Button frame visible: {button_frame.winfo_viewable()}")
-
+        # 5. Output Location Section
+        self.sections['output'] = OutputSection(
+            parent, self.data, self.theme, self
+        )
+        
+        print("DEBUG: All confirmation sections created successfully")
+    
+    def refresh_summary(self):
+        """Refresh summary section when settings change - FIXED WITH DEBUGGING"""
+        print("DEBUG: refresh_summary() called")
+        try:
+            if hasattr(self, 'sections') and 'summary' in self.sections:
+                if hasattr(self.sections['summary'], 'refresh'):
+                    print("DEBUG: Calling summary.refresh()")
+                    self.sections['summary'].refresh()
+                    print("DEBUG: Summary section refreshed successfully")
+                else:
+                    print("DEBUG: Summary section doesn't have refresh method")
+                    # Force recreate the summary content
+                    if hasattr(self.sections['summary'], '_update_summary_content'):
+                        self.sections['summary']._update_summary_content()
+                        print("DEBUG: Summary content updated directly")
+            else:
+                print("DEBUG: No summary section found in sections")
+        except Exception as e:
+            print(f"DEBUG: Error in refresh_summary: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def refresh_output_location(self):
+        """Refresh output location when project name changes - FIXED WITH DEBUGGING"""
+        print("DEBUG: refresh_output_location() called")
+        try:
+            if hasattr(self, 'sections') and 'output' in self.sections:
+                if hasattr(self.sections['output'], 'refresh'):
+                    print("DEBUG: Calling output.refresh()")
+                    self.sections['output'].refresh()
+                    print("DEBUG: Output section refreshed successfully")
+                else:
+                    print("DEBUG: Output section doesn't have refresh method")
+            else:
+                print("DEBUG: No output section found in sections")
+        except Exception as e:
+            print(f"DEBUG: Error in refresh_output_location: {e}")
+            import traceback
+            traceback.print_exc()
+    
     def _on_cancel(self):
         """Handle cancel button click"""
         if self.dialog_controller:
@@ -205,44 +210,69 @@ class ConfirmationTab:
         else:
             print("WARNING: No dialog controller set")
     
-    def _create_sections(self, content_frame):
-        """Create all modular sections - FIXED ORDER"""
-        # Project Info Section (with dropdowns)
-        self.sections['project'] = ProjectSection(
-            content_frame, self.data, self.theme, self
-        )
+    def validate_data(self) -> list[ValidationIssue]:
+        """Validate current configuration"""
+        issues = []
         
-        # Validation Section
-        self.sections['validation'] = ValidationSection(
-            content_frame, self.data, self.theme, self
-        )
+        # Basic validation
+        if not self.data.project_name or self.data.project_name.strip() == "":
+            issues.append(ValidationIssue(
+                level="error",
+                message="Project name is required",
+                field="project_name"
+            ))
         
-        # REMOVED: Video Info Section - redundant with Processing Summary
-        # self.sections['video'] = VideoSection(
-        #     content_frame, self.data, self.theme, self
-        # )
+        if not hasattr(self.data, 'account') or not self.data.account:
+            issues.append(ValidationIssue(
+                level="error", 
+                message="Account selection is required",
+                field="account"
+            ))
         
-        # Processing Options BEFORE Summary
-        self.sections['processing'] = ProcessingSection(
-            content_frame, self.data, self.theme, self
-        )
+        if not hasattr(self.data, 'platform') or not self.data.platform:
+            issues.append(ValidationIssue(
+                level="error",
+                message="Platform selection is required", 
+                field="platform"
+            ))
         
-        # Summary Section (includes video count)
-        self.sections['summary'] = SummarySection(
-            content_frame, self.data, self.theme, self
-        )
+        if not hasattr(self.data, 'client_videos') or len(self.data.client_videos) == 0:
+            issues.append(ValidationIssue(
+                level="error",
+                message="At least one client video is required",
+                field="client_videos"
+            ))
         
-        # Output Location Section
-        self.sections['output'] = OutputSection(
-            content_frame, self.data, self.theme, self
-        )
+        # Check for missing output folder
+        if not hasattr(self.data, 'output_folder') or not self.data.output_folder:
+            issues.append(ValidationIssue(
+                level="warning",
+                message="Output folder not specified - will use default location",
+                field="output_folder"
+            ))
+        
+        return issues
     
-    def refresh_summary(self):
-        """Refresh summary section when settings change"""
-        if 'summary' in self.sections:
-            self.sections['summary'].refresh()
+    def refresh_data(self, new_data: ConfirmationData):
+        """Refresh tab with new data"""
+        self.data = new_data
+        
+        # Update section data if sections exist
+        if hasattr(self, 'sections'):
+            for section_name, section in self.sections.items():
+                if hasattr(section, 'refresh_data'):
+                    section.refresh_data(new_data)
+        
+        print(f"DEBUG: Confirmation tab refreshed with new data")
     
-    def refresh_output_location(self):
-        """Refresh output location when project name changes"""
-        if 'output' in self.sections:
-            self.sections['output'].refresh()
+    def get_current_settings(self) -> dict:
+        """Get current user settings from all sections"""
+        settings = {
+            'project_name': self.project_name_var.get() if hasattr(self, 'project_name_var') else self.data.project_name,
+            'account': self.account_var.get() if hasattr(self, 'account_var') else getattr(self.data, 'account', ''),
+            'platform': self.platform_var.get() if hasattr(self, 'platform_var') else getattr(self.data, 'platform', ''),
+            'processing_mode': self.processing_mode_var.get() if hasattr(self, 'processing_mode_var') else getattr(self.data, 'processing_mode', ''),
+            'use_transitions': self.use_transitions.get() if hasattr(self, 'use_transitions') else True
+        }
+        
+        return settings
