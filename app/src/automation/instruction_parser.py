@@ -30,8 +30,11 @@ class InstructionParser:
             r"quiz\s+outro\s+only",
             r"only\s+quiz",
             r"just\s+quiz",
-            r"quiz\s+funnel",           # NEW: Added for your card
-            r"quiz\s+male\s+outro"      # NEW: Added for your card
+            r"quiz\s+funnel",           
+            r"quiz\s+male\s+outro",
+            r"quiz\s+outro",            # Add this
+            r"testing.*quiz",           # Add this - "testing queue on both VSL and Quiz"
+            r"on.*quiz"                 # Add this - "on both VSL and Quiz funnels"
         ]
         
         self.connector_quiz_patterns = [
@@ -169,20 +172,32 @@ class InstructionParser:
         
         # If no connector combinations found, check for individual modes
         if not detected_modes:
-            # Check for critical VSL patterns first
-            if self._check_patterns(description_lower, self.critical_vsl_patterns):
-                detected_modes.append("vsl_only")
-                print("📋 Detected: VSL ONLY mode (Critical Pattern)")
-            
-            # Check for regular patterns - CAN DETECT MULTIPLE
-            if self._check_patterns(description_lower, self.vsl_patterns):
-                if "vsl_only" not in detected_modes:
+            # Check if explicitly mentions BOTH VSL and Quiz
+            if ("vsl" in description_lower and "quiz" in description_lower and 
+                ("both" in description_lower or "and" in description_lower)):
+                print("📋 Detected BOTH modes mentioned together")
+                if self._check_patterns(description_lower, self.vsl_patterns):
                     detected_modes.append("vsl_only")
                     print("📋 Detected: VSL ONLY mode")
+                if self._check_patterns(description_lower, self.quiz_patterns):
+                    detected_modes.append("quiz_only")
+                    print("📋 Detected: QUIZ ONLY mode")
+            else:
+                # Check for critical VSL patterns first
+                if self._check_patterns(description_lower, self.critical_vsl_patterns):
+                    detected_modes.append("vsl_only")
+                    print("📋 Detected: VSL ONLY mode (Critical Pattern)")
+                
+                # Check for regular patterns - CAN DETECT MULTIPLE
+                if self._check_patterns(description_lower, self.vsl_patterns):
+                    if "vsl_only" not in detected_modes:
+                        detected_modes.append("vsl_only")
+                        print("📋 Detected: VSL ONLY mode")
             
             if self._check_patterns(description_lower, self.quiz_patterns):
-                detected_modes.append("quiz_only")
-                print("📋 Detected: QUIZ ONLY mode")
+                if "quiz_only" not in detected_modes:  # Add this check
+                    detected_modes.append("quiz_only")
+                    print("📋 Detected: QUIZ ONLY mode")
             
             if self._check_patterns(description_lower, self.svsl_patterns):
                 detected_modes.append("svsl_only")

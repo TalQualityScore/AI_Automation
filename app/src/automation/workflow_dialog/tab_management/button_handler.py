@@ -1,5 +1,5 @@
 # app/src/automation/workflow_dialog/tab_management/button_handler.py
-"""Button Handler - MINIMAL CHANGE - Only updated button positioning for 850px height"""
+"""Button Handler - Manages all button creation and actions - FIXED STYLING"""
 
 import tkinter as tk
 from tkinter import ttk
@@ -20,7 +20,7 @@ class ButtonHandler:
             self.tm.confirmation_buttons = None
     
     def add_confirmation_buttons_overlay(self):
-        """Add buttons as overlay with improved styling - UPDATED FOR 850px HEIGHT"""
+        """Add buttons as overlay with improved styling - FIXED VERSION"""
         print("=" * 50)
         print("DEBUG: add_confirmation_buttons_overlay() called")
         
@@ -31,8 +31,8 @@ class ButtonHandler:
         window_height = self.tm.dialog.root.winfo_height()
         window_width = self.tm.dialog.root.winfo_width()
         
-        # ONLY CHANGE: Updated button position for 850px height (was 650, now 765)
-        button_y = max(window_height - 85, 765)  # Updated fallback for 850px window
+        # Calculate button position (85px from bottom for better spacing)
+        button_y = max(window_height - 85, 765)
         
         # Create button frame with proper styling
         button_frame = tk.Frame(
@@ -125,8 +125,6 @@ class ButtonHandler:
         
         # Get window dimensions for dynamic positioning
         window_height = self.tm.dialog.root.winfo_height()
-        
-        # ONLY CHANGE: Updated position for 850px height
         button_y = max(window_height - 85, 765)
         
         message_frame = tk.Frame(

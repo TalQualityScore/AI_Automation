@@ -38,11 +38,22 @@ class ProjectSection:
         for mode in mode_options:
             self.mode_vars[mode] = tk.BooleanVar()
         
-        # Set initial selection based on detected mode
-        current_mode = getattr(self.data, 'processing_mode', 'quiz_only')
-        if current_mode in self.mode_vars:
-            self.mode_vars[current_mode].set(True)
-            print(f"✅ Pre-selected mode: {current_mode}")
+        # Check if multi-mode was detected
+        detected_modes = getattr(self.data, 'detected_modes', None)
+        selected_modes = getattr(self.data, 'selected_processing_modes', None)
+        
+        if selected_modes and len(selected_modes) > 1:
+            # Multi-mode detected - check all detected modes
+            for mode in selected_modes:
+                if mode in self.mode_vars:
+                    self.mode_vars[mode].set(True)
+            print(f"✅ Pre-selected modes: {selected_modes}")
+        else:
+            # Single mode - only check the one mode
+            current_mode = getattr(self.data, 'processing_mode', 'quiz_only')
+            if current_mode in self.mode_vars:
+                self.mode_vars[current_mode].set(True)
+                print(f"✅ Pre-selected mode: {current_mode}")
     
     def create_section(self):
         """Create project info section - UNCHANGED structure"""
@@ -69,7 +80,7 @@ class ProjectSection:
         info_frame = ttk.Frame(parent, style='White.TFrame')
         info_frame.pack(fill=tk.X, pady=2)
         ttk.Label(info_frame, text="Project:", style='Body.TLabel',
-                 font=('Segoe UI', 10), width=14).pack(side=tk.LEFT)
+                 font=('Segoe UI', 10), width=10).pack(side=tk.LEFT)
         
         self.main_tab.project_name_var.set(self.data.project_name)
         self.main_tab.project_name_entry = ttk.Entry(
@@ -86,7 +97,7 @@ class ProjectSection:
         info_frame = ttk.Frame(parent, style='White.TFrame')
         info_frame.pack(fill=tk.X, pady=2)
         ttk.Label(info_frame, text="Account:", style='Body.TLabel',
-                 font=('Segoe UI', 10), width=14).pack(side=tk.LEFT)
+                 font=('Segoe UI', 10), width=10).pack(side=tk.LEFT)
         
         self.main_tab.account_var.set(self._get_default_account_selection())
         account_combo = ttk.Combobox(
@@ -105,7 +116,7 @@ class ProjectSection:
         info_frame = ttk.Frame(parent, style='White.TFrame')
         info_frame.pack(fill=tk.X, pady=2)
         ttk.Label(info_frame, text="Platform:", style='Body.TLabel',
-                 font=('Segoe UI', 10), width=14).pack(side=tk.LEFT)
+                 font=('Segoe UI', 10), width=10).pack(side=tk.LEFT)
         
         self.main_tab.platform_var.set(self._get_default_platform_selection())
         platform_combo = ttk.Combobox(
@@ -120,29 +131,93 @@ class ProjectSection:
         platform_combo.bind('<<ComboboxSelected>>', self._on_platform_change)
     
     def _create_processing_mode_multiselect(self, parent):
-        """NEW: Create multi-select processing mode section"""
+        """Create dropdown-style multi-select processing mode section"""
         # Header
-        header_frame = ttk.Frame(parent, style='White.TFrame')
-        header_frame.pack(fill=tk.X, pady=2)
+        info_frame = ttk.Frame(parent, style='White.TFrame')
+        info_frame.pack(fill=tk.X, pady=2)
         
-        ttk.Label(header_frame, text="Processing:", style='Body.TLabel',
-                 font=('Segoe UI', 10), width=14).pack(side=tk.LEFT)
+        ttk.Label(info_frame, text="Processing:", style='Body.TLabel',
+                 font=('Segoe UI', 10), width=10).pack(side=tk.LEFT)
         
-        ttk.Label(header_frame, text="(Select one or more)", style='Body.TLabel',
-                 font=('Segoe UI', 9), foreground='gray').pack(side=tk.LEFT)
+        # Create a frame that looks like a dropdown
+        self.mode_dropdown_frame = ttk.Frame(info_frame, style='White.TFrame')
+        self.mode_dropdown_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
         
-        # Checkbox container
-        checkbox_frame = ttk.Frame(parent, style='White.TFrame')
-        checkbox_frame.pack(fill=tk.X, padx=(110, 0))  # Indent to align with other fields
+        # Create the dropdown button
+        self.mode_button = tk.Button(
+            self.mode_dropdown_frame,
+            text=self._get_mode_display_text(),
+            font=('Segoe UI', 10),
+            bg='white',
+            fg='black',
+            bd=1,
+            relief='solid',
+            anchor='w',
+            padx=5,
+            width=35,
+            command=self._toggle_mode_dropdown
+        )
+        self.mode_button.pack(side=tk.LEFT)
         
-        # Create checkboxes in two columns
-        left_column = ttk.Frame(checkbox_frame, style='White.TFrame')
-        left_column.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # Create dropdown arrow
+        arrow_label = tk.Label(
+            self.mode_dropdown_frame,
+            text="▼",
+            font=('Segoe UI', 8),
+            bg='white',
+            fg='gray'
+        )
+        arrow_label.place(relx=0.95, rely=0.5, anchor='e')
         
-        right_column = ttk.Frame(checkbox_frame, style='White.TFrame')
-        right_column.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # Create the dropdown menu (initially hidden)
+        self.mode_menu = None
+        self.menu_visible = False
         
-        # Mode options with display names
+    def _get_mode_display_text(self):
+        """Get display text for selected modes"""
+        selected = self.get_selected_processing_modes()
+        if not selected:
+            return "(Select one or more)"
+        elif len(selected) == 1:
+            mode_names = {
+                'save_only': 'Save As Is',
+                'quiz_only': 'Add Quiz Outro',
+                'vsl_only': 'Add VSL',
+                'svsl_only': 'Add SVSL',
+                'connector_quiz': 'Connector + Quiz',
+                'connector_vsl': 'Connector + VSL',
+                'connector_svsl': 'Connector + SVSL'
+            }
+            return mode_names.get(selected[0], selected[0])
+        else:
+            return f"{len(selected)} modes selected"
+    
+    def _toggle_mode_dropdown(self):
+        """Toggle the dropdown menu visibility"""
+        if self.menu_visible:
+            self._hide_mode_menu()
+        else:
+            self._show_mode_menu()
+    
+    def _show_mode_menu(self):
+        """Show the mode selection menu"""
+        if self.mode_menu:
+            self.mode_menu.destroy()
+        
+        # Create dropdown window
+        self.mode_menu = tk.Toplevel(self.mode_button)
+        self.mode_menu.wm_overrideredirect(True)
+        
+        # Position below button
+        x = self.mode_button.winfo_rootx()
+        y = self.mode_button.winfo_rooty() + self.mode_button.winfo_height()
+        self.mode_menu.geometry(f"+{x}+{y}")
+        
+        # Create menu frame
+        menu_frame = tk.Frame(self.mode_menu, bg='white', bd=1, relief='solid')
+        menu_frame.pack()
+        
+        # Add checkboxes
         mode_options = [
             ("save_only", "Save As Is"),
             ("quiz_only", "Add Quiz Outro"),
@@ -153,18 +228,61 @@ class ProjectSection:
             ("connector_svsl", "Add Connector + SVSL")
         ]
         
-        # Distribute checkboxes across columns
-        for i, (mode_code, display_name) in enumerate(mode_options):
-            target_column = left_column if i < 4 else right_column
+        for mode_code, display_name in mode_options:
+            cb_frame = tk.Frame(menu_frame, bg='white')
+            cb_frame.pack(fill=tk.X, padx=5, pady=2)
             
-            checkbox = ttk.Checkbutton(
-                target_column,
+            cb = tk.Checkbutton(
+                cb_frame,
                 text=display_name,
                 variable=self.mode_vars[mode_code],
-                style='Body.TCheckbutton',
-                command=lambda: self._on_processing_mode_change()
+                bg='white',
+                font=('Segoe UI', 9),
+                anchor='w',
+                command=self._on_mode_selection_change
             )
-            checkbox.pack(anchor=tk.W, pady=1)
+            cb.pack(fill=tk.X)
+        
+        # Add close button
+        close_frame = tk.Frame(menu_frame, bg='#f0f0f0')
+        close_frame.pack(fill=tk.X, pady=(5, 0))
+        
+        close_btn = tk.Button(
+            close_frame,
+            text="Done",
+            font=('Segoe UI', 9),
+            bg='#0078d4',
+            fg='white',
+            bd=0,
+            padx=10,
+            pady=3,
+            command=self._hide_mode_menu
+        )
+        close_btn.pack(pady=3)
+        
+        self.menu_visible = True
+        
+        # Bind click outside to close
+        self.mode_menu.bind("<FocusOut>", lambda e: self._hide_mode_menu())
+    
+    def _hide_mode_menu(self):
+        """Hide the mode selection menu"""
+        if self.mode_menu:
+            self.mode_menu.destroy()
+            self.mode_menu = None
+        self.menu_visible = False
+    
+    def _on_mode_selection_change(self):
+        """Handle mode selection change"""
+        # Update button text
+        self.mode_button.config(text=self._get_mode_display_text())
+        
+        # Get selected modes
+        selected_modes = self.get_selected_processing_modes()
+        
+        # Notify main tab to refresh other sections
+        if hasattr(self.main_tab, 'on_processing_modes_changed'):
+            self.main_tab.on_processing_modes_changed(selected_modes)
     
     def _create_info_note(self, parent):
         """Create info note - UNCHANGED"""

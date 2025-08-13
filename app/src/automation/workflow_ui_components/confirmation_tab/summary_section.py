@@ -213,8 +213,36 @@ class SummarySection:
         self._update_summary_content()
     
     def refresh_with_modes(self, selected_modes):
-        """NEW: Refresh summary with specific modes (for multi-mode support)"""
-        # This method can be used when we want to pass modes directly
-        # For now, just call the regular refresh since _update_summary_content 
-        # already gets modes from main_tab
-        self._update_summary_content()
+        """Refresh summary when modes change"""
+        # Update the display based on selected modes
+        if hasattr(self, 'mode_label'):
+            if len(selected_modes) > 1:
+                self.mode_label.config(text=f"• Processing modes: {len(selected_modes)} selected")
+                # Update any other multi-mode specific displays
+                mode_names = []
+                for mode in selected_modes:
+                    mode_name = {
+                        'quiz_only': 'Add Quiz Outro',
+                        'vsl_only': 'Add VSL',
+                        'svsl_only': 'Add SVSL',
+                        'connector_quiz': 'Add Connector + Quiz',
+                        'connector_vsl': 'Add Connector + VSL',
+                        'connector_svsl': 'Add Connector + SVSL',
+                        'save_only': 'Save As Is'
+                    }.get(mode, mode)
+                    mode_names.append(mode_name)
+                
+                # Update the detailed mode list if you have one
+                if hasattr(self, 'mode_details'):
+                    self.mode_details.config(text=f"  1. {mode_names[0]}\n  2. {mode_names[1]}")
+            else:
+                mode_name = {
+                    'quiz_only': 'Add Quiz Outro',
+                    'vsl_only': 'Add VSL',
+                    'svsl_only': 'Add SVSL',
+                    'connector_quiz': 'Add Connector + Quiz',
+                    'connector_vsl': 'Add Connector + VSL',
+                    'connector_svsl': 'Add Connector + SVSL',
+                    'save_only': 'Save As Is'
+                }.get(selected_modes[0], selected_modes[0])
+                self.mode_label.config(text=f"• Processing type: {mode_name}")

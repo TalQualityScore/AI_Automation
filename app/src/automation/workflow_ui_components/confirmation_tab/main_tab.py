@@ -300,6 +300,22 @@ class ConfirmationTab:
                     section.refresh_data(new_data)
         
         print(f"DEBUG: Confirmation tab refreshed with new data")
+
+    def on_processing_modes_changed(self, selected_modes):
+        """Handle when processing modes are changed in project section"""
+        print(f"🔄 Processing modes changed to: {selected_modes}")
+        
+        # Update the data
+        self.data.selected_processing_modes = selected_modes
+        self.data.processing_mode = selected_modes[0] if selected_modes else "save_only"
+        
+        # Refresh the summary section
+        if 'summary' in self.sections and hasattr(self.sections['summary'], 'refresh_with_modes'):
+            self.sections['summary'].refresh_with_modes(selected_modes)
+        
+        # Refresh the output section
+        if 'output' in self.sections and hasattr(self.sections['output'], 'refresh_with_modes'):
+            self.sections['output'].refresh_with_modes(selected_modes)
     
     def get_current_settings(self) -> dict:
         """UPDATED: Get current user settings including multi-mode"""
