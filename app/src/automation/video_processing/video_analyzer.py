@@ -11,6 +11,30 @@ from typing import Dict, List, Tuple, Optional
 from collections import Counter
 from .processor_config import ProcessorConfig
 
+_fallback_dimensions = None
+
+def set_fallback_dimensions(width, height):
+    """Set fallback dimensions for video processing when FFmpeg fails"""
+    global _fallback_dimensions
+    _fallback_dimensions = (width, height)
+    print(f"🔧 Fallback dimensions set: {width}x{height}")
+
+def get_fallback_dimensions():
+    """Get fallback dimensions"""
+    global _fallback_dimensions
+    return _fallback_dimensions or (1080, 1920)  # Default 9:16 vertical
+
+def get_video_dimensions_with_fallback(video_path):
+    """Get video dimensions with fallback support"""
+    try:
+        # Try normal FFmpeg method first (your existing get_video_dimensions)
+        analyzer = VideoAnalyzer()  # or use existing instance
+        return analyzer.get_video_dimensions(video_path)
+    except Exception as e:
+        print(f"⚠️ FFmpeg failed for {video_path}: {e}")
+        print(f"🔧 Using fallback dimensions: {get_fallback_dimensions()}")
+        return get_fallback_dimensions()
+
 class VideoAnalyzer:
     """Analyzes video files for specifications and compatibility"""
     
@@ -168,3 +192,22 @@ class VideoAnalyzer:
         
         ext = os.path.splitext(file_path)[1].lower()
         return ext in self.config.SUPPORTED_VIDEO_FORMATS
+    
+    def get_video_dimensions_with_fallback(self, video_path):
+        """Get video dimensions with fallback support"""
+        try:
+            return self.get_video_dimensions(video_path)
+        except Exception as e:
+            print(f"⚠️ FFmpeg failed for {video_path}: {e}")
+            print(f"🔧 Using fallback dimensions: {get_fallback_dimensions()}")
+            fallback_width, fallback_height = get_fallback_dimensions()
+            return (fallback_width, fallback_height, None)
+
+        # Export the fallback functions
+        __all__ = getattr(__all__, []) + [
+            'set_fallback_dimensions',
+            'get_fallback_dimensions', 
+            'get_video_dimensions_with_fallback'
+        ]
+    
+    

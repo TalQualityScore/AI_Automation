@@ -1,7 +1,8 @@
 # app/src/automation/workflow_ui_components/confirmation_tab/output_section.py
 """
-Output Location Section
+Output Location Section - COMPLETE CORRECTED VERSION
 Shows where the processed videos will be saved - ENHANCED for multi-mode
+FIXED: Title preservation when refreshing modes
 """
 
 import tkinter as tk
@@ -16,6 +17,7 @@ class OutputSection:
         self.theme = theme
         self.main_tab = main_tab
         self.output_location_label = None
+        self.title_label = None  # NEW: Track title label separately
         self.create_section()
     
     def create_section(self):
@@ -23,22 +25,13 @@ class OutputSection:
         section_frame = ttk.Frame(self.parent, style='White.TFrame')
         section_frame.pack(fill=tk.X, pady=(0, 5))
         
-        ttk.Label(section_frame, text="📁 Output Location", style='Body.TLabel',
-                 font=('Segoe UI', 11, 'bold')).pack(anchor=tk.W)
+        # Create and store reference to title label
+        self.title_label = ttk.Label(section_frame, text="📁 Output Location", 
+                                   style='Body.TLabel', font=('Segoe UI', 11, 'bold'))
+        self.title_label.pack(anchor=tk.W)
         
         # Check for actually selected modes (from checkboxes), not detected modes
-        # First check if user has made selections, otherwise check detected
-        selected_modes = []
-        
-        # Try to get the actual selections from project section
-        if hasattr(self.main_tab, 'sections') and 'project' in self.main_tab.sections:
-            project_section = self.main_tab.sections['project']
-            if hasattr(project_section, 'get_selected_processing_modes'):
-                selected_modes = project_section.get_selected_processing_modes()
-        
-        # If no selections yet, fall back to single mode
-        if not selected_modes:
-            selected_modes = [getattr(self.data, 'processing_mode', 'save_only')]
+        selected_modes = self._get_selected_modes()
         
         if len(selected_modes) > 1:
             # Multi-mode display
@@ -54,6 +47,22 @@ class OutputSection:
                 foreground='#605e5c'
             )
             self.output_location_label.pack(anchor=tk.W, padx=(15, 0))
+    
+    def _get_selected_modes(self):
+        """Get currently selected processing modes"""
+        selected_modes = []
+        
+        # Try to get the actual selections from project section
+        if hasattr(self.main_tab, 'sections') and 'project' in self.main_tab.sections:
+            project_section = self.main_tab.sections['project']
+            if hasattr(project_section, 'get_selected_processing_modes'):
+                selected_modes = project_section.get_selected_processing_modes()
+        
+        # If no selections yet, fall back to single mode
+        if not selected_modes:
+            selected_modes = [getattr(self.data, 'processing_mode', 'save_only')]
+        
+        return selected_modes
     
     def _create_multi_mode_display(self, parent, selected_modes):
         """NEW: Create multi-mode output display"""
@@ -102,23 +111,39 @@ class OutputSection:
             self.output_location_label.config(text=location_text)
 
     def refresh_with_modes(self, selected_modes):
-        """Refresh output display when modes change"""
-        # Clear all widgets in parent
-        for widget in self.parent.winfo_children():
-            widget.destroy()
+        """FIXED: Refresh output display when modes change - PRESERVES TITLE"""
         
-        # Recreate the title
-        ttk.Label(self.parent, text="📁 Output Location", style='Body.TLabel',
-                 font=('Segoe UI', 11, 'bold')).pack(anchor=tk.W)
+        # Clear only the content widgets, NOT the title
+        widgets_to_preserve = []
+        widgets_to_remove = []
+        
+        for widget in self.parent.winfo_children():
+            widget_text = ""
+            try:
+                widget_text = widget.cget('text') if hasattr(widget, 'cget') else ""
+            except:
+                pass
+            
+            # Preserve the title label
+            if "📁 Output Location" in widget_text:
+                widgets_to_preserve.append(widget)
+                self.title_label = widget  # Update reference
+            else:
+                widgets_to_remove.append(widget)
+        
+        # Remove only non-title widgets
+        for widget in widgets_to_remove:
+            widget.destroy()
         
         # Update data
         self.data.selected_processing_modes = selected_modes
         
-        # Create appropriate display
+        # Create appropriate display based on selected modes
         if len(selected_modes) > 1:
+            # Multi-mode display
             self._create_multi_mode_display(self.parent, selected_modes)
         else:
-            # Single mode or no mode
+            # Single mode display
             if selected_modes:
                 mode_suffix = self._get_mode_suffix(selected_modes[0])
                 project_name = getattr(self.data, 'project_name', 'Project')
@@ -129,6 +154,7 @@ class OutputSection:
             else:
                 location_text = "Will be determined during processing"
             
+            # Create single mode label
             self.output_location_label = ttk.Label(
                 self.parent, 
                 text=location_text,
@@ -137,3 +163,10 @@ class OutputSection:
                 foreground='#605e5c'
             )
             self.output_location_label.pack(anchor=tk.W, padx=(15, 0))
+        
+        print(f"✅ Output location refreshed with {len(selected_modes)} modes - title preserved")
+    
+    def refresh_data(self, new_data):
+        """Refresh section with new data"""
+        self.data = new_data
+        self.refresh()

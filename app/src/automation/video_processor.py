@@ -9,7 +9,10 @@ import shutil
 from typing import Optional, List, Tuple, Dict
 from .video_processing import (
     VideoAnalyzer, AssetManager, ConcatProcessor,
-    TransitionProcessor, ProcessorConfig
+    TransitionProcessor, ProcessorConfig,
+    # NEW: Import fallback functions
+    set_fallback_dimensions, get_fallback_dimensions, 
+    get_video_dimensions_with_fallback
 )
 
 class VideoProcessor:
@@ -238,3 +241,15 @@ def _get_svsl_video() -> Optional[str]:
 def _get_vsl_video() -> Optional[str]:
     processor = _get_default_processor()
     return processor.asset_manager.get_vsl_video()
+
+__all__ = [
+    'VideoProcessor',
+    'set_processor_account_platform',
+    'process_video_sequence', 
+    'configure_transitions',
+    'get_video_dimensions',
+    # NEW: Export fallback functions
+    'set_fallback_dimensions',
+    'get_fallback_dimensions',
+    'get_video_dimensions_with_fallback'
+]
