@@ -14,8 +14,8 @@ from .video_processing_modules import (
     TimeoutManager, OutputBuilder
 )
 
-class VideoProcessor:
-    """Handles video processing operations - REFACTORED"""
+class VideoProcessingOrchestrator:
+    """Handles video processing orchestration - REFACTORED"""
     
     def __init__(self, orchestrator):
         self.orchestrator = orchestrator
@@ -187,6 +187,8 @@ class VideoProcessor:
             return "svsl"
         elif "vsl" in processing_mode:
             return "vsl"
+        elif processing_mode == "save_only":
+            return ""  # No type designation for save_only
         return "quiz"
     
     def _get_type_suffix(self, processing_mode):

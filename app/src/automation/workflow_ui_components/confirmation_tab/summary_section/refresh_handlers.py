@@ -58,8 +58,8 @@ class RefreshHandlers:
         self._reset_label_references()
         
         # Get current data
-        video_count = self.ss.data_extractors.get_video_count()
-        selected_modes = self.ss.data_extractors.get_selected_modes()
+        video_count = self.ss.mode_analyzers.get_video_count()
+        selected_modes = self.ss.mode_analyzers.get_selected_modes()
         
         # Create video count display
         self._create_video_count_display(video_count)
@@ -138,17 +138,18 @@ class RefreshHandlers:
                 if hasattr(self.ss, 'mode_details') and self.ss.mode_details:
                     details_text = ""
                     for i, mode in enumerate(selected_modes, 1):
-                        mode_display = self.ss.mode_formatters.get_mode_display(mode)
-                        details_text += f"  {i}. {mode_display}\n"
+                        mode_display = self.ss.mode_analyzers.get_mode_display_name(mode)
+                        details_text += f"• {mode_display}\n"
                     self.ss.mode_details.config(text=details_text.strip())
             else:
                 # Single mode display
-                mode_display = self.ss.mode_formatters.get_mode_display(selected_modes[0] if selected_modes else 'save_only')
+                mode_display = self.ss.mode_analyzers.get_mode_display_name(selected_modes[0] if selected_modes else 'save_only')
                 self.ss.mode_label.config(text=f"• Processing type: {mode_display}")
                 
-                # Clear detailed mode list for single mode
+                # Remove detailed mode list widget for single mode to prevent extra spacing
                 if hasattr(self.ss, 'mode_details') and self.ss.mode_details:
-                    self.ss.mode_details.config(text="")
+                    self.ss.mode_details.destroy()
+                    self.ss.mode_details = None
             
             print(f"✅ Mode display updated for {len(selected_modes)} modes")
             
@@ -178,8 +179,8 @@ class RefreshHandlers:
             return
         
         try:
-            video_count = self.ss.data_extractors.get_video_count()
-            estimated_time = self.ss.time_calculator.calculate_estimated_time(video_count, selected_modes)
+            video_count = self.ss.mode_analyzers.get_video_count()
+            estimated_time = self.ss.time_calculators.calculate_estimated_time(video_count, selected_modes)
             
             self.ss.time_label.config(text=f"• Estimated processing time: {estimated_time}")
             print(f"✅ Time display updated: {estimated_time}")
@@ -245,7 +246,7 @@ class RefreshHandlers:
             
             if len(selected_modes) == 1:
                 # Single mode display
-                mode_display = self.ss.mode_formatters.get_mode_display(selected_modes[0])
+                mode_display = self.ss.mode_analyzers.get_mode_display_name(selected_modes[0])
                 self.ss.mode_label = ttk.Label(
                     self.ss.summary_frame, 
                     text=f"• Processing type: {mode_display}",
@@ -256,7 +257,7 @@ class RefreshHandlers:
                 
                 # Show endpoint if not save_only
                 if selected_modes[0] != 'save_only':
-                    endpoint = self.ss.mode_formatters.get_endpoint_from_mode(selected_modes[0])
+                    endpoint = self.ss.mode_analyzers.get_endpoint_from_mode(selected_modes[0])
                     endpoint_label = ttk.Label(
                         self.ss.summary_frame, 
                         text=f"• Videos will be connected to: {endpoint}",
@@ -277,8 +278,8 @@ class RefreshHandlers:
                 # Create detailed mode list
                 details_text = ""
                 for i, mode in enumerate(selected_modes, 1):
-                    mode_display = self.ss.mode_formatters.get_mode_display(mode)
-                    details_text += f"  {i}. {mode_display}\n"
+                    mode_display = self.ss.mode_analyzers.get_mode_display_name(mode)
+                    details_text += f"• {mode_display}\n"
                 
                 if details_text:
                     self.ss.mode_details = ttk.Label(
@@ -327,7 +328,7 @@ class RefreshHandlers:
             import tkinter as tk
             from tkinter import ttk
             
-            estimated_time = self.ss.time_calculator.calculate_estimated_time(video_count, selected_modes)
+            estimated_time = self.ss.time_calculators.calculate_estimated_time(video_count, selected_modes)
             
             self.ss.time_label = ttk.Label(
                 self.ss.summary_frame, 
@@ -340,6 +341,18 @@ class RefreshHandlers:
             
         except Exception as e:
             print(f"❌ Error creating time display: {e}")
+    
+    def update_transitions_display(self):
+        """PUBLIC: Update transitions display (called from content generators)"""
+        self._update_transitions_display()
+    
+    def handle_general_refresh(self):
+        """PUBLIC: Handle general refresh request (called from summary section)"""
+        self.refresh()
+    
+    def handle_mode_refresh(self, selected_modes):
+        """PUBLIC: Handle mode-specific refresh request (called from summary section)"""
+        self.refresh_with_modes(selected_modes)
     
     def force_refresh_transitions(self):
         """Force refresh of transitions display (called from processing section)"""

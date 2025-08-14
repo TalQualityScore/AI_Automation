@@ -21,6 +21,8 @@ class EventHandlers:
             if is_valid:
                 # Update data if name is valid
                 self.ps.data_helpers.update_project_name(new_name)
+                # Trigger comprehensive UI refresh
+                self._refresh_all_dependent_sections()
             else:
                 print(f"⚠️ Invalid project name: {error_message}")
                 # Could show user feedback here
@@ -41,6 +43,8 @@ class EventHandlers:
                 # Validate account code
                 if self.ps.dropdown_handlers.validate_account_code(account_code):
                     self.ps.data_helpers.update_account(account_code)
+                    # Trigger comprehensive UI refresh
+                    self._refresh_all_dependent_sections()
                 else:
                     print(f"⚠️ Invalid account code: {account_code}")
             else:
@@ -62,6 +66,8 @@ class EventHandlers:
                 # Validate platform code
                 if self.ps.dropdown_handlers.validate_platform_code(platform_code):
                     self.ps.data_helpers.update_platform(platform_code)
+                    # Trigger comprehensive UI refresh
+                    self._refresh_all_dependent_sections()
                 else:
                     print(f"⚠️ Invalid platform code: {platform_code}")
             else:
@@ -201,3 +207,47 @@ class EventHandlers:
             
         except Exception as e:
             print(f"⚠️ Error resetting to defaults: {e}")
+    
+    def _refresh_all_dependent_sections(self):
+        """Comprehensive UI refresh for live state binding"""
+        # Recursion protection
+        if hasattr(self, '_refreshing') and self._refreshing:
+            print("⚠️ Recursion detected - skipping refresh to prevent loop")
+            return
+        
+        try:
+            self._refreshing = True
+            print("🔄 Live state binding: Refreshing all dependent UI sections...")
+            
+            # Get current selections from UI state (source of truth)
+            selected_modes = self.ps.get_selected_processing_modes()
+            
+            # Update main tab data to current UI state
+            if hasattr(self.ps, 'main_tab') and self.ps.main_tab:
+                self.ps.main_tab.data.project_name = self.ps.main_tab.project_name_var.get()
+                self.ps.main_tab.data.selected_processing_modes = selected_modes
+                self.ps.main_tab.data.processing_mode = selected_modes[0] if selected_modes else 'save_only'
+                
+                # Refresh Processing Summary
+                if hasattr(self.ps.main_tab, 'sections') and 'summary' in self.ps.main_tab.sections:
+                    if hasattr(self.ps.main_tab.sections['summary'], 'refresh_with_modes'):
+                        self.ps.main_tab.sections['summary'].refresh_with_modes(selected_modes)
+                        print("✅ Processing Summary refreshed")
+                
+                # Refresh Output Location - full refresh to show N folders for N modes
+                if hasattr(self.ps.main_tab, 'sections') and 'output' in self.ps.main_tab.sections:
+                    if hasattr(self.ps.main_tab.sections['output'], 'refresh_with_modes'):
+                        self.ps.main_tab.sections['output'].refresh_with_modes(selected_modes)
+                        print(f"✅ Output Location fully refreshed - {len(selected_modes)} folders for {len(selected_modes)} modes")
+                    else:
+                        print("⚠️ Output section doesn't have refresh_with_modes method")
+            
+            print("✅ Live state binding complete")
+            
+        except Exception as e:
+            print(f"❌ Error in live state binding: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            # Always clear the recursion flag
+            self._refreshing = False

@@ -77,16 +77,39 @@ class StateHandler:
         
         # Define callbacks
         def on_open_folder():
-            """Open the output folder"""
+            """Open the output folder(s) - handles single and multi-mode"""
             try:
                 import os
                 import subprocess
-                if self.tm.processing_result and self.tm.processing_result.output_folder:
+                
+                if not self.tm.processing_result:
+                    print("❌ No processing result available")
+                    return
+                
+                # Check for multi-mode folders first
+                if hasattr(self.tm.processing_result, 'multi_mode_folders') and self.tm.processing_result.multi_mode_folders:
+                    folders_to_open = self.tm.processing_result.multi_mode_folders
+                    print(f"📁 Opening {len(folders_to_open)} multi-mode folders...")
+                    
+                    for folder_path in folders_to_open:
+                        if os.path.exists(folder_path):
+                            subprocess.Popen(f'explorer "{folder_path}"')
+                            print(f"📁 Opened folder: {folder_path}")
+                        else:
+                            print(f"⚠️ Folder not found: {folder_path}")
+                            
+                # Fallback to single folder
+                elif self.tm.processing_result.output_folder:
                     if os.path.exists(self.tm.processing_result.output_folder):
                         subprocess.Popen(f'explorer "{self.tm.processing_result.output_folder}"')
                         print(f"📁 Opened folder: {self.tm.processing_result.output_folder}")
+                    else:
+                        print(f"⚠️ Folder not found: {self.tm.processing_result.output_folder}")
+                else:
+                    print("❌ No output folder information available")
+                    
             except Exception as e:
-                print(f"❌ Error opening folder: {e}")
+                print(f"❌ Error opening folder(s): {e}")
         
         def on_done():
             """Handle done button"""

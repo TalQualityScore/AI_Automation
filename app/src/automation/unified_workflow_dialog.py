@@ -28,10 +28,10 @@ if MODULAR_AVAILABLE:
             self.modular_dialog = ModularDialog(parent)
         
         @staticmethod
-        def get_trello_card_id(parent=None):
+        def get_trello_card_id(parent=None, theme=None):
             """Get Trello card ID using existing popup"""
             print("🎬 Getting Trello card ID...")
-            popup = TrelloCardPopup(parent)
+            popup = TrelloCardPopup(parent, theme)
             return popup.show_popup()
         
         def show_workflow(self, confirmation_data, processing_callback):
@@ -67,10 +67,10 @@ else:
             self.parent = parent
         
         @staticmethod
-        def get_trello_card_id(parent=None):
+        def get_trello_card_id(parent=None, theme=None):
             """Get Trello card ID using existing popup"""
             print("🎬 Getting Trello card ID (fallback)...")
-            popup = TrelloCardPopup(parent)
+            popup = TrelloCardPopup(parent, theme)
             return popup.show_popup()
         
         def show_workflow(self, confirmation_data, processing_callback):

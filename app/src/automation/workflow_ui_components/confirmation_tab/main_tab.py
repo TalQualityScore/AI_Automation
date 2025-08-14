@@ -197,8 +197,27 @@ class ConfirmationTab:
                 print("DEBUG: No output section found in sections")
         except Exception as e:
             print(f"DEBUG: Error in refresh_output_location: {e}")
-            import traceback
-            traceback.print_exc()
+    
+    def refresh_theme(self):
+        """Refresh theme for all sections"""
+        print("DEBUG: refresh_theme() called on ConfirmationTab")
+        # Apply theme to main parent
+        if hasattr(self.theme, 'update_widget_theme'):
+            self.theme.update_widget_theme(self.parent)
+        
+        # Refresh all sections
+        for section_name, section in self.sections.items():
+            if hasattr(section, 'refresh_theme'):
+                try:
+                    section.refresh_theme()
+                    print(f"✅ Theme refreshed for {section_name} section")
+                except Exception as e:
+                    print(f"⚠️ Error refreshing theme for {section_name}: {e}")
+            elif hasattr(section, 'theme'):
+                # Update the section's theme reference
+                section.theme = self.theme
+                if hasattr(section, 'parent') and hasattr(self.theme, 'update_widget_theme'):
+                    self.theme.update_widget_theme(section.parent)
     
     def _on_cancel(self):
         """Handle cancel button click - UNCHANGED"""
@@ -309,13 +328,17 @@ class ConfirmationTab:
         self.data.selected_processing_modes = selected_modes
         self.data.processing_mode = selected_modes[0] if selected_modes else "save_only"
         
-        # Refresh the summary section
+        # Only refresh the summary section - DO NOT refresh output section to prevent clearing
+        # The output details should remain visible until user explicitly resets or reloads
         if 'summary' in self.sections and hasattr(self.sections['summary'], 'refresh_with_modes'):
             self.sections['summary'].refresh_with_modes(selected_modes)
         
-        # Refresh the output section
-        if 'output' in self.sections and hasattr(self.sections['output'], 'refresh_with_modes'):
-            self.sections['output'].refresh_with_modes(selected_modes)
+        # Update only the folder count in output section without clearing other details
+        if 'output' in self.sections and hasattr(self.sections['output'], 'update_folder_count_only'):
+            self.sections['output'].update_folder_count_only(selected_modes)
+        
+        # Note: Full output section refresh removed to fix bug where processing selection changes
+        # were clearing confirmation panel details (output path, project info, etc.)
     
     def get_current_settings(self) -> dict:
         """UPDATED: Get current user settings including multi-mode"""

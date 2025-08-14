@@ -16,7 +16,7 @@ class ModeUtilities:
             'connector_quiz': 'Connector Quiz',
             'connector_vsl': 'Connector VSL',
             'connector_svsl': 'Connector SVSL',
-            'save_only': 'Original'
+            'save_only': ''  # No suffix for save_only
         }
         
         # Mode to folder type mapping
@@ -27,7 +27,7 @@ class ModeUtilities:
             'connector_quiz': 'Quiz',
             'connector_vsl': 'VSL',
             'connector_svsl': 'SVSL',
-            'save_only': 'Original'
+            'save_only': ''  # No folder type suffix for save_only
         }
         
         # Processing priority order (most important first)

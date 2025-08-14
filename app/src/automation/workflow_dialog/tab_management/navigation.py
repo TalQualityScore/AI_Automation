@@ -28,6 +28,8 @@ class NavigationHandler:
                 font=('Segoe UI', 11),
                 bg=self.tm.dialog.theme.colors['tab_inactive'], 
                 fg=self.tm.dialog.theme.colors['text_primary'],
+                activebackground=self.tm.dialog.theme.colors['tab_active'],
+                activeforeground=self.tm.dialog.theme.colors['text_primary'],
                 relief='flat', 
                 borderwidth=0, 
                 padx=20, 
@@ -186,3 +188,27 @@ class NavigationHandler:
                             fg=self.tm.dialog.theme.colors['text_secondary'], 
                             state='disabled'
                         )
+    def refresh_theme(self):
+        """Refresh theme for all tab buttons"""
+        try:
+            # Update all tab button colors for current theme
+            for idx, btn in self.tm.tab_buttons.items():
+                if idx == self.tm.current_tab:
+                    # Active tab
+                    btn.configure(
+                        bg=self.tm.dialog.theme.colors['tab_active'],
+                        fg=self.tm.dialog.theme.colors['text_primary'],
+                        activebackground=self.tm.dialog.theme.colors['tab_active'],
+                        activeforeground=self.tm.dialog.theme.colors['text_primary']
+                    )
+                else:
+                    # Inactive tab  
+                    btn.configure(
+                        bg=self.tm.dialog.theme.colors['tab_inactive'],
+                        fg=self.tm.dialog.theme.colors['text_primary'],
+                        activebackground=self.tm.dialog.theme.colors['tab_active'],
+                        activeforeground=self.tm.dialog.theme.colors['text_primary']
+                    )
+            print("✅ Tab theme refreshed successfully")
+        except Exception as e:
+            print(f"⚠️ Error refreshing tab theme: {e}")

@@ -124,7 +124,7 @@ class ContentGenerators:
         details_lines = []
         for i, mode in enumerate(selected_modes, 1):
             mode_display = self.ss.mode_analyzers.get_mode_display_name(mode)
-            details_lines.append(f"  {i}. {mode_display}")
+            details_lines.append(f"• {mode_display}")
         
         return "\n".join(details_lines) if details_lines else ""
     

@@ -5,7 +5,7 @@ Now uses modular components for file organization
 """
 
 from .project_setup import ProjectSetup
-from .video_processor import VideoProcessor
+from .video_processor import VideoProcessingOrchestrator
 from .sheets_writer import SheetsWriter
 from .video_sorter import VideoSorter
 from .coordinator_modules import (
@@ -24,7 +24,7 @@ class ProcessingSteps:
         
         # Initialize specialized modules
         self.project_setup = ProjectSetup(orchestrator)
-        self.video_processor = VideoProcessor(orchestrator)
+        self.video_processor = VideoProcessingOrchestrator(orchestrator)
         self.sheets_writer = SheetsWriter(orchestrator)
         self.video_sorter = VideoSorter()
         
@@ -65,9 +65,9 @@ class ProcessingSteps:
             version_num, target_width, target_height
         )
     
-    def write_to_sheets(self, project_info, processed_files, creds):
+    def write_to_sheets(self, project_info, processed_files, creds, current_mode=None):
         """Step 5: Write results to Google Sheets"""
-        return self.sheets_writer.write_to_sheets(project_info, processed_files, creds)
+        return self.sheets_writer.write_to_sheets(project_info, processed_files, creds, current_mode)
     
     def finalize_and_cleanup(self, processed_files, project_info, creds, project_paths):
         """

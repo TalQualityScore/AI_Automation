@@ -1,8 +1,7 @@
 # app/src/automation/workflow_ui_components/processing_tab.py
 # COMPLETE FILE - Shows "Processing video X of Y" during batch processing
 
-import tkinter as tk
-from tkinter import ttk
+from .ui_imports import tk, ttk
 import re
 
 class ProcessingTab:
@@ -28,20 +27,25 @@ class ProcessingTab:
         header_frame = ttk.Frame(self.frame, style='White.TFrame')
         header_frame.pack(fill=tk.X, pady=(40, 30))
         
-        title_container = ttk.Frame(header_frame, style='White.TFrame')
-        title_container.pack()
+        self.title_container = ttk.Frame(header_frame, style='White.TFrame')
+        self.title_container.pack()
         
-        icon_label = ttk.Label(title_container, text="⚙️", font=('Segoe UI', 24),
-                              style='Body.TLabel')
-        icon_label.pack(side=tk.LEFT, padx=(0, 15))
+        # Simple static gear icon
+        self.icon_label = tk.Label(self.title_container, text="⚙️", font=('Segoe UI', 24),
+                                  bg=self.theme.colors['frame_bg'],
+                                  fg=self.theme.colors['text_primary'])
+        self.icon_label.pack(side=tk.LEFT, padx=(0, 15))
         
-        text_frame = ttk.Frame(title_container, style='White.TFrame')
+        # Text frame next to gear
+        text_frame = ttk.Frame(self.title_container, style='White.TFrame')
         text_frame.pack(side=tk.LEFT)
         
         ttk.Label(text_frame, text="Processing Videos", style='Header.TLabel').pack(anchor=tk.W)
+        # Use darker text in light mode, keep secondary in dark mode
+        wait_text_color = self.theme.colors['text_primary'] if self.theme.mode == 'light' else self.theme.colors['text_secondary']
         ttk.Label(text_frame, text="Please wait while we process your videos...", 
                  style='Body.TLabel', font=('Segoe UI', 11),
-                 foreground=self.theme.colors['text_secondary']).pack(anchor=tk.W)
+                 foreground=wait_text_color).pack(anchor=tk.W)
         
         # Progress section
         progress_frame = ttk.Frame(self.frame, style='White.TFrame')
@@ -162,3 +166,17 @@ class ProcessingTab:
             self.video_counter_label.config(text="")
         self.total_videos = 0
         self.current_video = 0
+    
+    def refresh_theme(self):
+        """Refresh theme for processing tab"""
+        print("DEBUG: refresh_theme() called on ProcessingTab")
+        if hasattr(self.theme, 'update_widget_theme') and self.frame:
+            self.theme.update_widget_theme(self.frame)
+        
+        # Update gear icon colors for theme
+        if hasattr(self, 'icon_label') and self.icon_label:
+            self.icon_label.config(
+                bg=self.theme.colors['frame_bg'],
+                fg=self.theme.colors['text_primary']
+            )
+    

@@ -12,22 +12,43 @@ class SheetsWriter:
     def __init__(self, orchestrator):
         self.orchestrator = orchestrator
     
-    def write_to_sheets(self, project_info, processed_files, creds):
+    def write_to_sheets(self, project_info, processed_files, creds, current_mode=None):
         """Write results to Google Sheets with proper routing"""
         
         print("\n--- Step 5: Writing to Google Sheets ---")
         
-        # Determine endpoint type from processed files
+        # Determine endpoint type from current processing mode (for multi-mode support)
         type_suffix = "Quiz"  # Default
-        if processed_files and len(processed_files) > 0:
-            first_file = processed_files[0]
-            if 'svsl_path' in first_file or first_file.get('endpoint_type') == 'svsl':
-                type_suffix = "SVSL"
-            elif 'vsl_path' in first_file or first_file.get('endpoint_type') == 'vsl':
+        
+        if current_mode:
+            # Use current mode to determine type suffix (for multi-mode processing)
+            print(f"🔧 Using current_mode to determine type: {current_mode}")
+            if current_mode == 'quiz_only' or current_mode == 'connector_quiz':
+                type_suffix = "Quiz"
+            elif current_mode == 'vsl_only' or current_mode == 'connector_vsl':
                 type_suffix = "VSL"
+            elif current_mode == 'svsl_only' or current_mode == 'connector_svsl':
+                type_suffix = "SVSL"
+            elif current_mode == 'save_only':
+                type_suffix = ""  # No suffix for save_only
+        else:
+            # Fallback to old logic if no current mode provided
+            if processed_files and len(processed_files) > 0:
+                first_file = processed_files[0]
+                if 'svsl_path' in first_file or first_file.get('endpoint_type') == 'svsl':
+                    type_suffix = "SVSL"
+                elif 'vsl_path' in first_file or first_file.get('endpoint_type') == 'vsl':
+                    type_suffix = "VSL"
+        
+        print(f"📊 Using type suffix for Google Sheets: {type_suffix}")
         
         # Build display name for column A
-        display_name = f"GH {project_info['project_name']} {project_info.get('ad_type', '')} {project_info.get('test_name', '')} {type_suffix}"
+        base_name = f"GH {project_info['project_name']} {project_info.get('ad_type', '')} {project_info.get('test_name', '')}"
+        # Only add type_suffix if it's not empty (save_only has empty suffix)
+        if type_suffix.strip():
+            display_name = f"{base_name} {type_suffix}"
+        else:
+            display_name = base_name.strip()  # Remove extra spaces
         
         # ========== FIX #1: PROPERLY GET ORIGINAL CARD TITLE ==========
         # Try multiple attributes to find the original card title

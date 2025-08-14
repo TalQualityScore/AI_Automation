@@ -88,6 +88,28 @@ class TabManager:
         """Show specified tab"""
         self.navigation.show_tab(tab_index)
     
+    def refresh_theme(self):
+        """Refresh theme for all tabs and components"""
+        # Refresh confirmation tab
+        if self.confirmation_tab and hasattr(self.confirmation_tab, 'refresh_theme'):
+            self.confirmation_tab.refresh_theme()
+        
+        # Refresh processing tab
+        if self.processing_tab and hasattr(self.processing_tab, 'refresh_theme'):
+            self.processing_tab.refresh_theme()
+        
+        # Refresh results tab
+        if self.results_tab and hasattr(self.results_tab, 'refresh_theme'):
+            self.results_tab.refresh_theme()
+        
+        # Refresh tab navigation
+        if self.navigation and hasattr(self.navigation, 'refresh_theme'):
+            self.navigation.refresh_theme()
+        
+        # Refresh button handler
+        if self.button_handler and hasattr(self.button_handler, 'refresh_theme'):
+            self.button_handler.refresh_theme()
+    
     def on_confirm_clicked(self):
         """Handle confirm button - start processing"""
         # Mark that processing has started and is now active

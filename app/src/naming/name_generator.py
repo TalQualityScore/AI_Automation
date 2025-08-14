@@ -61,6 +61,18 @@ class NameGenerator:
         print(f"   - Version Letter: '{version_letter}'")
         print(f"   - Version Num: {version_num:02d}")
         
+        # Handle save_only mode (empty ad_type_selection)
+        if not ad_type_selection or ad_type_selection.lower().strip() == "":
+            print(f"   📄 SAVE_ONLY mode detected - using simplified naming")
+            # For save_only, use a simplified name format without type suffix
+            cleaned_name = os.path.splitext(os.path.basename(first_client_video))[0]
+            # Remove "Copy of OO_" prefix if present
+            cleaned_name = cleaned_name.replace("Copy of OO_", "")
+            # Add version if needed
+            final_name = f"{cleaned_name}_v{version_num:02d}"
+            print(f"🎯 SAVE_ONLY OUTPUT NAME: '{final_name}'")
+            return final_name
+        
         # Ensure ad_type_selection is lowercase and valid
         ad_type_selection = ad_type_selection.lower()
         if ad_type_selection not in ["quiz", "svsl", "vsl"]:
@@ -129,11 +141,19 @@ class NameGenerator:
         }
         
         # Normalize the input
-        normalized_selection = ad_type_selection.lower()
+        normalized_selection = ad_type_selection.lower().strip()
         folder_type = folder_type_mapping.get(normalized_selection, "Quiz")
         
-        # Build folder name: "GH ProjectName AdType TestNumber FolderType"
-        folder_name = f"GH {cleaned_project_name} {ad_type} {test_name} {folder_type}"
+        # Handle save_only mode (empty folder type)
+        if not normalized_selection or normalized_selection == "original":
+            folder_type = ""
+        
+        # Build folder name: "GH ProjectName AdType TestNumber [FolderType]"
+        if folder_type:
+            folder_name = f"GH {cleaned_project_name} {ad_type} {test_name} {folder_type}"
+        else:
+            # For save_only, no folder type suffix
+            folder_name = f"GH {cleaned_project_name} {ad_type} {test_name}".strip()
         
         print(f"📁 Generated folder name: '{folder_name}' (type: {folder_type})")
         return folder_name

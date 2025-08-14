@@ -17,7 +17,10 @@ class OutputSection:
         self.theme = theme
         self.main_tab = main_tab
         self.output_location_label = None
-        self.title_label = None  # NEW: Track title label separately
+        self.title_label = None
+        # Bound variables for state stability
+        self.folder_count_var = tk.StringVar()
+        self.folder_list_vars = []  # List of StringVars for folder paths
         self.create_section()
     
     def create_section(self):
@@ -33,20 +36,8 @@ class OutputSection:
         # Check for actually selected modes (from checkboxes), not detected modes
         selected_modes = self._get_selected_modes()
         
-        if len(selected_modes) > 1:
-            # Multi-mode display
-            self._create_multi_mode_display(section_frame, selected_modes)
-        else:
-            # Single-mode display (existing logic)
-            location_text = getattr(self.data, 'output_location', 'Will be determined during processing')
-            self.output_location_label = ttk.Label(
-                section_frame, 
-                text=location_text,
-                style='Body.TLabel', 
-                font=('Segoe UI', 9),
-                foreground='#605e5c'
-            )
-            self.output_location_label.pack(anchor=tk.W, padx=(15, 0))
+        # ALWAYS render N outputs for N modes (including N=1)
+        self._create_multi_mode_display(section_frame, selected_modes)
     
     def _get_selected_modes(self):
         """Get currently selected processing modes"""
@@ -64,32 +55,74 @@ class OutputSection:
         
         return selected_modes
     
+    def update_folder_count_only(self, selected_modes):
+        """Update only the folder count without clearing other output details"""
+        print(f"🔄 Updating folder count for {len(selected_modes)} modes")
+        
+        # Find and update the multi-mode label if it exists
+        if hasattr(self, 'parent') and self.parent:
+            for widget in self.parent.winfo_children():
+                try:
+                    widget_text = widget.cget('text') if hasattr(widget, 'cget') else ""
+                    if "Multi-Mode Processing:" in widget_text or "folders will be created" in widget_text:
+                        # Update the folder count
+                        new_text = f"🔄 Multi-Mode Processing: {len(selected_modes)} folders will be created"
+                        widget.config(text=new_text)
+                        print(f"✅ Updated folder count to {len(selected_modes)}")
+                        return
+                except:
+                    pass
+        
+        print(f"⚠️ Could not find folder count label to update")
+    
     def _create_multi_mode_display(self, parent, selected_modes):
-        """NEW: Create multi-mode output display"""
-        # Multi-mode indicator
+        """Create output display for N modes using bound variables for state stability"""
+        # Mode count indicator with bound variable (works for 1+ modes)
         multi_label = ttk.Label(
             parent,
-            text=f"🔄 Multi-Mode Processing: {len(selected_modes)} folders will be created",
+            textvariable=self.folder_count_var,
             style='Body.TLabel',
             font=('Segoe UI', 10),
             foreground='#0078d4'
         )
         multi_label.pack(anchor=tk.W, padx=(15, 0), pady=(5, 5))
         
-        # Show each mode that will be processed
-        for i, mode in enumerate(selected_modes, 1):
-            mode_suffix = self._get_mode_suffix(mode)
-            project_name = getattr(self.data, 'project_name', 'Project')
-            folder_name = f"{project_name} {mode_suffix}"
+        # Create folder labels with bound variables (up to reasonable max)
+        max_folders = 10  # Reasonable maximum for UI
+        for i in range(max_folders):
+            if len(self.folder_list_vars) <= i:
+                self.folder_list_vars.append(tk.StringVar())
             
             mode_label = ttk.Label(
                 parent,
-                text=f"  {i}. Output/{folder_name}/",
+                textvariable=self.folder_list_vars[i],
                 style='Body.TLabel',
                 font=('Segoe UI', 9),
                 foreground='#605e5c'
             )
-            mode_label.pack(anchor=tk.W, padx=(30, 0))
+            mode_label.pack(anchor=tk.W, padx=(15, 0))
+        
+        # Initialize bound variables with current data
+        if len(selected_modes) == 1:
+            count_text = f"🔄 Processing: 1 folder will be created"
+        else:
+            count_text = f"🔄 Multi-Mode Processing: {len(selected_modes)} folders will be created"
+        self.folder_count_var.set(count_text)
+        
+        # Initialize folder list vars
+        for i, mode in enumerate(selected_modes):
+            mode_suffix = self._get_mode_suffix(mode)
+            project_name = getattr(self.data, 'project_name', 'Project')
+            # Handle empty suffix for save_only mode
+            if mode_suffix.strip():
+                folder_name = f"{project_name} {mode_suffix}"
+            else:
+                folder_name = project_name.strip()
+            folder_text = f"• Output/{folder_name}/"
+            
+            if len(self.folder_list_vars) <= i:
+                self.folder_list_vars.append(tk.StringVar())
+            self.folder_list_vars[i].set(folder_text)
     
     def _get_mode_suffix(self, mode):
         """Get appropriate suffix for mode"""
@@ -100,7 +133,7 @@ class OutputSection:
             'connector_quiz': 'Connector Quiz',
             'connector_vsl': 'Connector VSL',
             'connector_svsl': 'Connector SVSL',
-            'save_only': 'Original'
+            'save_only': ''  # No suffix for save_only
         }
         return mode_suffixes.get(mode, mode.upper())
     
@@ -111,29 +144,38 @@ class OutputSection:
             self.output_location_label.config(text=location_text)
 
     def refresh_with_modes(self, selected_modes):
-        """FIXED: Refresh output display when modes change - PRESERVES TITLE"""
+        """IDEMPOTENT: Update output display using bound variables (no widget destroy)"""
+        print(f"🔄 Refreshing output display for {len(selected_modes)} modes (idempotent)")
         
-        # Clear only the content widgets, NOT the title
-        widgets_to_preserve = []
-        widgets_to_remove = []
+        # Update folder count via bound variable (ALWAYS for N modes)
+        if len(selected_modes) == 1:
+            count_text = f"🔄 Processing: 1 folder will be created"
+        else:
+            count_text = f"🔄 Multi-Mode Processing: {len(selected_modes)} folders will be created"
+        self.folder_count_var.set(count_text)
         
-        for widget in self.parent.winfo_children():
-            widget_text = ""
-            try:
-                widget_text = widget.cget('text') if hasattr(widget, 'cget') else ""
-            except:
-                pass
-            
-            # Preserve the title label
-            if "📁 Output Location" in widget_text:
-                widgets_to_preserve.append(widget)
-                self.title_label = widget  # Update reference
+        # Update folder list via bound variables (ALWAYS for N modes)
+        for i, mode in enumerate(selected_modes):
+            mode_suffix = self._get_mode_suffix(mode)
+            project_name = getattr(self.data, 'project_name', 'Project')
+            # Handle empty suffix for save_only mode
+            if mode_suffix.strip():
+                folder_name = f"{project_name} {mode_suffix}"
             else:
-                widgets_to_remove.append(widget)
+                folder_name = project_name.strip()
+            folder_text = f"• Output/{folder_name}/"
+            
+            # Ensure we have enough StringVars
+            while len(self.folder_list_vars) <= i:
+                self.folder_list_vars.append(tk.StringVar())
+            
+            self.folder_list_vars[i].set(folder_text)
         
-        # Remove only non-title widgets
-        for widget in widgets_to_remove:
-            widget.destroy()
+        # Clear unused folder vars
+        for i in range(len(selected_modes), len(self.folder_list_vars)):
+            self.folder_list_vars[i].set("")
+        
+        print(f"✅ Output display updated via bound variables - no widget destruction")
         
         # Update data
         self.data.selected_processing_modes = selected_modes
@@ -147,7 +189,8 @@ class OutputSection:
             if selected_modes:
                 mode_suffix = self._get_mode_suffix(selected_modes[0])
                 project_name = getattr(self.data, 'project_name', 'Project')
-                if mode_suffix and mode_suffix != 'Original':
+                # Handle empty suffix for save_only mode
+                if mode_suffix.strip():
                     location_text = f"Output/{project_name} {mode_suffix}/"
                 else:
                     location_text = f"Output/{project_name}/"

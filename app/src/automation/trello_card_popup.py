@@ -6,8 +6,9 @@ import re
 class TrelloCardPopup:
     """Initial popup to get Trello card URL - FIXED for Windows compatibility"""
     
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, theme=None):
         self.parent = parent
+        self.theme = theme
         self.result = None
         self.card_id = None
         self.root = None
@@ -42,6 +43,10 @@ class TrelloCardPopup:
         self.popup.geometry("500x400")
         self.popup.resizable(False, False)
         
+        # Apply theme if available
+        if self.theme:
+            self.popup.configure(bg=self.theme.colors['bg'])
+        
         # FIXED: Windows compatibility - ensure window appears
         self.popup.attributes('-topmost', True)
         self.popup.grab_set()
@@ -74,74 +79,98 @@ class TrelloCardPopup:
     
     def _create_content(self):
         """Create the popup content"""
+        # Get theme colors
+        if self.theme:
+            bg_color = self.theme.colors['frame_bg']
+            text_primary = self.theme.colors['text_primary'] 
+            text_secondary = self.theme.colors['text_secondary']
+            # Force entry background to be white in both modes, keep text black
+            entry_bg = 'white'
+            entry_fg = '#000000'  # Black text in both modes
+        else:
+            bg_color = 'white'
+            text_primary = '#323130'
+            text_secondary = '#605e5c'
+            entry_bg = 'white'
+            entry_fg = '#323130'
+        
         # Main container
-        main_frame = tk.Frame(self.popup, bg='white', padx=30, pady=25)
+        main_frame = tk.Frame(self.popup, bg=bg_color, padx=30, pady=25)
         main_frame.pack(fill=tk.BOTH, expand=True)
         
         # Header section
-        header_frame = tk.Frame(main_frame, bg='white')
+        header_frame = tk.Frame(main_frame, bg=bg_color)
         header_frame.pack(fill=tk.X, pady=(0, 20))
         
         # Icon and title
-        title_frame = tk.Frame(header_frame, bg='white')
+        title_frame = tk.Frame(header_frame, bg=bg_color)
         title_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
         
         title_label = tk.Label(title_frame, text="🎬 AI Automation Workflow", 
-                              font=('Segoe UI', 16, 'bold'), bg='white', fg='#323130')
+                              font=('Segoe UI', 16, 'bold'), bg=bg_color, fg=text_primary)
         title_label.pack(anchor=tk.W)
         
         subtitle_label = tk.Label(title_frame, text="Enter your Trello card to get started", 
-                                 font=('Segoe UI', 10), bg='white', fg='#605e5c')
+                                 font=('Segoe UI', 10), bg=bg_color, fg=text_secondary)
         subtitle_label.pack(anchor=tk.W)
         
         # Input section
-        input_frame = tk.Frame(main_frame, bg='white')
+        input_frame = tk.Frame(main_frame, bg=bg_color)
         input_frame.pack(fill=tk.X, pady=(0, 20))
         
         input_label = tk.Label(input_frame, text="📋 Trello Card URL or ID:", 
-                              font=('Segoe UI', 11, 'bold'), bg='white', fg='#323130')
+                              font=('Segoe UI', 11, 'bold'), bg=bg_color, fg=text_primary)
         input_label.pack(anchor=tk.W, pady=(0, 8))
         
         # Entry field
         self.url_entry = tk.Entry(input_frame, font=('Segoe UI', 10), 
-                                 relief='solid', borderwidth=1, width=50)
+                                 relief='solid', borderwidth=1, width=50,
+                                 bg=entry_bg, fg=entry_fg, insertbackground=entry_fg)
         self.url_entry.pack(fill=tk.X, pady=(0, 8))
         self.url_entry.insert(0, "Paste your Trello card URL here...")
         self.url_entry.bind('<FocusIn>', self._on_entry_focus)
         self.url_entry.bind('<Return>', lambda e: self._on_ok())
         
         # Help section
-        help_frame = tk.Frame(input_frame, bg='white')
+        help_frame = tk.Frame(input_frame, bg=bg_color)
         help_frame.pack(fill=tk.X, pady=(5, 0))
         
         help_title = tk.Label(help_frame, text="💡 Examples:", 
-                             font=('Segoe UI', 9, 'bold'), bg='white', fg='#605e5c')
+                             font=('Segoe UI', 9, 'bold'), bg=bg_color, fg=text_secondary)
         help_title.pack(anchor=tk.W)
         
         example1 = tk.Label(help_frame, text="• Full URL: https://trello.com/c/abc123xyz/...", 
-                           font=('Segoe UI', 9), bg='white', fg='#605e5c')
+                           font=('Segoe UI', 9), bg=bg_color, fg=text_secondary)
         example1.pack(anchor=tk.W, padx=(15, 0))
         
         example2 = tk.Label(help_frame, text="• Card ID only: abc123xyz", 
-                           font=('Segoe UI', 9), bg='white', fg='#605e5c')
+                           font=('Segoe UI', 9), bg=bg_color, fg=text_secondary)
         example2.pack(anchor=tk.W, padx=(15, 0))
         
         # Button section
-        button_frame = tk.Frame(main_frame, bg='white')
+        button_frame = tk.Frame(main_frame, bg=bg_color)
         button_frame.pack(fill=tk.X, pady=(20, 0))
         
         # Center the buttons
-        button_container = tk.Frame(button_frame, bg='white')
+        button_container = tk.Frame(button_frame, bg=bg_color)
         button_container.pack()
+        
+        # Theme-aware button colors
+        if self.theme and self.theme.mode == 'dark':
+            cancel_bg = '#444444'
+            cancel_fg = '#ffffff'
+        else:
+            cancel_bg = '#f3f3f3'
+            cancel_fg = '#323130'
         
         # Cancel button
         cancel_btn = tk.Button(button_container, text="❌ Cancel", 
-                              font=('Segoe UI', 10), bg='#f3f3f3', fg='#323130',
+                              font=('Segoe UI', 10), bg=cancel_bg, fg=cancel_fg,
                               relief='flat', borderwidth=0, padx=20, pady=10,
                               command=self._on_cancel, cursor='hand2')
         cancel_btn.pack(side=tk.LEFT, padx=(0, 10))
         
-        # OK button
+        # OK button (always blue)
         ok_btn = tk.Button(button_container, text="✅ Start Processing", 
                           font=('Segoe UI', 10, 'bold'), bg='#0078d4', fg='white',
                           relief='flat', borderwidth=0, padx=20, pady=10,

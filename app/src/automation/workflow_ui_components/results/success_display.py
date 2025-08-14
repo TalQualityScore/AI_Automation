@@ -40,6 +40,13 @@ class SuccessDisplay:
         # Action Buttons
         self.action_buttons.create_success_buttons(main_container, on_open_folder, on_done)
     
+    def refresh_theme(self):
+        """Refresh theme for success display"""
+        if hasattr(self.action_buttons, 'refresh_theme'):
+            self.action_buttons.refresh_theme()
+        if hasattr(self.breakdown_handler, 'refresh_theme'):
+            self.breakdown_handler.refresh_theme()
+    
     def _create_header(self, parent):
         """Create header with single icon"""
         header_frame = ttk.Frame(parent, style='White.TFrame')
@@ -84,8 +91,9 @@ class SuccessDisplay:
         ttk.Label(breakdown_frame, text="📝 Processing Report:", style='Body.TLabel',
                  font=('Segoe UI', 11, 'bold')).pack(anchor=tk.W, pady=(0, 10))
         
-        # Smaller breakdown button
-        breakdown_btn = ttk.Button(breakdown_frame, text="View Breakdown Report", 
-                                 style='Secondary.TButton',
+        # Breakdown button - same width as other results buttons
+        breakdown_btn = ttk.Button(breakdown_frame, text="📝 View Breakdown Report", 
+                                 style='ResultsButton.TButton',
                                  command=self.breakdown_handler.open_breakdown_file)
+        breakdown_btn.configure(width=17)  # Match Confirm & Run button size
         breakdown_btn.pack(anchor=tk.W)

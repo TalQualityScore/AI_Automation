@@ -50,6 +50,9 @@ class MultiModeProcessor:
                 all_output_folders.append(mode_result['output_folder'])
                 downloaded_once = mode_result['downloaded_once']
                 
+                print(f"📁 DEBUG: Added to all_output_folders: {mode_result['output_folder']}")
+                print(f"📁 DEBUG: Current all_output_folders: {all_output_folders}")
+                
             except Exception as mode_error:
                 print(f"❌ Error processing mode {mode}: {mode_error}")
                 
@@ -65,6 +68,8 @@ class MultiModeProcessor:
                         all_processed_files.extend(mode_result['processed_files'])
                         all_output_folders.append(mode_result['output_folder'])
                         downloaded_once = mode_result['downloaded_once']
+                        
+                        print(f"📁 DEBUG: (Fallback) Added to all_output_folders: {mode_result['output_folder']}")
                         continue
                     except Exception as fallback_error:
                         print(f"❌ Fallback failed for {mode}: {fallback_error}")
@@ -76,9 +81,16 @@ class MultiModeProcessor:
         # Reset to original project name
         self.orchestrator.project_info['project_name'] = original_project_name
         
+        # Final cleanup - now that all modes are processed, clean up temp files
+        self._final_multi_mode_cleanup(selected_modes, all_output_folders)
+        
         # Final progress update
         success_count = len(all_output_folders)
         progress_callback(100, f"✅ Completed {success_count}/{len(selected_modes)} processing modes!")
+        
+        print(f"📁 DEBUG: Final all_output_folders before result creation:")
+        for i, folder in enumerate(all_output_folders):
+            print(f"  {i+1}. {folder}")
         
         # Create combined result
         result = create_processing_result_from_orchestrator(
@@ -133,6 +145,9 @@ class MultiModeProcessor:
         # Configure video processor
         self._configure_video_processor()
         
+        # Configure transitions for this mode
+        self._configure_transitions_for_mode(mode, use_transitions)
+        
         # Process videos with error handling
         self.orchestrator.processed_files = self.orchestrator.processing_steps.process_videos(
             self.orchestrator.downloaded_videos,
@@ -148,12 +163,12 @@ class MultiModeProcessor:
         # Step 6: Generate reports
         self._generate_mode_reports(mode, use_transitions)
         
-        # Step 7: Cleanup
-        self._cleanup_mode_processing(mode)
+        # Step 7: Cleanup (DEFER for multi-mode - cleanup after all modes complete)
+        # self._cleanup_mode_processing(mode)  # Skip cleanup for now
         
         return {
             'processed_files': self.orchestrator.processed_files,
-            'output_folder': self.orchestrator.generated_folder_name,
+            'output_folder': self.orchestrator.project_paths['project_root'],  # Store full path, not just folder name
             'downloaded_once': downloaded_once
         }
     
@@ -206,6 +221,9 @@ class MultiModeProcessor:
         self.orchestrator.generated_folder_name = os.path.basename(
             self.orchestrator.project_paths['project_root']
         )
+        
+        print(f"📁 DEBUG: Stored folder name: {self.orchestrator.generated_folder_name}")
+        print(f"📁 DEBUG: Full project root path: {self.orchestrator.project_paths['project_root']}")
     
     def _configure_video_processor(self):
         """Configure video processor with account and platform"""
@@ -218,6 +236,40 @@ class MultiModeProcessor:
             print(f"🎯 Setting processor context: Account={account_code}, Platform={platform_code}")
             from ...video_processor import set_processor_account_platform
             set_processor_account_platform(account_code, platform_code)
+    
+    def _configure_transitions_for_mode(self, mode, use_transitions):
+        """Configure transitions for the current processing mode"""
+        try:
+            from ...video_processor import configure_transitions
+            
+            # Check if transitions should be enabled for this mode
+            if use_transitions:
+                print(f"✨ Enabling transitions for {mode}")
+                # Special consideration for VSL (very long videos)
+                if mode in ['vsl_only', 'connector_vsl']:
+                    # Use shorter transition duration for long VSL videos
+                    configure_transitions(enabled=True, transition_type="fade", duration=0.15)
+                    print(f"🎞️ VSL transitions configured with shorter duration (0.15s) for optimal performance with long videos")
+                    
+                    # Also set faster processing preset for VSL to improve performance
+                    try:
+                        from ...video_processor import set_processing_preset
+                        set_processing_preset("faster")  # Use fastest preset for VSL
+                        print(f"⚡ VSL preset set to 'faster' for better performance with long videos")
+                    except Exception as preset_error:
+                        print(f"⚠️ Could not set faster preset for VSL: {preset_error}")
+                else:
+                    # Standard transitions for other modes
+                    configure_transitions(enabled=True, transition_type="fade", duration=0.25)
+                    print(f"🎞️ Standard transitions configured for {mode}")
+            else:
+                print(f"🔇 Disabling transitions for {mode}")
+                configure_transitions(enabled=False)
+                
+        except Exception as e:
+            print(f"⚠️ Error configuring transitions for {mode}: {e}")
+            # Continue without transitions if configuration fails
+            print("🔄 Continuing without transitions...")
     
     def _get_fallback_dimensions(self):
         """Get fallback dimensions based on common video formats"""
@@ -232,7 +284,8 @@ class MultiModeProcessor:
             self.orchestrator.processing_steps.write_to_sheets(
                 self.orchestrator.project_info,
                 self.orchestrator.processed_files,
-                self.orchestrator.creds
+                self.orchestrator.creds,
+                current_mode=mode  # Pass current mode for correct type suffix
             )
             print(f"✅ Google Sheets updated for {mode}")
             
@@ -282,3 +335,30 @@ class MultiModeProcessor:
             
         except Exception as cleanup_error:
             print(f"⚠️ File cleanup failed for {mode}: {cleanup_error}")
+    
+    def _final_multi_mode_cleanup(self, selected_modes, all_output_folders):
+        """Final cleanup after all modes are processed"""
+        try:
+            print(f"\n🧹 FINAL MULTI-MODE CLEANUP")
+            print(f"   Processed modes: {', '.join(selected_modes)}")
+            print(f"   Output folders: {len(all_output_folders)}")
+            
+            # Only run cleanup once at the end to avoid moving files between modes
+            if hasattr(self.orchestrator, 'processing_steps'):
+                # Use the last mode's project paths for cleanup location
+                if hasattr(self.orchestrator, 'project_paths') and self.orchestrator.project_paths:
+                    print("🧹 Running final file organization and cleanup...")
+                    self.orchestrator.processing_steps.finalize_and_cleanup(
+                        self.orchestrator.processed_files,
+                        self.orchestrator.project_info, 
+                        self.orchestrator.creds,
+                        self.orchestrator.project_paths
+                    )
+                    print("✅ Multi-mode final cleanup completed")
+                else:
+                    print("⚠️ No project paths available for final cleanup")
+            else:
+                print("⚠️ Processing steps not available for final cleanup")
+                
+        except Exception as cleanup_error:
+            print(f"⚠️ Final multi-mode cleanup failed: {cleanup_error}")

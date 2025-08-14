@@ -45,7 +45,20 @@ class AutomationOrchestrator:
         # If no card ID provided, show popup to get it
         if not trello_card_id:
             print("🎬 Starting AI Automation Suite - Getting Trello Card...")
-            trello_card_id = UnifiedWorkflowDialog.get_trello_card_id()
+            # Load theme for initial popup
+            from ..workflow_ui_components.theme import WorkflowTheme
+            import tkinter as tk
+            
+            # Create temporary root for theme
+            temp_root = tk.Tk()
+            temp_root.withdraw()  # Hide the temp window
+            
+            try:
+                theme = WorkflowTheme.create_for_standalone_window(temp_root)
+                trello_card_id = UnifiedWorkflowDialog.get_trello_card_id(theme=theme)
+            finally:
+                temp_root.destroy()
+                
             if not trello_card_id:
                 print("❌ No Trello card ID provided. Automation cancelled.")
                 return False

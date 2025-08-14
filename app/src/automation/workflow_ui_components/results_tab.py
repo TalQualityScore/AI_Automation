@@ -1,7 +1,6 @@
 # app/src/automation/workflow_ui_components/results_tab.py - MAIN CLASS ONLY
 
-import tkinter as tk
-from tkinter import ttk
+from .ui_imports import tk, ttk
 from ..workflow_data_models import ProcessingResult
 from .results.success_display import SuccessDisplay
 from .results.error_display import ErrorDisplay
@@ -81,3 +80,20 @@ class ResultsTab:
         self.theme = new_theme
         self.success_display.theme = new_theme
         self.error_display.theme = new_theme
+    
+    def refresh_theme(self):
+        """Refresh theme for results tab"""
+        print("DEBUG: refresh_theme() called on ResultsTab")
+        if hasattr(self.theme, 'update_widget_theme') and self.frame:
+            self.theme.update_widget_theme(self.frame)
+        
+        # Update display components
+        if hasattr(self.success_display, 'refresh_theme'):
+            self.success_display.refresh_theme()
+        elif hasattr(self.success_display, 'theme'):
+            self.success_display.theme = self.theme
+            
+        if hasattr(self.error_display, 'refresh_theme'):
+            self.error_display.refresh_theme()
+        elif hasattr(self.error_display, 'theme'):
+            self.error_display.theme = self.theme

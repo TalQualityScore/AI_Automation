@@ -147,17 +147,23 @@ class VideoProcessor:
             print("❌ Single video - no transitions needed")
             return False
         
-        # CHANGED: Increase duration limit and add more logging
-        TRANSITION_MAX_DURATION = 600  # 10 minutes instead of using config
+        # FIXED: Respect user's explicit transition choice for VSL and long videos
+        TRANSITION_MAX_DURATION = 600  # 10 minutes default threshold
         
         print(f"🔍 DEBUG: Video duration: {specs['total_duration']:.1f}s, Max for transitions: {TRANSITION_MAX_DURATION}s")
         print(f"🔍 DEBUG: Transitions enabled: {self.use_transitions}")
         
-        if specs['total_duration'] < TRANSITION_MAX_DURATION:
-            print("✅ 🎞️ Using TRANSITIONS for video sequence")
-            return True
+        # If user explicitly enabled transitions, respect their choice even for long videos
+        if self.use_transitions:
+            if specs['total_duration'] < TRANSITION_MAX_DURATION:
+                print("✅ 🎞️ Using TRANSITIONS for video sequence (normal duration)")
+                return True
+            else:
+                print("✅ 🎞️ Using TRANSITIONS for LONG video sequence (user enabled)")
+                print("⚠️ Processing may take longer due to video length")
+                return True
         else:
-            print("🔧 Using ROBUST concatenation (video too long for transitions)")
+            print("🔇 Transitions disabled by user - using robust concatenation")
             return False
     
     def configure_transitions(self, enabled: bool, transition_type: str = None,

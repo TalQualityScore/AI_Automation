@@ -56,7 +56,7 @@ class DisplayFormatters:
         lines = []
         for i, mode in enumerate(selected_modes, 1):
             mode_display = self.ss.mode_analyzers.get_mode_display_name(mode)
-            lines.append(f"  {i}. {mode_display}")
+            lines.append(f"• {mode_display}")
         
         return "\n".join(lines)
     

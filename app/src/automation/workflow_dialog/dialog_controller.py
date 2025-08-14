@@ -1,7 +1,6 @@
 # app/src/automation/workflow_dialog/dialog_controller.py - SIMPLIFIED VERSION
 
-import tkinter as tk
-from tkinter import ttk, messagebox
+from ..workflow_ui_components.ui_imports import tk, ttk, messagebox
 from typing import Callable
 
 from ..workflow_data_models import ConfirmationData
@@ -37,9 +36,9 @@ class UnifiedWorkflowDialog:
             orchestrator.dialog_controller = self
     
     @staticmethod
-    def get_trello_card_id(parent=None):
+    def get_trello_card_id(parent=None, theme=None):
         """Get Trello card ID"""
-        popup = TrelloCardPopup(parent)
+        popup = TrelloCardPopup(parent, theme)
         return popup.show_popup()
     
     def show_workflow(self, confirmation_data: ConfirmationData, processing_callback: Callable) -> bool:
@@ -108,7 +107,7 @@ class UnifiedWorkflowDialog:
             self.tab_manager.confirmation_tab.set_dialog_controller(self)
     
     def _create_header(self):
-        """Create simple header"""
+        """Create header with theme toggle"""
         header_frame = ttk.Frame(self.root, style='White.TFrame')
         header_frame.pack(fill=tk.X, padx=36, pady=(25, 0))
         
@@ -124,6 +123,68 @@ class UnifiedWorkflowDialog:
                  style='Header.TLabel').pack(anchor=tk.W)
         ttk.Label(text_frame, text="Confirm → Process → Results", 
                  style='Subheader.TLabel').pack(anchor=tk.W)
+        
+        # Theme toggle button container for precise positioning
+        theme_container = tk.Frame(header_frame, bg=self.theme.colors['frame_bg'])
+        theme_container.pack(side=tk.RIGHT, padx=(10, 0))
+        
+        # Theme toggle button (sun/moon icon) - center positioned
+        self.theme_button = tk.Button(
+            theme_container,
+            text="🌙" if self.theme.mode == 'light' else "🔆",
+            font=('Segoe UI', 16),
+            bd=0,
+            bg=self.theme.colors['frame_bg'],
+            fg=self.theme.colors['text_primary'],
+            activebackground=self.theme.colors['frame_bg'],
+            activeforeground=self.theme.colors['accent'],
+            cursor='hand2',
+            command=self._toggle_theme,
+            width=3,  # Fixed width for consistent positioning
+            height=1  # Fixed height for consistent positioning
+        )
+        # Use place for exact positioning
+        self.theme_button.place(x=0, y=0, width=40, height=32)
+        
+        # Set container size to match button
+        theme_container.config(width=40, height=32)
+        theme_container.pack_propagate(False)
+        
+        # Store container reference for theme updates
+        self.theme_container = theme_container
+        
+        # Add hover animation bindings
+        self.theme_button.bind('<Enter>', self._on_theme_button_enter)
+        self.theme_button.bind('<Leave>', self._on_theme_button_leave)
+    
+    def _on_theme_button_enter(self, event):
+        """Handle theme button hover enter - scale up with animation"""
+        self.theme_button.config(font=('Segoe UI', 18))  # Slightly larger
+    
+    def _on_theme_button_leave(self, event):
+        """Handle theme button hover leave - scale back down"""
+        self.theme_button.config(font=('Segoe UI', 16))  # Back to normal
+    
+    def _toggle_theme(self):
+        """Toggle between light and dark theme"""
+        # Toggle the theme
+        new_mode = self.theme.toggle_theme()
+        
+        # Update button icon and colors
+        self.theme_button.config(
+            text="🌙" if new_mode == 'light' else "🔆",
+            bg=self.theme.colors['frame_bg'],
+            fg=self.theme.colors['text_primary'],
+            activebackground=self.theme.colors['frame_bg']
+        )
+        
+        # Update container background
+        if hasattr(self, 'theme_container'):
+            self.theme_container.config(bg=self.theme.colors['frame_bg'])
+        
+        # Refresh all tabs to apply new theme
+        if hasattr(self.tab_manager, 'refresh_theme'):
+            self.tab_manager.refresh_theme()
     
     def _on_confirm(self):
         """Handle confirm - delegate to tab manager"""

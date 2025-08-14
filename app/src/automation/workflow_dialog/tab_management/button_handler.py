@@ -67,13 +67,17 @@ class ButtonHandler:
         )
         cancel_btn.place(x=90, y=15, width=140, height=32)
         
+        # Get theme colors
+        theme = getattr(self.tm.dialog, 'theme', None)
+        confirm_bg = theme.colors['confirm_button'] if theme else '#0078d4'
+        
         confirm_btn = tk.Button(
             button_frame,
             text="✅ CONFIRM & RUN",
             font=('Segoe UI', 10, 'bold'),
-            bg='#0078d4',  # Microsoft blue
+            bg=confirm_bg,  # Blue in both light and dark mode
             fg='white',
-            activebackground='#106ebe',  # Darker blue on hover
+            activebackground='#005a9e',  # Darker blue on hover
             activeforeground='white',
             bd=0,
             relief='flat',
@@ -86,22 +90,41 @@ class ButtonHandler:
         
         # Store reference
         self.tm.confirmation_buttons = button_frame
+    
+    def refresh_theme(self):
+        """Refresh theme for all buttons"""
+        # Update CONFIRM & RUN button colors if it exists
+        if hasattr(self.tm, 'confirmation_buttons') and self.tm.confirmation_buttons:
+            try:
+                # Find the confirm button among the button frame children
+                for widget in self.tm.confirmation_buttons.winfo_children():
+                    if isinstance(widget, tk.Button) and "CONFIRM & RUN" in widget.cget('text'):
+                        theme = getattr(self.tm.dialog, 'theme', None)
+                        if theme:
+                            confirm_bg = theme.colors['confirm_button']
+                            widget.config(bg=confirm_bg, fg='white', 
+                                        activebackground='#005a9e', activeforeground='white')
+                            break
+            except Exception as e:
+                print(f"Error refreshing confirm button theme: {e}")
         
-        # Force visibility with proper layering
-        button_frame.lift()
-        button_frame.tkraise()
+        # Update button frame background
+        if hasattr(self.tm, 'confirmation_buttons') and self.tm.confirmation_buttons:
+            try:
+                theme = getattr(self.tm.dialog, 'theme', None)
+                if theme:
+                    frame_bg = theme.colors['frame_bg']
+                    self.tm.confirmation_buttons.config(bg=frame_bg)
+            except Exception as e:
+                print(f"Error refreshing button frame theme: {e}")
+        
+        print(f"DEBUG: Button theme refresh completed")
         
         # Force updates
         self.tm.dialog.root.update_idletasks()
         self.tm.dialog.root.update()
         
-        print(f"DEBUG: Improved overlay buttons added")
-        print(f"  Position: x=30, y={button_y}")
-        print(f"  Frame size: 480x60")
-        print(f"  Frame visible: {button_frame.winfo_viewable()}")
-        print(f"  Cancel visible: {cancel_btn.winfo_viewable()}")
-        print(f"  Confirm visible: {confirm_btn.winfo_viewable()}")
-        print("=" * 50)
+        print(f"DEBUG: Button theme refresh completed")
     
     def _on_confirm_with_transitions(self):
         """Handle confirm with transition settings"""
@@ -161,7 +184,7 @@ class ButtonHandler:
         self.tm.processing_tab.cancel_btn = ttk.Button(
             cancel_container, 
             text="❌ Cancel Processing", 
-            style='Secondary.TButton',
+            style='CancelButton.TButton',  # Use special cancel button style
             command=self.tm.dialog._on_cancel
         )
         self.tm.processing_tab.cancel_btn.pack()
