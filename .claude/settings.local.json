@@ -5,7 +5,8 @@
       "Bash(python:*)",
       "Bash(chcp:*)",
       "Bash(set PYTHONIOENCODING=utf-8)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []
